@@ -34,7 +34,7 @@ import { WeatherService } from './services/weather.service';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
-  title = 'WHOA! At The Geier Haus';
+  title = 'Geier Haus App';
   
   // API call counters
   geminiApiCalls = signal<number>(0);
