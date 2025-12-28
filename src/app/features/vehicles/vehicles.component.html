@@ -1,0 +1,254 @@
+<div class="vehicles-container">
+  <div class="header">
+    <h1>Vehicle Maintenance</h1>
+    <button mat-raised-button color="primary" (click)="openAddVehicle()">
+      <mat-icon>add</mat-icon>
+      Add Vehicle
+    </button>
+  </div>
+
+  <!-- Alerts -->
+  <div class="alerts" *ngIf="vehicleService.getOverdueMaintenance().length > 0">
+    <mat-card class="alert-card overdue">
+      <mat-card-header>
+        <mat-icon mat-card-avatar>warning</mat-icon>
+        <mat-card-title>Attention Required</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let item of vehicleService.getOverdueMaintenance()">
+            <mat-icon matListItemIcon>{{ getVehicleIcon(item.vehicle.type) }}</mat-icon>
+            <div matListItemTitle>{{ item.vehicle.name }}</div>
+            <div matListItemLine>{{ item.reason }}</div>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Add Vehicle Form -->
+  <mat-card *ngIf="showAddVehicle()" class="form-card">
+    <mat-card-header>
+      <mat-card-title>{{ editingVehicleId() ? 'Edit Vehicle' : 'Add New Vehicle' }}</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Vehicle Name</mat-label>
+          <input matInput [(ngModel)]="vehicleForm.name" placeholder="e.g., My Honda">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Vehicle Type</mat-label>
+          <mat-select [(ngModel)]="vehicleForm.type">
+            <mat-option value="car">Car</mat-option>
+            <mat-option value="truck">Truck</mat-option>
+            <mat-option value="trailer">Trailer</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Make</mat-label>
+          <input matInput [(ngModel)]="vehicleForm.make" placeholder="e.g., Honda">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Model</mat-label>
+          <input matInput [(ngModel)]="vehicleForm.model" placeholder="e.g., Accord">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Year</mat-label>
+          <input matInput type="number" [(ngModel)]="vehicleForm.year">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Current Mileage</mat-label>
+          <input matInput type="number" [(ngModel)]="vehicleForm.currentMileage">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>License Plate</mat-label>
+          <input matInput [(ngModel)]="vehicleForm.licensePlate">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Registration Expiry</mat-label>
+          <input matInput [matDatepicker]="registrationPicker" [(ngModel)]="vehicleForm.registrationExpiry">
+          <mat-datepicker-toggle matIconSuffix [for]="registrationPicker"></mat-datepicker-toggle>
+          <mat-datepicker #registrationPicker></mat-datepicker>
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-button (click)="cancelVehicleForm()">Cancel</button>
+      <button mat-raised-button color="primary" (click)="addVehicle()">
+        {{ editingVehicleId() ? 'Update Vehicle' : 'Add Vehicle' }}
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Add Maintenance Form -->
+  <mat-card *ngIf="showAddMaintenance()" class="form-card">
+    <mat-card-header>
+      <mat-card-title>Add Maintenance Record</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Vehicle</mat-label>
+          <mat-select [(ngModel)]="maintenanceForm.vehicleId">
+            <mat-option *ngFor="let vehicle of vehicleService.vehicles()" [value]="vehicle.id">
+              {{ vehicle.name }} ({{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }})
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Service Type</mat-label>
+          <mat-select [(ngModel)]="maintenanceForm.type">
+            <mat-option value="oil_change">Oil Change</mat-option>
+            <mat-option value="tire_rotation">Tire Rotation</mat-option>
+            <mat-option value="registration">Registration</mat-option>
+            <mat-option value="other">Other</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Service Date</mat-label>
+          <input matInput [matDatepicker]="serviceDatePicker" [(ngModel)]="maintenanceForm.date">
+          <mat-datepicker-toggle matIconSuffix [for]="serviceDatePicker"></mat-datepicker-toggle>
+          <mat-datepicker #serviceDatePicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Mileage</mat-label>
+          <input matInput type="number" [(ngModel)]="maintenanceForm.mileage">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Cost</mat-label>
+          <input matInput type="number" [(ngModel)]="maintenanceForm.cost" placeholder="Optional">
+          <span matTextPrefix>$&nbsp;</span>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Location</mat-label>
+          <input matInput [(ngModel)]="maintenanceForm.location" placeholder="e.g., Jiffy Lube">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Description</mat-label>
+          <textarea matInput [(ngModel)]="maintenanceForm.description" rows="2"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Next Due Date</mat-label>
+          <input matInput [matDatepicker]="nextDuePicker" [(ngModel)]="maintenanceForm.nextDueDate">
+          <mat-datepicker-toggle matIconSuffix [for]="nextDuePicker"></mat-datepicker-toggle>
+          <mat-datepicker #nextDuePicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Next Due Mileage</mat-label>
+          <input matInput type="number" [(ngModel)]="maintenanceForm.nextDueMileage" placeholder="Optional">
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-button (click)="showAddMaintenance.set(false)">Cancel</button>
+      <button mat-raised-button color="primary" (click)="addMaintenance()">Add Record</button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Vehicles List -->
+  <div class="vehicles-grid" *ngIf="vehicleService.vehicles().length > 0">
+    <mat-card *ngFor="let vehicle of vehicleService.vehicles()" class="vehicle-card">
+      <mat-card-header>
+        <div mat-card-avatar class="vehicle-avatar">
+          <mat-icon>{{ getVehicleIcon(vehicle.type) }}</mat-icon>
+        </div>
+        <mat-card-title>{{ vehicle.name }}</mat-card-title>
+        <mat-card-subtitle>{{ vehicle.year }} {{ vehicle.make }} {{ vehicle.model }}</mat-card-subtitle>
+        <div class="card-actions">
+          <button mat-icon-button (click)="openEditVehicle(vehicle)" matTooltip="Edit Vehicle">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-icon-button (click)="openAddMaintenance(vehicle.id)" matTooltip="Add Maintenance">
+            <mat-icon>add_circle</mat-icon>
+          </button>
+          <button mat-icon-button (click)="deleteVehicle(vehicle.id)" matTooltip="Delete Vehicle">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="vehicle-info">
+          <div class="info-item">
+            <mat-icon>speed</mat-icon>
+            <span>{{ vehicle.currentMileage.toLocaleString() }} miles</span>
+          </div>
+          <div class="info-item">
+            <mat-icon>confirmation_number</mat-icon>
+            <span>{{ vehicle.licensePlate || 'No plate' }}</span>
+          </div>
+          <div class="info-item" *ngIf="vehicle.registrationExpiry">
+            <mat-icon [class.warning]="isRegistrationExpiringSoon(vehicle)" [class.error]="isRegistrationExpired(vehicle)">
+              description
+            </mat-icon>
+            <span [class.warning]="isRegistrationExpiringSoon(vehicle)" [class.error]="isRegistrationExpired(vehicle)">
+              Reg: {{ vehicle.registrationExpiry | date:'shortDate' }}
+              <span *ngIf="isRegistrationExpired(vehicle)"> (EXPIRED)</span>
+              <span *ngIf="isRegistrationExpiringSoon(vehicle) && !isRegistrationExpired(vehicle)">
+                ({{ getDaysUntilExpiry(vehicle.registrationExpiry) }} days)
+              </span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Maintenance History -->
+        <mat-expansion-panel class="maintenance-panel">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-icon>history</mat-icon>
+              Maintenance History
+            </mat-panel-title>
+            <mat-panel-description>
+              {{ vehicleService.getMaintenanceRecordsForVehicle(vehicle.id).length }} records
+            </mat-panel-description>
+          </mat-expansion-panel-header>
+          
+          <mat-list *ngIf="vehicleService.getMaintenanceRecordsForVehicle(vehicle.id).length > 0">
+            <mat-list-item *ngFor="let record of vehicleService.getMaintenanceRecordsForVehicle(vehicle.id)">
+              <mat-icon matListItemIcon>{{ getMaintenanceIcon(record.type) }}</mat-icon>
+              <div matListItemTitle>{{ getMaintenanceLabel(record.type) }}</div>
+              <div matListItemLine>
+                {{ record.date | date:'shortDate' }} • {{ record.mileage.toLocaleString() }} miles
+                <span *ngIf="record.cost"> • ${{ record.cost }}</span>
+              </div>
+              <div matListItemLine class="description">{{ record.description }}</div>
+              <button mat-icon-button matListItemMeta (click)="deleteMaintenanceRecord(record.id)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </mat-list-item>
+          </mat-list>
+          
+          <p *ngIf="vehicleService.getMaintenanceRecordsForVehicle(vehicle.id).length === 0" class="no-records">
+            No maintenance records yet
+          </p>
+        </mat-expansion-panel>
+      </mat-card-content>
+    </mat-card>
+  </div>
+
+  <!-- Empty State -->
+  <mat-card *ngIf="vehicleService.vehicles().length === 0 && !showAddVehicle()" class="empty-state">
+    <mat-icon>directions_car</mat-icon>
+    <h2>No Vehicles Yet</h2>
+    <p>Add your first vehicle to start tracking maintenance</p>
+    <button mat-raised-button color="primary" (click)="openAddVehicle()">
+      <mat-icon>add</mat-icon>
+      Add Vehicle
+    </button>
+  </mat-card>
+</div>

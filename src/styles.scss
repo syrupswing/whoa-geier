@@ -1,0 +1,188 @@
+/* Mobile-First Responsive Styles */
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+// Define custom Material Design palettes
+$primary-palette: mat.define-palette(mat.$indigo-palette);
+$accent-palette: mat.define-palette(mat.$pink-palette, A200, A100, A400);
+$warn-palette: mat.define-palette(mat.$red-palette);
+
+// Light Theme Configuration
+$light-theme: mat.define-light-theme((
+  color: (
+    primary: $primary-palette,
+    accent: $accent-palette,
+    warn: $warn-palette,
+  ),
+  typography: mat.define-typography-config(),
+  density: 0,
+));
+
+// Dark Theme Configuration
+$dark-theme: mat.define-dark-theme((
+  color: (
+    primary: $primary-palette,
+    accent: $accent-palette,
+    warn: $warn-palette,
+  ),
+  typography: mat.define-typography-config(),
+  density: 0,
+));
+
+// Default light theme
+@include mat.all-component-themes($light-theme);
+
+// Dark theme styles
+.dark-mode {
+  @include mat.all-component-colors($dark-theme);
+  
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+}
+
+/* Global Styles */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html, body {
+  height: 100%;
+  font-family: Roboto, "Helvetica Neue", sans-serif;
+  transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
+}
+
+/* Material Symbols Configuration */
+.mat-icon {
+  font-family: 'Material Symbols Outlined' !important;
+  font-weight: normal;
+  font-style: normal;
+  font-size: 24px;
+  line-height: 1;
+  letter-spacing: normal;
+  text-transform: none;
+  display: inline-block;
+  white-space: nowrap;
+  word-wrap: normal;
+  direction: ltr;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: 'liga';
+}
+
+body {
+  margin: 0;
+  background-color: #f5f5f5;
+}
+
+body.dark-mode {
+  background-color: #1e1e1e;
+  color: #e0e0e0;
+}
+
+/* Mobile-First Container Styles */
+.container {
+  width: 100%;
+  padding: 16px;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+/* Tablet and above */
+@media (min-width: 768px) {
+  .container {
+    padding: 24px;
+    max-width: 960px;
+  }
+}
+
+/* Desktop */
+@media (min-width: 1024px) {
+  .container {
+    padding: 32px;
+    max-width: 1200px;
+  }
+}
+
+/* Utility Classes */
+.mat-elevation-z2 {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.dark-mode .mat-elevation-z2 {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.spacer {
+  flex: 1 1 auto;
+}
+
+/* Responsive Grid */
+.grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+
+/* Material Design Overrides */
+.mdc-button.mat-mdc-button-base > .mat-icon {
+  margin: 0 0 0 -4px;
+}
+
+.mdc-button {
+  gap: 8px;
+}
+
+.mdc-button__label {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+
+  & .mat-mdc-progress-spinner {
+    margin: 0 0 0 -4px;
+  }
+}
+.mat-mdc-form-field {
+  margin-top: 4px;
+}
+.mat-mdc-form-field-has-icon-prefix .mdc-text-field--outlined:not(.mdc-text-field--focused) .mdc-floating-label {
+  transform: translate(30px, -10px) !important;
+}
+.mat-mdc-card {
+  gap: 16px;
+}
+mat-nav-list .mdc-list-item {
+  padding-right: 40px;
+}
+mat-list-item {
+  .mdc-list-item__primary-text {
+    white-space: normal;
+  }
+  &.mdc-list-item--with-leading-icon .mdc-list-item__start {
+    width: 40px;
+    height: 40px;
+    margin-inline: 8px;
+  }
+}
+mat-checkbox.mdc-list-item.mdc-list-item--with-one-line .mdc-list-item__start {
+  align-self: flex-start;
+}
+mat-card-actions.mdc-card__actions {
+  justify-content: flex-end;
+}

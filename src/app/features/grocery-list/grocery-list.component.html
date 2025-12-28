@@ -1,0 +1,146 @@
+<div class="grocery-container">
+  <div class="header">
+      <h1>Grocery List</h1>
+      <p class="storage-indicator">
+        <mat-icon>{{ groceryService.useFirestore() ? 'cloud_done' : 'storage' }}</mat-icon>
+        {{ groceryService.useFirestore() ? 'Synced with family' : 'Saved locally' }}
+      </p>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="groceryService.isLoading()" class="loading-state">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Loading your grocery list...</p>
+  </div>
+
+  <div *ngIf="!groceryService.isLoading()">
+    <mat-card class="add-item-card">
+      <mat-card-content>
+        <div class="add-item-form">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Add new item</mat-label>
+            <input 
+              matInput 
+              [formControl]="itemControl"
+              [matAutocomplete]="auto"
+              (keyup.enter)="addItem()"
+              placeholder="Enter grocery item"
+              autocomplete="off">
+            <mat-autocomplete #auto="matAutocomplete">
+              <mat-option *ngFor="let item of filteredItems | async" [value]="item">
+                <mat-icon>history</mat-icon>
+                {{ item }}
+              </mat-option>
+            </mat-autocomplete>
+          </mat-form-field>
+          <button 
+            mat-raised-button 
+            color="primary" 
+            (click)="addItem()"
+            [disabled]="!itemControl.value?.trim()">
+            <mat-icon>add</mat-icon>
+            Add
+          </button>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="items-card">
+      <mat-card-header>
+        <mat-card-title>
+          Items to Buy 
+          <span class="count-badge" *ngIf="activeItems.length > 0">{{ activeItems.length }}</span>
+        </mat-card-title>
+        <div class="actions" *ngIf="activeItems.length > 0">
+          <button 
+            mat-stroked-button
+            [color]="isSortingByStore ? 'accent' : 'primary'"
+            (click)="isSortingByStore ? toggleStoreSort() : sortByStoreLayout()"
+            [disabled]="isSorting"
+            matTooltip="{{ isSortingByStore ? 'Revert to original order' : 'Sort by store layout order' }}">
+            <mat-spinner *ngIf="isSorting" diameter="16"></mat-spinner>
+            <mat-icon *ngIf="!isSorting">{{ isSortingByStore ? 'undo' : 'network_intelligence_update' }}</mat-icon>
+            {{ isSortingByStore ? 'Unsort' : 'Smart sort' }}
+          </button>
+        </div>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list *ngIf="activeItems.length > 0; else noItems">
+          <mat-list-item *ngFor="let item of activeItems">
+            <mat-checkbox 
+              [checked]="item.completed"
+              (change)="toggleItem(item.id)"
+              matListItemIcon>
+            </mat-checkbox>
+            <span matListItemTitle>{{ item.name }}</span>
+            <div matListItemMeta class="item-actions">
+                <button 
+                mat-icon-button
+                (click)="getStoreLocation(item)"
+                [matTooltip]="getLocationTooltip(item)"
+                matTooltipPosition="below"
+                [disabled]="isLoadingLocation(item.id)"
+                [class.found]="itemLocations.has(item.id)"
+                class="location-button">
+                <mat-spinner *ngIf="isLoadingLocation(item.id)" diameter="20"></mat-spinner>
+                <mat-icon *ngIf="!isLoadingLocation(item.id)">
+                  {{ itemLocations.has(item.id) ? 'place' : 'not_listed_location' }}
+                </mat-icon>
+              </button>
+              <button 
+                mat-icon-button 
+                color="warn" 
+                (click)="deleteItem(item.id)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </mat-list-item>
+        </mat-list>
+        <ng-template #noItems>
+          <div class="no-items">
+            <mat-icon>shopping_cart</mat-icon>
+            <p>No items in your grocery list.</p>
+            <p class="subtitle">Add some above to get started!</p>
+          </div>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+
+    <mat-card class="items-card" *ngIf="completedItems.length > 0">
+      <mat-card-header>
+        <mat-card-title>
+          Completed Items
+          <span class="count-badge completed">{{ completedItems.length }}</span>
+        </mat-card-title>
+        <div class="actions">
+          <button 
+            *ngIf="completedItems.length > 0"
+            mat-stroked-button 
+            (click)="clearCompleted()">
+            <mat-icon>delete_sweep</mat-icon>
+            Clear all
+          </button>
+        </div>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-list>
+          <mat-list-item *ngFor="let item of completedItems" class="completed-item">
+            <mat-checkbox 
+              [checked]="item.completed"
+              (change)="toggleItem(item.id)"
+              matListItemIcon>
+            </mat-checkbox>
+            <span matListItemTitle class="completed-text">{{ item.name }}</span>
+            <button 
+              mat-icon-button 
+              color="warn" 
+              (click)="deleteItem(item.id)"
+              matListItemMeta>
+              <mat-icon>delete</mat-icon>
+            </button>
+          </mat-list-item>
+        </mat-list>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

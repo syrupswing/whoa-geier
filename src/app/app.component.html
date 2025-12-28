@@ -1,0 +1,89 @@
+<mat-sidenav-container class="sidenav-container">
+
+  <mat-sidenav 
+    #drawer 
+    class="sidenav" 
+    fixedInViewport
+    [attr.role]="(isHandset$ | async) ? 'dialog' : 'navigation'"
+    [mode]="(isHandset$ | async) ? 'over' : 'side'"
+    [opened]="(isHandset$ | async) === false">
+    
+    <mat-nav-list>
+      <a mat-list-item routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
+        <mat-icon matListItemIcon>dashboard</mat-icon>
+        <span matListItemTitle>Dashboard</span>
+      </a>
+      <a mat-list-item routerLink="/food" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>restaurant_menu</mat-icon>
+        <span matListItemTitle>Food Hub</span>
+      </a>
+      <a mat-list-item routerLink="/calendar" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>event</mat-icon>
+        <span matListItemTitle>Calendar</span>
+      </a>
+      <a mat-list-item routerLink="/vehicles" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>directions_car</mat-icon>
+        <span matListItemTitle>Vehicles</span>
+      </a>
+      <a mat-list-item routerLink="/remi-world" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>school</mat-icon>
+        <span matListItemTitle>Remi World</span>
+      </a>
+      <a mat-list-item routerLink="/quick-links" routerLinkActive="active-link">
+        <mat-icon matListItemIcon>link</mat-icon>
+        <span matListItemTitle>Quick Links</span>
+      </a>
+    </mat-nav-list>
+    
+    <mat-divider></mat-divider>
+    
+    <div class="api-counters">
+      <div class="counter-section">
+        <div class="counter-label">AI API Usage</div>
+        
+        <div class="counter-item">
+          <mat-icon class="counter-icon github">code</mat-icon>
+          <div class="counter-info">
+            <span class="counter-name">GitHub AI</span>
+            <span class="counter-value">{{ githubApiCalls() }}</span>
+          </div>
+        </div>
+        
+        <div class="counter-item">
+          <mat-icon class="counter-icon gemini">psychology</mat-icon>
+          <div class="counter-info">
+            <span class="counter-name">Google Gemini</span>
+            <span class="counter-value">{{ geminiApiCalls() }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </mat-sidenav>
+
+  <mat-sidenav-content>
+    <mat-toolbar color="primary">
+      <button
+        type="button"
+        aria-label="Toggle sidenav"
+        mat-icon-button
+        (click)="drawer.toggle()"
+        *ngIf="isHandset$ | async">
+        <mat-icon>menu</mat-icon>
+      </button>
+      <span>{{ title }}</span>
+      <span class="spacer"></span>
+      <button
+        type="button"
+        mat-icon-button
+        (click)="toggleTheme()"
+        [matTooltip]="themeService.isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
+        aria-label="Toggle dark mode">
+        <mat-icon>{{ themeService.isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
+      </button>
+    </mat-toolbar>
+
+    <div class="content">
+      <router-outlet></router-outlet>
+    </div>
+  </mat-sidenav-content>
+</mat-sidenav-container>

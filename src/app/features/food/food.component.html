@@ -1,0 +1,41 @@
+<div class="food-container">
+  <div class="header">
+    <h1>Food Hub</h1>
+  </div>
+
+  <mat-tab-group 
+    [(selectedIndex)]="selectedTabIndex"
+    animationDuration="300ms"
+    class="food-tabs">
+    
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">shopping_cart</mat-icon>
+        Grocery List
+      </ng-template>
+      <div class="tab-content">
+        <app-grocery-list></app-grocery-list>
+      </div>
+    </mat-tab>
+
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">restaurant</mat-icon>
+        Recipes
+      </ng-template>
+      <div class="tab-content">
+        <app-recipes></app-recipes>
+      </div>
+    </mat-tab>
+
+    <mat-tab>
+      <ng-template mat-tab-label>
+        <mat-icon class="tab-icon">delivery_dining</mat-icon>
+        Restaurants
+      </ng-template>
+      <div class="tab-content">
+        <app-restaurants></app-restaurants>
+      </div>
+    </mat-tab>
+  </mat-tab-group>
+</div>

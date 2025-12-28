@@ -1,0 +1,195 @@
+.grocery-container {
+  max-width: 800px;
+  margin: 0 auto;
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    flex-wrap: wrap;
+    gap: 16px;
+
+    h1 {
+      font-size: 2rem;
+      margin: 0 0 8px 0;
+    }
+
+    .storage-indicator {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: #666;
+      font-size: 0.9rem;
+      margin: 0;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+    }
+  }
+}
+
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 48px;
+  gap: 16px;
+
+  p {
+    color: #666;
+  }
+}
+
+.add-item-card {
+  margin-bottom: 20px;
+}
+
+.add-item-form {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+
+  .full-width {
+    flex: 1;
+  }
+
+  button {
+    margin-top: 8px;
+  }
+}
+
+.items-card {
+  margin-bottom: 20px;
+
+  mat-card-title {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+
+    .count-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 24px;
+      height: 24px;
+      padding: 0 8px;
+      background: #2196F3;
+      color: white;
+      border-radius: 12px;
+      font-size: 0.875rem;
+      font-weight: 500;
+
+      &.completed {
+        background: #4CAF50;
+      }
+    }
+  }
+
+  mat-list {
+    padding-top: 0;
+  }
+
+  mat-list-item {
+    height: auto;
+    min-height: 48px;
+    padding: 8px 0;
+    border-bottom: 1px solid #e0e0e0;
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+}
+
+.item-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.location-button {
+  color: #ebdb30;
+  
+  &:disabled {
+    opacity: 0.6;
+  }
+
+  &.found {
+    color: #2196F3;
+  }
+
+  mat-spinner {
+    margin: 2px;
+  }
+}
+
+::ng-deep .location-tooltip {
+  font-size: 14px;
+  max-width: 250px;
+  text-align: left;
+  padding: 12px;
+  background-color: rgba(97, 97, 97, 0.95);
+  
+  .mdc-tooltip__surface {
+    line-height: 1.4;
+  }
+}
+
+.completed-text {
+  text-decoration: line-through;
+  color: #999;
+}
+
+.mat-mdc-card-header {
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.actions {
+  gap: 8px;
+  margin-left: auto;
+}
+
+.no-items {
+  text-align: center;
+  color: #999;
+  padding: 48px 20px;
+
+  mat-icon {
+    font-size: 64px;
+    width: 64px;
+    height: 64px;
+    margin-bottom: 16px;
+    opacity: 0.3;
+  }
+
+  p {
+    margin: 8px 0;
+  }
+
+  .subtitle {
+    font-size: 0.9rem;
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 767px) {
+  .grocery-container {
+    h1 {
+      font-size: 1.5rem;
+    }
+  }
+
+  .add-item-form {
+    flex-direction: column;
+    
+    button {
+      width: 100%;
+      margin-top: 0;
+    }
+  }
+}

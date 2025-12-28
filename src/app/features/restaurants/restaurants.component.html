@@ -1,0 +1,280 @@
+<div class="restaurants-container">
+  <div class="search-section">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-label>Search restaurants</mat-label>
+      <input matInput [(ngModel)]="searchTerm" placeholder="Search by name...">
+      <mat-icon matPrefix>search</mat-icon>
+    </mat-form-field>
+
+    <div class="cuisine-filters">
+      <button 
+        mat-stroked-button 
+        [color]="filterCuisine === '' ? 'primary' : undefined"
+        (click)="filterCuisine = ''">
+        All Cuisines
+      </button>
+      <button 
+        *ngFor="let cuisine of getAllCuisines()"
+        mat-stroked-button 
+        [color]="filterCuisine === cuisine ? 'primary' : undefined"
+        (click)="filterCuisine = cuisine">
+        {{ cuisine }}
+      </button>
+    </div>
+  </div>
+
+  <!-- Favorites Section -->
+  <div class="favorites-section" *ngIf="getFavoriteRestaurants().length > 0">
+    <h2>
+      <mat-icon>favorite</mat-icon>
+      Favorite Restaurants
+    </h2>
+    <div class="restaurant-grid">
+      <mat-card *ngFor="let restaurant of getFavoriteRestaurants()" class="restaurant-card favorite">
+        <mat-card-header>
+          <mat-card-title>
+            <div class="title-row">
+              <span>{{ restaurant.name }}</span>
+              <button mat-icon-button (click)="toggleFavorite(restaurant.id)" class="favorite-btn active">
+                <mat-icon>favorite</mat-icon>
+              </button>
+            </div>
+          </mat-card-title>
+          <mat-card-subtitle>{{ restaurant.cuisine }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="rating" *ngIf="restaurant.rating">
+            <mat-icon *ngFor="let filled of getStarArray(restaurant.rating)" [class.filled]="filled">
+              {{ filled ? 'star_rate' : 'star_border' }}
+            </mat-icon>
+          </div>
+
+          <div class="contact-info">
+            <div class="info-item" *ngIf="restaurant.phone">
+              <mat-icon>phone</mat-icon>
+              <a href="tel:{{ restaurant.phone }}">{{ restaurant.phone }}</a>
+            </div>
+            <div class="info-item" *ngIf="restaurant.website">
+              <mat-icon>language</mat-icon>
+              <a [href]="'https://' + restaurant.website" target="_blank">{{ restaurant.website }}</a>
+            </div>
+          </div>
+
+          <div class="delivery-apps" *ngIf="restaurant.deliveryApps.length > 0">
+            <strong>Available on:</strong>
+            <mat-chip-set>
+              <mat-chip *ngFor="let app of restaurant.deliveryApps">
+                <mat-icon>delivery_dining</mat-icon>
+                {{ app }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+
+          <div class="order-links" *ngIf="restaurant.orderLinks && restaurant.orderLinks.length > 0">
+            <strong>Order from:</strong>
+            <mat-chip-set>
+              <mat-chip *ngFor="let link of restaurant.orderLinks" class="clickable-chip">
+                <a [href]="link.url" target="_blank" rel="noopener noreferrer">
+                  <mat-icon>link</mat-icon>
+                  {{ link.text }}
+                </a>
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+
+          <div class="notes" *ngIf="restaurant.notes">
+            <mat-icon>note</mat-icon>
+            <p>{{ restaurant.notes }}</p>
+          </div>
+        </mat-card-content>
+        <mat-card-actions>
+          <button mat-button color="primary" (click)="editRestaurant(restaurant)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button mat-button color="warn" (click)="deleteRestaurant(restaurant.id)">
+            <mat-icon>delete</mat-icon>
+            Delete
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- All Restaurants Section -->
+  <div class="all-restaurants-section">
+    <h2>
+      <mat-icon>restaurant</mat-icon>
+      All Restaurants
+      <span class="count">({{ getFilteredRestaurants().length }})</span>
+    </h2>
+
+    <!-- Add Restaurant Form -->
+    <mat-card class="add-form-card" *ngIf="showAddForm">
+      <mat-card-header>
+        <mat-card-title>{{ editingRestaurantId ? 'Edit Restaurant' : 'Add New Restaurant' }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Restaurant Name</mat-label>
+            <input matInput [(ngModel)]="newRestaurant.name" required>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Cuisine Type</mat-label>
+            <input matInput [(ngModel)]="newRestaurant.cuisine">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Phone Number</mat-label>
+            <input matInput [(ngModel)]="newRestaurant.phone" type="tel">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Website</mat-label>
+            <input matInput [(ngModel)]="newRestaurant.website" placeholder="example.com">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Delivery Apps (comma separated)</mat-label>
+            <input matInput [(ngModel)]="newRestaurant.deliveryApps" placeholder="DoorDash, Uber Eats, Grubhub">
+          </mat-form-field>
+
+          <!-- Order Links Section -->
+          <div class="order-links-section full-width">
+            <h3>Order From Links</h3>
+            <div class="order-link-form">
+              <mat-form-field appearance="outline">
+                <mat-label>Link Text</mat-label>
+                <input matInput [(ngModel)]="newOrderLink.text" placeholder="Order on DoorDash">
+              </mat-form-field>
+              <mat-form-field appearance="outline">
+                <mat-label>Link URL</mat-label>
+                <input matInput [(ngModel)]="newOrderLink.url" placeholder="https://doordash.com/...">
+              </mat-form-field>
+              <button mat-raised-button (click)="addOrderLink()" [disabled]="!newOrderLink.text.trim() || !newOrderLink.url.trim()">
+                <mat-icon>add</mat-icon>
+                Add Link
+              </button>
+            </div>
+
+            <div class="order-links-list" *ngIf="orderLinks.length > 0">
+              <mat-chip-set>
+                <mat-chip *ngFor="let link of orderLinks; let i = index" [removable]="true" (removed)="removeOrderLink(i)">
+                  {{ link.text }}
+                  <mat-icon matChipRemove>cancel</mat-icon>
+                </mat-chip>
+              </mat-chip-set>
+            </div>
+          </div>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Rating (1-5)</mat-label>
+            <input matInput type="number" [(ngModel)]="newRestaurant.rating" min="0" max="5">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Notes</mat-label>
+            <textarea matInput [(ngModel)]="newRestaurant.notes" rows="3"></textarea>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-raised-button color="primary" (click)="saveRestaurant()" [disabled]="!newRestaurant.name.trim()">
+          <mat-icon>save</mat-icon>
+          {{ editingRestaurantId ? 'Update Restaurant' : 'Save Restaurant' }}
+        </button>
+        <button mat-button (click)="toggleAddForm()">
+          Cancel
+        </button>
+      </mat-card-actions>
+    </mat-card>
+
+    <div class="restaurant-grid" *ngIf="getFilteredRestaurants().length > 0; else noRestaurants">
+      <mat-card *ngFor="let restaurant of getFilteredRestaurants()" class="restaurant-card">
+        <mat-card-header>
+          <mat-card-title>
+            <div class="title-row">
+              <span>{{ restaurant.name }}</span>
+              <button 
+                mat-icon-button 
+                (click)="toggleFavorite(restaurant.id)" 
+                class="favorite-btn"
+                [class.active]="restaurant.favorite">
+                <mat-icon>{{ restaurant.favorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+              </button>
+            </div>
+          </mat-card-title>
+          <mat-card-subtitle>{{ restaurant.cuisine }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="rating" *ngIf="restaurant.rating">
+            <mat-icon *ngFor="let filled of getStarArray(restaurant.rating)" [class.filled]="filled">
+              {{ filled ? 'star_rate' : 'star_border' }}
+            </mat-icon>
+          </div>
+
+          <div class="contact-info">
+            <div class="info-item" *ngIf="restaurant.phone">
+              <mat-icon>phone</mat-icon>
+              <a href="tel:{{ restaurant.phone }}">{{ restaurant.phone }}</a>
+            </div>
+            <div class="info-item" *ngIf="restaurant.website">
+              <mat-icon>language</mat-icon>
+              <a [href]="'https://' + restaurant.website" target="_blank">{{ restaurant.website }}</a>
+            </div>
+          </div>
+
+          <div class="delivery-apps" *ngIf="restaurant.deliveryApps.length > 0">
+            <strong>Available on:</strong>
+            <mat-chip-set>
+              <mat-chip *ngFor="let app of restaurant.deliveryApps">
+                <mat-icon>delivery_dining</mat-icon>
+                {{ app }}
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+
+          <div class="order-links" *ngIf="restaurant.orderLinks && restaurant.orderLinks.length > 0">
+            <strong>Order from:</strong>
+            <mat-chip-set>
+              <mat-chip *ngFor="let link of restaurant.orderLinks" class="clickable-chip">
+                <a [href]="link.url" target="_blank" rel="noopener noreferrer">
+                  <mat-icon>link</mat-icon>
+                  {{ link.text }}
+                </a>
+              </mat-chip>
+            </mat-chip-set>
+          </div>
+
+          <div class="notes" *ngIf="restaurant.notes">
+            <mat-icon>note</mat-icon>
+            <p>{{ restaurant.notes }}</p>
+          </div>
+        </mat-card-content>
+        <mat-card-actions>
+          <button mat-button color="primary" (click)="editRestaurant(restaurant)">
+            <mat-icon>edit</mat-icon>
+          </button>
+          <button mat-button color="warn" (click)="deleteRestaurant(restaurant.id)">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    </div>
+
+    <ng-template #noRestaurants>
+      <div class="no-restaurants">
+        <mat-icon>restaurant</mat-icon>
+        <p>No restaurants found</p>
+        <p class="subtitle">Try adjusting your filters or adding new favorites</p>
+      </div>
+    </ng-template>
+  </div>
+
+  <!-- Add Restaurant FAB -->
+  <button mat-fab color="primary" class="add-restaurant-fab" (click)="toggleAddForm()">
+    <mat-icon>{{ showAddForm ? 'close' : 'add' }}</mat-icon>
+  </button>
+</div>

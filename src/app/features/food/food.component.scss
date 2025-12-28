@@ -1,0 +1,71 @@
+.food-container {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.food-tabs {
+  ::ng-deep {
+    .mat-mdc-tab-labels {
+      justify-content: flex-start;
+    }
+
+    .mat-mdc-tab {
+      min-width: 120px;
+      
+      .tab-icon {
+        margin-right: 8px;
+        vertical-align: middle;
+      }
+    }
+
+    .mat-mdc-tab-body-wrapper {
+      padding-top: 24px;
+    }
+  }
+}
+
+.tab-content {
+  animation: fadeIn 0.3s ease-in;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Mobile optimizations */
+@media (max-width: 767px) {
+  .food-container {
+    .header {
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .subtitle {
+        font-size: 1rem;
+      }
+    }
+  }
+
+  .food-tabs {
+    ::ng-deep {
+      .mat-mdc-tab {
+        min-width: auto;
+        padding: 0 12px;
+        font-size: 14px;
+
+        .tab-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+      }
+    }
+  }
+}

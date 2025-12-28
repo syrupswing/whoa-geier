@@ -1,0 +1,233 @@
+.vehicles-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 24px;
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+
+    h1 {
+      font-size: 2rem;
+      margin: 0;
+      color: var(--mat-sidenav-content-text-color);
+    }
+  }
+
+  .alerts {
+    margin-bottom: 24px;
+
+    .alert-card {
+      &.overdue {
+        border-left: 4px solid #f44336;
+
+        mat-card-header {
+          background: rgba(244, 67, 54, 0.1);
+          padding: 16px;
+          border-radius: 4px 4px 0 0;
+
+          mat-icon {
+            color: #f44336;
+          }
+        }
+      }
+    }
+  }
+
+  .form-card {
+    margin-bottom: 24px;
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+
+      .full-width {
+        grid-column: 1 / -1;
+      }
+    }
+
+    mat-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 16px;
+    }
+  }
+
+  .vehicles-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(400px, 1fr));
+    gap: 24px;
+
+    .vehicle-card {
+      mat-card-header {
+        position: relative;
+
+        .vehicle-avatar {
+          width: 48px;
+          height: 48px;
+          border-radius: 50%;
+          background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          mat-icon {
+            color: white;
+            font-size: 28px;
+            width: 28px;
+            height: 28px;
+          }
+        }
+
+        .card-actions {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          display: flex;
+          gap: 4px;
+        }
+      }
+
+      .vehicle-info {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        margin-bottom: 16px;
+
+        .info-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+
+          mat-icon {
+            font-size: 20px;
+            width: 20px;
+            height: 20px;
+            color: rgba(0, 0, 0, 0.6);
+
+            &.warning {
+              color: #ff9800;
+            }
+
+            &.error {
+              color: #f44336;
+            }
+          }
+
+          span {
+            &.warning {
+              color: #ff9800;
+              font-weight: 500;
+            }
+
+            &.error {
+              color: #f44336;
+              font-weight: 600;
+            }
+          }
+        }
+      }
+
+      .maintenance-panel {
+        margin-top: 16px;
+
+        mat-expansion-panel-header {
+          mat-panel-title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+
+            mat-icon {
+              font-size: 20px;
+              width: 20px;
+              height: 20px;
+            }
+          }
+        }
+
+        mat-list {
+          padding: 0;
+
+          mat-list-item {
+            border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+
+            &:last-child {
+              border-bottom: none;
+            }
+
+            .description {
+              color: rgba(0, 0, 0, 0.6);
+              font-size: 13px;
+            }
+          }
+        }
+
+        .no-records {
+          padding: 16px;
+          text-align: center;
+          color: rgba(0, 0, 0, 0.6);
+          font-style: italic;
+        }
+      }
+    }
+  }
+
+  .empty-state {
+    text-align: center;
+    padding: 64px 32px;
+
+    mat-icon {
+      font-size: 80px;
+      width: 80px;
+      height: 80px;
+      color: rgba(0, 0, 0, 0.3);
+      margin-bottom: 16px;
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      margin-bottom: 8px;
+      color: rgba(0, 0, 0, 0.7);
+    }
+
+    p {
+      color: rgba(0, 0, 0, 0.6);
+      margin-bottom: 24px;
+    }
+  }
+}
+
+// Mobile Responsive
+@media (max-width: 767px) {
+  .vehicles-container {
+    padding: 16px;
+
+    .header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 16px;
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      button {
+        width: 100%;
+      }
+    }
+
+    .vehicles-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .form-card .form-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+}

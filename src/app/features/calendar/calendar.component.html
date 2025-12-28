@@ -1,0 +1,202 @@
+<div class="calendar-container">
+  <div class="header">
+    <div>
+      <h1>Family Calendar</h1>
+      <p class="subtitle">Your Google Calendar events</p>
+    </div>
+    <div class="actions">
+      <button
+        *ngIf="!calendarService.isSignedIn()"
+        mat-raised-button
+        color="primary"
+        (click)="signIn()"
+        [disabled]="!calendarService.isInitialized()">
+        <mat-icon>login</mat-icon>
+        Sign In with Google
+      </button>
+      <div *ngIf="calendarService.isSignedIn()" class="signed-in-actions">
+        <button
+          mat-raised-button
+          color="accent"
+          (click)="loadEventsForCurrentView()">
+          <mat-icon>refresh</mat-icon>
+          Refresh
+        </button>
+        <button
+          mat-stroked-button
+          (click)="signOut()">
+          <mat-icon>logout</mat-icon>
+          Sign Out
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="!calendarService.isInitialized()" class="loading-state">
+    <mat-spinner diameter="50"></mat-spinner>
+    <p>Initializing Google Calendar...</p>
+  </div>
+
+  <!-- Error State -->
+  <div *ngIf="calendarService.error()" class="error-box">
+    <mat-icon>error</mat-icon>
+    <p>{{ calendarService.error() }}</p>
+  </div>
+
+  <!-- Not Signed In State -->
+  <div *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn() && !calendarService.error()" class="info-box">
+    <mat-icon>info</mat-icon>
+    <div>
+      <p><strong>Connect your Google Calendar</strong></p>
+      <p>Sign in with your Google account to view your family calendar events.</p>
+    </div>
+  </div>
+
+  <!-- Timeline View -->
+  <div *ngIf="calendarService.isSignedIn()" class="timeline-wrapper">
+    <!-- Navigation -->
+    <div class="timeline-nav">
+      <button mat-icon-button (click)="previousDay()" matTooltip="Previous day">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <div class="current-date">
+        <h2>{{ currentDate() | date:'EEEE, MMMM d, y' }}</h2>
+        <button mat-button (click)="today()" *ngIf="!isToday(currentDate())">
+          <mat-icon>event_upcoming</mat-icon>
+          Today
+        </button>
+      </div>
+      <button mat-icon-button (click)="nextDay()" matTooltip="Next day">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+
+    <!-- Day View (Mobile) -->
+    <div class="timeline-day-view">
+      <div class="timeline-container" #timelineContainerDay>
+        <!-- All-day events section -->
+        <div class="all-day-events" *ngIf="getAllDayEventsForDay(currentDate()).length > 0">
+          <div class="all-day-label">All Day</div>
+          <div class="all-day-events-list">
+            <div 
+              *ngFor="let event of getAllDayEventsForDay(currentDate())"
+              class="all-day-event"
+              [style.background-color]="getEventColor(event)"
+              [matTooltip]="event.summary">
+              <strong>{{ event.summary }}</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Time labels -->
+        <div class="time-labels">
+          <div *ngFor="let hour of hours" class="time-label">
+            {{ formatHour(hour) }}
+          </div>
+        </div>
+
+        <!-- Timeline grid -->
+        <div class="timeline-grid">
+          <!-- Hour lines -->
+          <div *ngFor="let hour of hours" class="hour-line"></div>
+
+          <!-- Current time indicator -->
+          <div 
+            *ngIf="isToday(currentDate())"
+            class="current-time-indicator"
+            [style.top.px]="getCurrentTimePosition()">
+            <div class="time-marker"></div>
+            <div class="time-line"></div>
+          </div>
+
+          <!-- Events (timed events only) -->
+          <div 
+            *ngFor="let event of getTimedEventsForDay(currentDate())"
+            class="timeline-event"
+            [style.top.px]="event.topPosition"
+            [style.height.px]="event.height"
+            [style.background-color]="getEventColor(event)"
+            [matTooltip]="formatEventTime(event)">
+            <div class="event-content">
+              <strong>{{ event.summary }}</strong>
+              <div class="event-time-small">{{ formatEventTime(event) }}</div>
+              <div *ngIf="event.location" class="event-location-small">
+                <mat-icon>place</mat-icon>
+                {{ event.location }}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Week View (Desktop) -->
+    <div class="timeline-week-view">
+      <div class="week-container" #timelineContainerWeek>
+        <!-- Time labels column -->
+        <div class="time-labels">
+          <div class="week-header-spacer"></div>
+          <div *ngFor="let hour of hours" class="time-label">
+            {{ formatHour(hour) }}
+          </div>
+        </div>
+
+        <!-- Day columns -->
+        <div class="week-days">
+          <div *ngFor="let day of getWeekDays()" class="day-column" [class.today]="isToday(day)">
+            <!-- Day header -->
+            <div class="day-header">
+              <div class="day-name">{{ day | date:'EEE' }}</div>
+              <div class="day-number" [class.today-number]="isToday(day)">{{ day | date:'d' }}</div>
+            </div>
+
+            <!-- All-day events for this day -->
+            <div class="all-day-events-compact" *ngIf="getAllDayEventsForDay(day).length > 0">
+              <div 
+                *ngFor="let event of getAllDayEventsForDay(day)"
+                class="all-day-event-compact"
+                [style.background-color]="getEventColor(event)"
+                [matTooltip]="event.summary">
+                {{ event.summary }}
+              </div>
+            </div>
+
+            <!-- Timeline grid for this day -->
+            <div class="day-timeline">
+              <!-- Hour lines -->
+              <div *ngFor="let hour of hours" class="hour-line"></div>
+
+              <!-- Current time indicator -->
+              <div 
+                *ngIf="isToday(day)"
+                class="current-time-indicator"
+                [style.top.px]="getCurrentTimePosition()">
+                <div class="time-line"></div>
+              </div>
+
+              <!-- Events for this day (timed events only) -->
+              <div 
+                *ngFor="let event of getTimedEventsForDay(day)"
+                class="timeline-event"
+                [style.top.px]="event.topPosition"
+                [style.height.px]="event.height"
+                [style.background-color]="getEventColor(event)"
+                [matTooltip]="event.summary + ' - ' + formatEventTime(event)">
+                <div class="event-content">
+                  <strong>{{ event.summary }}</strong>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- No events message -->
+    <div *ngIf="calendarService.events().length === 0" class="no-events">
+      <mat-icon>event_available</mat-icon>
+      <p>No events for this period</p>
+    </div>
+  </div>
+</div>

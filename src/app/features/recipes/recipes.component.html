@@ -1,0 +1,330 @@
+<div class="recipes-container">
+  <div class="search-section">
+    <mat-form-field appearance="outline" class="search-field">
+      <mat-icon matPrefix>search</mat-icon>
+      <mat-label>Search recipes</mat-label>
+      <input matInput [(ngModel)]="searchTerm" placeholder="Search by name...">
+    </mat-form-field>
+
+    <button 
+      mat-raised-button 
+      color="accent" 
+      (click)="toggleAiPrompt()"
+      class="ai-button">
+      <mat-icon>auto_awesome</mat-icon>
+      AI Suggestions
+    </button>
+
+    <div class="tag-filters">
+      <button 
+        mat-stroked-button 
+        [color]="filterTag === '' ? 'primary' : undefined"
+        (click)="filterTag = ''">
+        All
+      </button>
+      <button 
+        *ngFor="let tag of getAllTags()"
+        mat-stroked-button 
+        [color]="filterTag === tag ? 'primary' : undefined"
+        (click)="filterTag = tag">
+        {{ tag }}
+      </button>
+    </div>
+  </div>
+
+  <!-- AI Prompt Section -->
+  <mat-card class="ai-prompt-card" *ngIf="showAiPrompt">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>auto_awesome</mat-icon>
+        AI Recipe Suggestions
+      </mat-card-title>
+      <mat-card-subtitle>Tell the AI what kind of recipes you're looking for</mat-card-subtitle>
+    </mat-card-header>
+    <mat-card-content>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>What would you like to cook?</mat-label>
+        <textarea 
+          matInput 
+          [(ngModel)]="aiPrompt" 
+          placeholder="e.g., quick dinner with chicken, vegetarian pasta recipes, desserts under 30 minutes..."
+          rows="3"
+          (keydown.enter)="$any($event).ctrlKey && generateAiSuggestions()"></textarea>
+        <mat-hint>Press Ctrl+Enter to generate</mat-hint>
+      </mat-form-field>
+
+      <div class="ai-actions">
+        <button 
+          mat-raised-button 
+          color="primary" 
+          (click)="generateAiSuggestions()"
+          [disabled]="isGeneratingAi || !aiPrompt.trim()">
+          <mat-icon>{{isGeneratingAi ? 'hourglass_empty' : 'psychology'}}</mat-icon>
+          {{ isGeneratingAi ? 'Generating...' : 'Generate Suggestions' }}
+        </button>
+        <button mat-button (click)="toggleAiPrompt()">Cancel</button>
+      </div>
+
+      <mat-spinner *ngIf="isGeneratingAi" diameter="40" class="ai-spinner"></mat-spinner>
+
+      <!-- AI Suggestions Display -->
+      <div class="ai-suggestions" *ngIf="aiSuggestions().length > 0">
+        <h3>
+          <mat-icon>lightbulb</mat-icon>
+          AI Generated Recipes
+        </h3>
+        <div class="suggestion-grid">
+          <mat-card *ngFor="let suggestion of aiSuggestions()" class="suggestion-card">
+            <mat-card-header>
+              <mat-card-title>{{ suggestion.name }}</mat-card-title>
+              <mat-card-subtitle>{{ suggestion.description }}</mat-card-subtitle>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="recipe-info">
+                <div class="info-item">
+                  <mat-icon>schedule</mat-icon>
+                  <span>{{ suggestion.prepTime + suggestion.cookTime }} min</span>
+                </div>
+                <div class="info-item">
+                  <mat-icon>people</mat-icon>
+                  <span>{{ suggestion.servings }} servings</span>
+                </div>
+              </div>
+              <mat-chip-set class="recipe-tags">
+                <mat-chip *ngFor="let tag of suggestion.tags">{{ tag }}</mat-chip>
+              </mat-chip-set>
+              <mat-expansion-panel class="ingredients-panel">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    <mat-icon>list</mat-icon>
+                    Ingredients ({{ suggestion.ingredients.length }})
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <ul class="ingredients-list">
+                  <li *ngFor="let ingredient of suggestion.ingredients">{{ ingredient }}</li>
+                </ul>
+              </mat-expansion-panel>
+              <mat-expansion-panel class="instructions-panel">
+                <mat-expansion-panel-header>
+                  <mat-panel-title>
+                    <mat-icon>format_list_numbered</mat-icon>
+                    Instructions ({{ suggestion.instructions.length }} steps)
+                  </mat-panel-title>
+                </mat-expansion-panel-header>
+                <ol class="instructions-list">
+                  <li *ngFor="let step of suggestion.instructions">{{ step }}</li>
+                </ol>
+              </mat-expansion-panel>
+            </mat-card-content>
+            <mat-card-actions>
+              <button 
+                mat-raised-button 
+                color="primary" 
+                (click)="addAiSuggestion(suggestion)">
+                <mat-icon>add</mat-icon>
+                Add to My Recipes
+              </button>
+            </mat-card-actions>
+          </mat-card>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Favorites Section -->
+  <div class="favorites-section" *ngIf="getFavoriteRecipes().length > 0">
+    <h2>
+      <mat-icon>favorite</mat-icon>
+      Favorite Recipes
+    </h2>
+    <div class="recipe-grid">
+      <mat-card *ngFor="let recipe of getFavoriteRecipes()" class="recipe-card favorite">
+        <mat-card-header>
+          <mat-card-title>
+            {{ recipe.name }}
+            <button mat-icon-button (click)="toggleFavorite(recipe.id)" class="favorite-btn active">
+              <mat-icon>favorite</mat-icon>
+            </button>
+          </mat-card-title>
+          <mat-card-subtitle>{{ recipe.description }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="recipe-info">
+            <div class="info-item">
+              <mat-icon>schedule</mat-icon>
+              <span>{{ getTotalTime(recipe) }} min</span>
+            </div>
+            <div class="info-item">
+              <mat-icon>people</mat-icon>
+              <span>{{ recipe.servings }} servings</span>
+            </div>
+          </div>
+          <mat-chip-set class="recipe-tags">
+            <mat-chip *ngFor="let tag of recipe.tags">{{ tag }}</mat-chip>
+          </mat-chip-set>
+        </mat-card-content>
+        <mat-card-actions>
+          <button mat-button color="primary" (click)="editRecipe(recipe)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button mat-button color="warn" (click)="deleteRecipe(recipe.id)">
+            <mat-icon>delete</mat-icon>
+            Delete
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    </div>
+  </div>
+
+  <!-- All Recipes Section -->
+  <div class="all-recipes-section">
+    <h2>
+      <mat-icon>restaurant_menu</mat-icon>
+      All Recipes
+      <span class="count">({{ getFilteredRecipes().length }})</span>
+    </h2>
+
+    <!-- Add Recipe Form -->
+    <mat-card class="add-form-card" *ngIf="showAddForm">
+      <mat-card-header>
+        <mat-card-title>{{ editingRecipeId ? 'Edit Recipe' : 'Add New Recipe' }}</mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Recipe Name</mat-label>
+            <input matInput [(ngModel)]="newRecipe.name" required>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput [(ngModel)]="newRecipe.description" rows="2"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Prep Time (min)</mat-label>
+            <input matInput type="number" [(ngModel)]="newRecipe.prepTime">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Cook Time (min)</mat-label>
+            <input matInput type="number" [(ngModel)]="newRecipe.cookTime">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Servings</mat-label>
+            <input matInput type="number" [(ngModel)]="newRecipe.servings">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Ingredients (one per line)</mat-label>
+            <textarea matInput [(ngModel)]="newRecipe.ingredients" rows="4"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Instructions (one per line)</mat-label>
+            <textarea matInput [(ngModel)]="newRecipe.instructions" rows="4"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Tags (comma separated)</mat-label>
+            <input matInput [(ngModel)]="newRecipe.tags" placeholder="e.g., Italian, Quick, Pasta">
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-raised-button color="primary" (click)="saveRecipe()" [disabled]="!newRecipe.name.trim()">
+          <mat-icon>save</mat-icon>
+          {{ editingRecipeId ? 'Update Recipe' : 'Save Recipe' }}
+        </button>
+        <button mat-button (click)="toggleAddForm()">
+          Cancel
+        </button>
+      </mat-card-actions>
+    </mat-card>
+
+    <div class="recipe-grid" *ngIf="getFilteredRecipes().length > 0; else noRecipes">
+      <mat-card *ngFor="let recipe of getFilteredRecipes()" class="recipe-card">
+        <mat-card-header>
+          <mat-card-title>
+            {{ recipe.name }}
+            <button 
+              mat-icon-button 
+              (click)="toggleFavorite(recipe.id)" 
+              class="favorite-btn"
+              [class.active]="recipe.favorite">
+              <mat-icon>{{ recipe.favorite ? 'favorite' : 'favorite_border' }}</mat-icon>
+            </button>
+          </mat-card-title>
+          <mat-card-subtitle>{{ recipe.description }}</mat-card-subtitle>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="recipe-info">
+            <div class="info-item">
+              <mat-icon>schedule</mat-icon>
+              <span>{{ getTotalTime(recipe) }} min</span>
+            </div>
+            <div class="info-item">
+              <mat-icon>people</mat-icon>
+              <span>{{ recipe.servings }} servings</span>
+            </div>
+          </div>
+
+          <mat-accordion>
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>list</mat-icon>
+                  Ingredients ({{ recipe.ingredients.length }})
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ul class="ingredient-list">
+                <li *ngFor="let ingredient of recipe.ingredients">{{ ingredient }}</li>
+              </ul>
+            </mat-expansion-panel>
+
+            <mat-expansion-panel>
+              <mat-expansion-panel-header>
+                <mat-panel-title>
+                  <mat-icon>menu_book</mat-icon>
+                  Instructions ({{ recipe.instructions.length }} steps)
+                </mat-panel-title>
+              </mat-expansion-panel-header>
+              <ol class="instruction-list">
+                <li *ngFor="let step of recipe.instructions">{{ step }}</li>
+              </ol>
+            </mat-expansion-panel>
+          </mat-accordion>
+
+          <mat-chip-set class="recipe-tags">
+            <mat-chip *ngFor="let tag of recipe.tags">{{ tag }}</mat-chip>
+          </mat-chip-set>
+        </mat-card-content>
+        <mat-card-actions>
+          <button mat-button color="primary" (click)="editRecipe(recipe)">
+            <mat-icon>edit</mat-icon>
+            Edit
+          </button>
+          <button mat-button color="warn" (click)="deleteRecipe(recipe.id)">
+            <mat-icon>delete</mat-icon>
+            Delete
+          </button>
+        </mat-card-actions>
+      </mat-card>
+    </div>
+
+    <ng-template #noRecipes>
+      <div class="no-recipes">
+        <mat-icon>restaurant</mat-icon>
+        <p>No recipes found</p>
+        <p class="subtitle">Try adjusting your filters or adding new recipes</p>
+      </div>
+    </ng-template>
+  </div>
+
+  <!-- Add Recipe FAB -->
+  <button mat-fab color="primary" class="add-recipe-fab" (click)="toggleAddForm()">
+    <mat-icon>{{ showAddForm ? 'close' : 'add' }}</mat-icon>
+  </button>
+</div>
