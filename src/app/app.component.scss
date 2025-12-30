@@ -365,3 +365,23 @@
     }
   }
 }
+
+.user-menu {
+  margin-right: 8px;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  color: rgba(0, 0, 0, 0.87);
+
+  mat-icon {
+    color: rgba(0, 0, 0, 0.54);
+  }
+
+  span {
+    font-size: 14px;
+  }
+}

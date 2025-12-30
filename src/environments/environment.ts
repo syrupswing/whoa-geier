@@ -19,14 +19,15 @@ export const environment = {
     // 1. Create a new project (can use same as Google Calendar)
     // 2. Add a web app to your Firebase project
     // 3. Copy the config values here
-    apiKey: 'YOUR_FIREBASE_API_KEY',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    appId: 'YOUR_APP_ID'
+    apiKey: "AIzaSyCkPWlwtQZAdtwmrYIeriN1MtNmwMX8s8s",
+    authDomain: "whoa-geier.firebaseapp.com",
+    projectId: "whoa-geier",
+    storageBucket: "whoa-geier.firebasestorage.app",
+    messagingSenderId: "457123034868",
+    appId: "1:457123034868:web:4dac03baaae1786da390a1",
+    measurementId: "G-YEFTQYSHBR"
   },
-  useFirestore: false, // Set to true when Firebase is configured and you want to use it
+  useFirestore: true, // Set to true when Firebase is configured and you want to use it (requires authentication setup)
   githubToken: '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', // Get from https://github.com/settings/tokens?type=beta (requires 'Model inference: Read' permission)
   weatherApiKey: 'c37a84f138d1e7f4b0d12cf11f010e7a', // Get from https://openweathermap.org/api (free tier available)
   defaultCity: 'Minneapolis' // Fallback city if geolocation fails

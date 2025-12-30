@@ -1,6 +1,7 @@
 import { Injectable, signal, OnDestroy } from '@angular/core';
 import { LocalStorageService } from './local-storage.service';
 import { FirestoreService } from './firestore.service';
+import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 import { Unsubscribe } from 'firebase/firestore';
 
@@ -8,6 +9,7 @@ export interface GroceryItem {
   id: string;
   name: string;
   completed: boolean;
+  userId?: string; // Track which user created the item
   createdAt?: string;
   updatedAt?: string;
 }
@@ -26,7 +28,8 @@ export class GroceryService implements OnDestroy {
 
   constructor(
     private localStorageService: LocalStorageService,
-    private firestoreService: FirestoreService
+    private firestoreService: FirestoreService,
+    private authService: AuthService
   ) {
     this.loadItems();
   }
@@ -106,6 +109,7 @@ export class GroceryService implements OnDestroy {
       id: Date.now().toString(),
       name: trimmedName,
       completed: false,
+      userId: this.authService.getUserId() || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };

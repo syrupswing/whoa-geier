@@ -1,0 +1,81 @@
+<div class="login-container">
+  <mat-card class="login-card">
+    <mat-card-header>
+      <mat-card-title>
+        <mat-icon>family_restroom</mat-icon>
+        Family Command Center
+      </mat-card-title>
+      <mat-card-subtitle>
+        {{ isSignUp() ? 'Create your account' : 'Sign in to your account' }}
+      </mat-card-subtitle>
+    </mat-card-header>
+
+    <mat-card-content>
+      <form (ngSubmit)="onSubmit()">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Email</mat-label>
+          <input 
+            matInput 
+            type="email" 
+            [(ngModel)]="email" 
+            name="email"
+            [disabled]="isLoading()"
+            required>
+          <mat-icon matPrefix>email</mat-icon>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Password</mat-label>
+          <input 
+            matInput 
+            type="password" 
+            [(ngModel)]="password" 
+            name="password"
+            [disabled]="isLoading()"
+            required>
+          <mat-icon matPrefix>lock</mat-icon>
+        </mat-form-field>
+
+        <div class="error-message" *ngIf="errorMessage()">
+          <mat-icon>error</mat-icon>
+          {{ errorMessage() }}
+        </div>
+
+        <button 
+          mat-raised-button 
+          color="primary" 
+          type="submit" 
+          class="full-width"
+          [disabled]="isLoading()">
+          <mat-spinner *ngIf="isLoading()" diameter="20"></mat-spinner>
+          <span *ngIf="!isLoading()">
+            {{ isSignUp() ? 'Sign Up' : 'Sign In' }}
+          </span>
+        </button>
+
+        <div class="toggle-mode">
+          <button 
+            mat-button 
+            type="button" 
+            (click)="toggleMode()"
+            [disabled]="isLoading()">
+            {{ isSignUp() ? 'Already have an account? Sign In' : 'Need an account? Sign Up' }}
+          </button>
+        </div>
+      </form>
+
+      <mat-divider></mat-divider>
+
+      <div class="google-signin">
+        <button 
+          mat-stroked-button 
+          class="full-width google-button"
+          (click)="signInWithGoogle()"
+          [disabled]="isLoading()">
+          <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+          Sign in with Google
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+</div>

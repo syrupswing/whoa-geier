@@ -7,12 +7,14 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatMenuModule } from '@angular/material/menu';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { Observable } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
 import { ThemeService } from './services/theme.service';
 import { WeatherService } from './services/weather.service';
+import { AuthService } from './services/auth.service';
 
 @Component({
   selector: 'app-root',
@@ -28,7 +30,8 @@ import { WeatherService } from './services/weather.service';
     MatSidenavModule,
     MatListModule,
     MatTooltipModule,
-    MatDividerModule
+    MatDividerModule,
+    MatMenuModule
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
@@ -49,7 +52,8 @@ export class AppComponent implements OnInit {
   constructor(
     private breakpointObserver: BreakpointObserver,
     public themeService: ThemeService,
-    public weatherService: WeatherService
+    public weatherService: WeatherService,
+    public authService: AuthService
   ) {}
   
   ngOnInit(): void {
@@ -79,6 +83,14 @@ export class AppComponent implements OnInit {
 
   toggleTheme(): void {
     this.themeService.toggle();
+  }
+
+  async signOut(): Promise<void> {
+    try {
+      await this.authService.signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   }
   
   getWeatherIcon(): string {

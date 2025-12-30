@@ -3,17 +3,18 @@ export const environment = {
   geminiApiKey: 'AIzaSyDD8N6dWTbI8B3ZQhwDGsBxrRQyBzRJo8M', // Get from https://aistudio.google.com/app/apikey
   googleCalendar: {
     apiKey: '', // Optional when using OAuth
-    clientId: 'YOUR_PRODUCTION_CLIENT_ID_HERE.apps.googleusercontent.com',
+    clientId: '675585365638-bi72vup1j25pgpa2orhul8i18507cs4p.apps.googleusercontent.com',
     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
     scopes: 'https://www.googleapis.com/auth/calendar.readonly'
   },
   firebase: {
-    apiKey: 'YOUR_FIREBASE_API_KEY',
-    authDomain: 'YOUR_PROJECT_ID.firebaseapp.com',
-    projectId: 'YOUR_PROJECT_ID',
-    storageBucket: 'YOUR_PROJECT_ID.appspot.com',
-    messagingSenderId: 'YOUR_MESSAGING_SENDER_ID',
-    appId: 'YOUR_APP_ID'
+    apiKey: "AIzaSyCkPWlwtQZAdtwmrYIeriN1MtNmwMX8s8s",
+    authDomain: "whoa-geier.firebaseapp.com",
+    projectId: "whoa-geier",
+    storageBucket: "whoa-geier.firebasestorage.app",
+    messagingSenderId: "457123034868",
+    appId: "1:457123034868:web:4dac03baaae1786da390a1",
+    measurementId: "G-YEFTQYSHBR"
   },
   useFirestore: true // Use Firestore in production for family sharing
 };
