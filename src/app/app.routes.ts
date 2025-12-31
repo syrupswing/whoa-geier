@@ -12,13 +12,16 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
-    path: 'food',
-    loadComponent: () => import('./features/food/food.component').then(m => m.FoodComponent)
+    path: 'grocery-list',
+    loadComponent: () => import('./features/grocery-list/grocery-list.component').then(m => m.GroceryListComponent)
   },
   {
-    path: 'grocery',
-    redirectTo: 'food',
-    pathMatch: 'full'
+    path: 'recipes',
+    loadComponent: () => import('./features/recipes/recipes.component').then(m => m.RecipesComponent)
+  },
+  {
+    path: 'restaurants',
+    loadComponent: () => import('./features/restaurants/restaurants.component').then(m => m.RestaurantsComponent)
   },
   {
     path: 'calendar',

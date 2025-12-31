@@ -37,7 +37,7 @@ import { AuthService } from './services/auth.service';
   styleUrls: ['./app.component.scss']
 })
 export class AppComponent implements OnInit {
-  title = 'Geier Haus App';
+  title = 'Whoa Geier App';
   
   // API call counters
   geminiApiCalls = signal<number>(0);

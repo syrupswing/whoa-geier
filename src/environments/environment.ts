@@ -28,7 +28,7 @@ export const environment = {
     measurementId: "G-YEFTQYSHBR"
   },
   useFirestore: true, // Set to true when Firebase is configured and you want to use it (requires authentication setup)
-  githubToken: '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', // Get from https://github.com/settings/tokens?type=beta (requires 'Model inference: Read' permission)
+  githubToken: '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', // Get from https://github.com/settings/tokens?type=beta (requires 'Model inference: Read' permission)
   weatherApiKey: 'c37a84f138d1e7f4b0d12cf11f010e7a', // Get from https://openweathermap.org/api (free tier available)
   defaultCity: 'Minneapolis' // Fallback city if geolocation fails
 };

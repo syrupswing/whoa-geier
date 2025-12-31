@@ -1,5 +1,4 @@
 <div class="dashboard-container">
-  <h1>Home Dashboard</h1>
 
   <!-- Weather Bar -->
   <div class="weather-bar" 
@@ -90,84 +89,6 @@
   </div>
 
   <div class="grid">
-    
-    <!-- Calendar Widget -->
-    <mat-card class="calendar-widget">
-      <mat-card-header>
-        <mat-card-title>
-          <div class="widget-header">
-            <div class="widget-title">
-              <mat-icon>event</mat-icon>
-              Today's Schedule
-              <span class="spacer"></span>
-            </div>
-          </div>
-        </mat-card-title>
-        <mat-card-subtitle *ngIf="calendarService.isSignedIn()">{{ currentTime() | date:'EEEE, MMMM d' }}</mat-card-subtitle>
-        <mat-card-subtitle *ngIf="!calendarService.isSignedIn()">Connect to view your calendar</mat-card-subtitle>
-        <div class="widget-actions">
-          <a mat-icon-button [routerLink]="'/calendar'" class="calendar-link">
-            <mat-icon>open_in_new</mat-icon>
-          </a>
-        </div>
-      </mat-card-header>
-      <mat-card-content>
-        <div *ngIf="calendarService.isSignedIn(); else calendarDisconnected">
-          <div class="timeline-container-small" #dashboardTimeline>
-            <div class="time-labels-small">
-              <div *ngFor="let hour of hours" class="time-label-small">
-                {{ formatHour(hour) }}
-              </div>
-            </div>
-            <div class="timeline-grid-small">
-              <div *ngFor="let hour of hours" class="hour-line-small"></div>
-              
-              <div 
-                class="current-time-indicator-small"
-                [style.top.px]="getCurrentTimePosition()">
-                <div class="time-marker-small"></div>
-                <div class="time-line-small"></div>
-              </div>
-
-              <div 
-                *ngFor="let event of getTodayEvents()"
-                class="timeline-event-small"
-                [style.top.px]="event.topPosition"
-                [style.height.px]="event.height"
-                [style.background-color]="getEventColor(event)">
-                <div class="event-content-small">
-                  <strong>{{ event.summary }}</strong>
-                  <div class="event-time-tiny">{{ formatEventTime(event) }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div *ngIf="getTodayEvents().length === 0" class="no-events-small">
-            <mat-icon>event_available</mat-icon>
-            <p>No events today</p>
-          </div>
-        </div>
-        <ng-template #calendarDisconnected>
-          <div class="calendar-connect-placeholder">
-            <mat-icon>event_busy</mat-icon>
-            <h3>Calendar Not Connected</h3>
-            <p>Connect your Google Calendar to see your family's schedule right here on the dashboard.</p>
-            <button 
-              mat-raised-button 
-              color="primary" 
-              (click)="signInToCalendar()"
-              [disabled]="!calendarService.isInitialized()">
-              <mat-icon>login</mat-icon>
-              Connect Google Calendar
-            </button>
-            <p class="loading-text" *ngIf="!calendarService.isInitialized()">
-              <mat-icon>hourglass_empty</mat-icon>
-              Initializing...
-            </p>
-          </div>
-        </ng-template>
-      </mat-card-content>
-    </mat-card>
 
     <!-- Grocery List Widget -->
     <mat-card class="grocery-widget">
@@ -186,7 +107,7 @@
           {{ groceryService.useFirestore() ? 'Synced with family' : 'Saved locally' }}
         </mat-card-subtitle>
         <div class="widget-actions">
-          <a mat-icon-button [routerLink]="'/food'" class="grocery-link">
+          <a mat-icon-button [routerLink]="'/grocery-list'" class="grocery-link">
             <mat-icon>open_in_new</mat-icon>
           </a>
         </div>
@@ -304,7 +225,85 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-card *ngFor="let card of cards" class="dashboard-card">
+    <!-- Calendar Widget -->
+    <mat-card class="calendar-widget">
+      <mat-card-header>
+        <mat-card-title>
+          <div class="widget-header">
+            <div class="widget-title">
+              <mat-icon>event</mat-icon>
+              Today's Schedule
+              <span class="spacer"></span>
+            </div>
+          </div>
+        </mat-card-title>
+        <mat-card-subtitle *ngIf="calendarService.isSignedIn()">{{ currentTime() | date:'EEEE, MMMM d' }}</mat-card-subtitle>
+        <mat-card-subtitle *ngIf="!calendarService.isSignedIn()">Connect to view your calendar</mat-card-subtitle>
+        <div class="widget-actions">
+          <a mat-icon-button [routerLink]="'/calendar'" class="calendar-link">
+            <mat-icon>open_in_new</mat-icon>
+          </a>
+        </div>
+      </mat-card-header>
+      <mat-card-content>
+        <div *ngIf="calendarService.isSignedIn(); else calendarDisconnected">
+          <div class="timeline-container-small" #dashboardTimeline>
+            <div class="time-labels-small">
+              <div *ngFor="let hour of hours" class="time-label-small">
+                {{ formatHour(hour) }}
+              </div>
+            </div>
+            <div class="timeline-grid-small">
+              <div *ngFor="let hour of hours" class="hour-line-small"></div>
+              
+              <div 
+                class="current-time-indicator-small"
+                [style.top.px]="getCurrentTimePosition()">
+                <div class="time-marker-small"></div>
+                <div class="time-line-small"></div>
+              </div>
+
+              <div 
+                *ngFor="let event of getTodayEvents()"
+                class="timeline-event-small"
+                [style.top.px]="event.topPosition"
+                [style.height.px]="event.height"
+                [style.background-color]="getEventColor(event)">
+                <div class="event-content-small">
+                  <strong>{{ event.summary }}</strong>
+                  <div class="event-time-tiny">{{ formatEventTime(event) }}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div *ngIf="getTodayEvents().length === 0" class="no-events-small">
+            <mat-icon>event_available</mat-icon>
+            <p>No events today</p>
+          </div>
+        </div>
+        <ng-template #calendarDisconnected>
+          <div class="calendar-connect-placeholder">
+            <mat-icon>event_busy</mat-icon>
+            <h3>Calendar Not Connected</h3>
+            <p>Connect your Google Calendar to see your family's schedule right here on the dashboard.</p>
+            <button 
+              mat-raised-button 
+              color="primary" 
+              (click)="signInToCalendar()"
+              [disabled]="!calendarService.isInitialized()">
+              <mat-icon>login</mat-icon>
+              Connect Google Calendar
+            </button>
+            <p class="loading-text" *ngIf="!calendarService.isInitialized()">
+              <mat-icon>hourglass_empty</mat-icon>
+              Initializing...
+            </p>
+          </div>
+        </ng-template>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- <mat-card *ngFor="let card of cards" class="dashboard-card">
       <mat-card-header>
         <div mat-card-avatar class="card-icon" [style.background-color]="card.color">
           <mat-icon>{{ card.icon }}</mat-icon>
@@ -317,6 +316,6 @@
           Open
         </button>
       </mat-card-actions>
-    </mat-card>
+    </mat-card> -->
   </div>
 </div>

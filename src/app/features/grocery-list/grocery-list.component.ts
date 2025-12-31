@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -43,6 +43,7 @@ import { GeminiAiService } from '../../services/gemini-ai.service';
   styleUrls: ['./grocery-list.component.scss']
 })
 export class GroceryListComponent implements OnInit {
+  @ViewChild('itemInput') itemInput!: ElementRef<HTMLInputElement>;
   newItemName = '';
   itemControl = new FormControl('');
   filteredItems!: Observable<string[]>;
@@ -51,6 +52,7 @@ export class GroceryListComponent implements OnInit {
   loadingLocations = new Set<string>();
   isSortingByStore = false;
   isSorting = false;
+  showAddItemForm = false;
   private geminiAi = inject(GeminiAiService);
   private snackBar = inject(MatSnackBar);
   
@@ -83,6 +85,14 @@ export class GroceryListComponent implements OnInit {
     );
   }
 
+  showAddForm(): void {
+    this.showAddItemForm = true;
+    // Use setTimeout to ensure the input is rendered before focusing
+    setTimeout(() => {
+      this.itemInput?.nativeElement.focus();
+    }, 0);
+  }
+
   async preloadLocations(): Promise<void> {
     if (!this.geminiAi.isConfigured()) {
       return;
@@ -110,9 +120,17 @@ export class GroceryListComponent implements OnInit {
   async addItem(): Promise<void> {
     const itemName = this.itemControl.value?.trim() || '';
     if (itemName) {
-      await this.groceryService.addItem(itemName);
+      // Capitalize first letter of each word
+      const capitalizedName = itemName
+        .split(' ')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+        .join(' ');
+      
+      await this.groceryService.addItem(capitalizedName);
       this.itemControl.setValue('');
       this.newItemName = '';
+      this.showAddItemForm = false;
+      this.snackBar.open(`Added "${capitalizedName}" to your list`, 'Close', { duration: 2000 });
     }
   }
 
@@ -142,7 +160,29 @@ export class GroceryListComponent implements OnInit {
 
   async toggleItem(id: string): Promise<void> {
     try {
+      // Get the item before toggling to know its current state
+      const allItems = [...this.groceryService.getActiveItems(), ...this.groceryService.getCompletedItems()];
+      const item = allItems.find(i => i.id === id);
+      
       await this.groceryService.toggleItem(id);
+      
+      if (item) {
+        if (item.completed) {
+          // Item was completed, now moving back to active
+          this.snackBar.open(`"${item.name}" moved back to shopping list`, 'Close', { duration: 2000 });
+        } else {
+          // Item was active, now completed - show undo option
+          const snackBarRef = this.snackBar.open(
+            `"${item.name}" crossed off the list`, 
+            'Undo', 
+            { duration: 7000 }
+          );
+          
+          snackBarRef.onAction().subscribe(() => {
+            this.toggleItem(id);
+          });
+        }
+      }
     } catch (error) {
       console.error('Error toggling item:', error);
       this.snackBar.open('Failed to update item. Please try again.', 'Close', { duration: 3000 });

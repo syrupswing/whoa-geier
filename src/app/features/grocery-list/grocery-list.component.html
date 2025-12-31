@@ -1,10 +1,12 @@
 <div class="grocery-container">
   <div class="header">
       <h1>Grocery List</h1>
-      <p class="storage-indicator">
-        <mat-icon>{{ groceryService.useFirestore() ? 'cloud_done' : 'storage' }}</mat-icon>
-        {{ groceryService.useFirestore() ? 'Synced with family' : 'Saved locally' }}
-      </p>
+      <mat-icon 
+        class="storage-indicator"
+        [matTooltip]="groceryService.useFirestore() ? 'Cloud storage active' : 'Using local storage'"
+        matTooltipPosition="below">
+        {{ groceryService.useFirestore() ? 'cloud_done' : 'cloud_off' }}
+      </mat-icon>
   </div>
 
   <!-- Loading State -->
@@ -14,41 +16,10 @@
   </div>
 
   <div *ngIf="!groceryService.isLoading()">
-    <mat-card class="add-item-card">
-      <mat-card-content>
-        <div class="add-item-form">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Add new item</mat-label>
-            <input 
-              matInput 
-              [formControl]="itemControl"
-              [matAutocomplete]="auto"
-              (keyup.enter)="addItem()"
-              placeholder="Enter grocery item"
-              autocomplete="off">
-            <mat-autocomplete #auto="matAutocomplete">
-              <mat-option *ngFor="let item of filteredItems | async" [value]="item">
-                <mat-icon>history</mat-icon>
-                {{ item }}
-              </mat-option>
-            </mat-autocomplete>
-          </mat-form-field>
-          <button 
-            mat-raised-button 
-            color="primary" 
-            (click)="addItem()"
-            [disabled]="!itemControl.value?.trim()">
-            <mat-icon>add</mat-icon>
-            Add
-          </button>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <mat-card class="items-card">
+    <mat-card class="items-card open-items">
       <mat-card-header>
         <mat-card-title>
-          Items to Buy 
+          Remaining items
           <span class="count-badge" *ngIf="activeItems.length > 0">{{ activeItems.length }}</span>
         </mat-card-title>
         <div class="actions" *ngIf="activeItems.length > 0">
@@ -65,6 +36,57 @@
         </div>
       </mat-card-header>
       <mat-card-content>
+        <!-- Add Item Button/Form -->
+        <div class="inline-add-item">
+          <button 
+            *ngIf="!showAddItemForm"
+            mat-fab 
+            extended 
+            color="primary" 
+            (click)="showAddForm()"
+            class="add-button">
+            <mat-icon>add</mat-icon>
+            Add item
+          </button>
+          
+          <div *ngIf="showAddItemForm" class="inline-add-form">
+            <mat-form-field appearance="outline" class="inline-input">
+              <mat-label>Item name</mat-label>
+              <input 
+                matInput 
+                [formControl]="itemControl"
+                [matAutocomplete]="auto"
+                (keyup.enter)="addItem()"
+                (keyup.escape)="showAddItemForm = false; itemControl.setValue('')"
+                placeholder="Enter item"
+                autocomplete="off"
+                #itemInput>
+              <mat-autocomplete #auto="matAutocomplete">
+                <mat-option *ngFor="let item of filteredItems | async" [value]="item">
+                  <mat-icon>history</mat-icon>
+                  {{ item }}
+                </mat-option>
+              </mat-autocomplete>
+            </mat-form-field>
+            <button 
+              mat-mini-fab 
+              color="primary" 
+              (click)="addItem()"
+              [disabled]="!itemControl.value?.trim()"
+              class="add-button"
+              matTooltip="Add item">
+              <mat-icon>check</mat-icon>
+            </button>
+            <button 
+              mat-mini-fab 
+              (click)="showAddItemForm = false; itemControl.setValue('')"
+              class="cancel-button"
+              matTooltip="Cancel">
+              <mat-icon>close</mat-icon>
+            </button>
+          </div>
+        </div>
+        
         <mat-list *ngIf="activeItems.length > 0; else noItems">
           <mat-list-item *ngFor="let item of activeItems">
             <mat-checkbox 
@@ -106,10 +128,10 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-card class="items-card" *ngIf="completedItems.length > 0">
+    <mat-card class="items-card crossed-off-items" *ngIf="completedItems.length > 0">
       <mat-card-header>
         <mat-card-title>
-          Completed Items
+          Crossed off
           <span class="count-badge completed">{{ completedItems.length }}</span>
         </mat-card-title>
         <div class="actions">
@@ -118,7 +140,7 @@
             mat-stroked-button 
             (click)="clearCompleted()">
             <mat-icon>delete_sweep</mat-icon>
-            Clear all
+            Delete all
           </button>
         </div>
       </mat-card-header>
@@ -131,13 +153,14 @@
               matListItemIcon>
             </mat-checkbox>
             <span matListItemTitle class="completed-text">{{ item.name }}</span>
-            <button 
-              mat-icon-button 
-              color="warn" 
-              (click)="deleteItem(item.id)"
-              matListItemMeta>
-              <mat-icon>delete</mat-icon>
-            </button>
+            <div matListItemMeta class="item-actions">
+              <button 
+                mat-icon-button 
+                color="warn" 
+                (click)="deleteItem(item.id)">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
           </mat-list-item>
         </mat-list>
       </mat-card-content>
