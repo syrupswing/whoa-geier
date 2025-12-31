@@ -66,9 +66,11 @@ export class GroceryService implements OnDestroy {
    * Subscribe to Firestore real-time updates
    */
   private subscribeToFirestore(): void {
+    console.log('Setting up Firestore subscription for groceryItems...');
     this.firestoreSubscription = this.firestoreService.subscribeToCollection<GroceryItem>(
       this.COLLECTION_NAME,
       (items) => {
+        console.log('Firestore update received:', items.length, 'items');
         this.items.set(items);
       }
     );
@@ -115,11 +117,24 @@ export class GroceryService implements OnDestroy {
     };
 
     if (this.useFirestore() && this.firestoreService.isInitialized()) {
-      // Add to Firestore
-      const docId = await this.firestoreService.addDocument(this.COLLECTION_NAME, newItem);
-      if (docId) {
-        newItem.id = docId;
+      // Add to Firestore - don't include the timestamp ID, let Firestore generate it
+      const firestoreData = {
+        name: trimmedName,
+        completed: false,
+        userId: this.authService.getUserId() || undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      
+      const docId = await this.firestoreService.addDocument(this.COLLECTION_NAME, firestoreData);
+      
+      if (!docId) {
+        console.error('Failed to add item to Firestore');
+        throw new Error('Failed to add item to database');
       }
+      
+      // The real-time subscription will automatically update the items signal
+      // No need to manually update items here
     } else {
       // Add to localStorage
       const currentItems = this.items();

@@ -132,11 +132,21 @@ export class GroceryListComponent implements OnInit {
   }
 
   async deleteItem(id: string): Promise<void> {
-    await this.groceryService.deleteItem(id);
+    try {
+      await this.groceryService.deleteItem(id);
+    } catch (error) {
+      console.error('Error deleting item:', error);
+      this.snackBar.open('Failed to delete item. Please try again.', 'Close', { duration: 3000 });
+    }
   }
 
   async toggleItem(id: string): Promise<void> {
-    await this.groceryService.toggleItem(id);
+    try {
+      await this.groceryService.toggleItem(id);
+    } catch (error) {
+      console.error('Error toggling item:', error);
+      this.snackBar.open('Failed to update item. Please try again.', 'Close', { duration: 3000 });
+    }
   }
   
   async sortByStoreLayout(): Promise<void> {
