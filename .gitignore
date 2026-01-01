@@ -40,3 +40,6 @@ testem.log
 # System files
 .DS_Store
 Thumbs.db
+
+# Local environment files with real API keys
+src/environments/environment.local.ts
