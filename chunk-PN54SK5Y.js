@@ -1,4 +1,4 @@
-import{a as i}from"./chunk-7TSG2UE5.js";import{Z as u,e as s}from"./chunk-M5WQ34XW.js";var p=(()=>{class a{constructor(){this.API_URL="https://models.inference.ai.azure.com/chat/completions"}isConfigured(){return!!i.githubToken&&i.githubToken!=="GHAI_TOKEN"&&i.githubToken.startsWith("github_pat_")}suggestRecipes(o,e){return s(this,null,function*(){let t=`${e?e+`
+import{a as i}from"./chunk-X3QBTOAG.js";import{Z as u,e as s}from"./chunk-M5WQ34XW.js";var p=(()=>{class a{constructor(){this.API_URL="https://models.inference.ai.azure.com/chat/completions"}isConfigured(){return!!i.githubToken&&i.githubToken!=="GHAI_TOKEN"&&i.githubToken.startsWith("github_pat_")}suggestRecipes(o,e){return s(this,null,function*(){let t=`${e?e+`
 
 `:""}Generate 3 recipe suggestions based on: ${o}
 
