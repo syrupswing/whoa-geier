@@ -1,5 +1,6 @@
 export const environment = {
   production: false,
+  geminiApiKey: 'GEMINI_API_KEY', // Get from https://aistudio.google.com/app/apikey
   googleCalendar: {
     // Get these credentials from Google Cloud Console
     // 1. Go to https://console.cloud.google.com/

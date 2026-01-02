@@ -40,7 +40,6 @@ export class GeminiAiService {
   isConfigured(): boolean {
     return !!environment.githubToken && 
            environment.githubToken !== 'YOUR_GITHUB_PAT' && 
-           environment.githubToken !== 'GHAI_TOKEN' && 
            environment.githubToken.startsWith('github_pat_');
   }
 
