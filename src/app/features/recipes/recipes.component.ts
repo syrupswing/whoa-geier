@@ -11,7 +11,7 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { LocalStorageService } from '../../services/local-storage.service';
-import { GeminiAiService, RecipeSuggestion } from '../../services/gemini-ai.service';
+import { GithubAiService, RecipeSuggestion } from '../../services/github-ai.service';
 
 export interface Recipe {
   id: string;
@@ -49,7 +49,7 @@ export interface Recipe {
 export class RecipesComponent implements OnInit {
   private readonly STORAGE_KEY = 'family-command-center-recipes';
   private localStorageService = inject(LocalStorageService);
-  private geminiAi = inject(GeminiAiService);
+  private githubAi = inject(GithubAiService);
   private snackBar = inject(MatSnackBar);
 
   recipes = signal<Recipe[]>([
@@ -279,9 +279,9 @@ export class RecipesComponent implements OnInit {
 
   // AI Features
   toggleAiPrompt(): void {
-    if (!this.geminiAi.isConfigured()) {
+    if (!this.githubAi.isConfigured()) {
       this.snackBar.open(
-        'Gemini AI not configured. Please add your API key to the environment file.',
+        'GitHub AI not configured. Please add your token to the environment file.',
         'Close',
         { duration: 5000 }
       );
@@ -304,7 +304,7 @@ export class RecipesComponent implements OnInit {
     this.aiSuggestions.set([]);
 
     try {
-      const suggestions = await this.geminiAi.suggestRecipes(
+      const suggestions = await this.githubAi.suggestRecipes(
         this.aiPrompt,
         'You are a helpful cooking assistant for a family. Provide practical, family-friendly recipes.'
       );

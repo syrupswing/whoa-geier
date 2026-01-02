@@ -39,8 +39,7 @@ import { AuthService } from './services/auth.service';
 export class AppComponent implements OnInit {
   title = 'Whoa Geier App';
   
-  // API call counters
-  geminiApiCalls = signal<number>(0);
+  // API call counter
   githubApiCalls = signal<number>(0);
 
   isHandset$: Observable<boolean> = this.breakpointObserver.observe(Breakpoints.Handset)
@@ -57,25 +56,18 @@ export class AppComponent implements OnInit {
   ) {}
   
   ngOnInit(): void {
-    // Load API call counts from localStorage
-    const geminiCount = localStorage.getItem('geminiApiCallCount');
+    // Load API call count from localStorage
     const githubCount = localStorage.getItem('githubApiCallCount');
     
-    if (geminiCount) {
-      this.geminiApiCalls.set(parseInt(geminiCount, 10));
-    }
     if (githubCount) {
       this.githubApiCalls.set(parseInt(githubCount, 10));
     }
     
-    // Listen for storage changes to update counters in real-time
+    // Listen for storage changes to update counter in real-time
     window.addEventListener('storage', this.handleStorageChange.bind(this));
   }
   
   handleStorageChange(event: StorageEvent): void {
-    if (event.key === 'geminiApiCallCount' && event.newValue) {
-      this.geminiApiCalls.set(parseInt(event.newValue, 10));
-    }
     if (event.key === 'githubApiCallCount' && event.newValue) {
       this.githubApiCalls.set(parseInt(event.newValue, 10));
     }

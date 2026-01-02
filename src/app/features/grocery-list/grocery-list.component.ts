@@ -17,7 +17,7 @@ import { FormControl } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
-import { GeminiAiService } from '../../services/gemini-ai.service';
+import { GithubAiService } from '../../services/github-ai.service';
 
 @Component({
   selector: 'app-grocery-list',
@@ -53,7 +53,7 @@ export class GroceryListComponent implements OnInit {
   isSortingByStore = false;
   isSorting = false;
   showAddItemForm = false;
-  private geminiAi = inject(GeminiAiService);
+  private githubAi = inject(GithubAiService);
   private snackBar = inject(MatSnackBar);
   
   // Typical grocery store section order
@@ -94,7 +94,7 @@ export class GroceryListComponent implements OnInit {
   }
 
   async preloadLocations(): Promise<void> {
-    if (!this.geminiAi.isConfigured()) {
+    if (!this.githubAi.isConfigured()) {
       return;
     }
 
@@ -190,7 +190,7 @@ export class GroceryListComponent implements OnInit {
   }
   
   async sortByStoreLayout(): Promise<void> {
-    if (!this.geminiAi.isConfigured()) {
+    if (!this.githubAi.isConfigured()) {
       this.snackBar.open(
         'AI is not configured. Add your GitHub token to use this feature.',
         'Close',
@@ -222,7 +222,7 @@ Return ONLY a JSON object mapping each item name to its category. Example format
   "bread": "Bakery"
 }`;
         
-        const response = await this.geminiAi.generateContent(prompt);
+        const response = await this.githubAi.generateContent(prompt);
         
         if (response.success) {
           // Parse JSON response
@@ -295,9 +295,9 @@ Return ONLY a JSON object mapping each item name to its category. Example format
   }
 
   async getStoreLocation(item: GroceryItem): Promise<void> {
-    if (!this.geminiAi.isConfigured()) {
+    if (!this.githubAi.isConfigured()) {
       this.snackBar.open(
-        'Gemini AI is not configured. Add your API key to use this feature.',
+        'GitHub AI is not configured. Add your token to use this feature.',
         'Close',
         { duration: 4000 }
       );
@@ -314,7 +314,7 @@ Return ONLY a JSON object mapping each item name to its category. Example format
     try {
       const prompt = `In which aisle or section of a grocery store would I typically find "${item.name}"? Give a brief, specific answer in one sentence. For example: "Produce section" or "Dairy aisle, near the milk" or "Baking aisle, with flour and sugar".`;
       
-      const response = await this.geminiAi.generateContent(prompt);
+      const response = await this.githubAi.generateContent(prompt);
       
       if (response.success) {
         this.itemLocations.set(item.id, response.text.trim());

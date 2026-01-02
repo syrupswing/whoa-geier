@@ -11,7 +11,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';import { MatTooltipModule } from '@angular/material/tooltip';import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
-import { GeminiAiService } from '../../services/gemini-ai.service';
+import { GithubAiService } from '../../services/github-ai.service';
 import { WeatherService } from '../../services/weather.service';
 
 interface TimelineEvent extends CalendarEvent {
@@ -63,7 +63,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   constructor(
     public calendarService: GoogleCalendarService,
     public groceryService: GroceryService,
-    private geminiAi: GeminiAiService,
+    private githubAi: GithubAiService,
     public weatherService: WeatherService
   ) {
     // Watch for weather changes and generate clothing recommendation
@@ -317,7 +317,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       return;
     }
     
-    if (!this.geminiAi.isConfigured()) {
+    if (!this.githubAi.isConfigured()) {
       return; // Keep default message
     }
 
@@ -329,7 +329,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     try {
       const prompt = `Write a very brief, friendly, and colloquial welcome message (maximum 15 words) for a family command center app that helps families manage their schedules, grocery lists, and daily activities. Make it warm and encouraging. Just return the message text, nothing else.`;
       
-      const response = await this.geminiAi.generateContent(prompt);
+      const response = await this.githubAi.generateContent(prompt);
       
       if (response.success && response.text.trim()) {
         const message = response.text.trim().replace(/^[\"']|[\"']$/g, '');
@@ -350,7 +350,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    if (!this.geminiAi.isConfigured()) {
+    if (!this.githubAi.isConfigured()) {
       this.chatMessages.update(messages => [...messages, {
         text: 'AI assistant is not configured. Please add your GitHub Personal Access Token to the environment file (src/environments/environment.ts). Get a token from: https://github.com/settings/tokens?type=beta with "Model inference: Read" permission.',
         isUser: false,
@@ -374,7 +374,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     try {
       const context = `You are a helpful family assistant for a family command center app. Be friendly, concise, and helpful. The user asked: ${userMessage}`;
-      const response = await this.geminiAi.generateContent(context);
+      const response = await this.githubAi.generateContent(context);
 
       if (response.success) {
         this.chatMessages.update(messages => [...messages, {
@@ -528,7 +528,7 @@ Try again once you've completed these steps!`;
 
   async generateClothingRecommendation(): Promise<void> {
     const weather = this.weatherService.weather();
-    if (!weather || !this.geminiAi.isConfigured() || this.isLoadingClothing()) {
+    if (!weather || !this.githubAi.isConfigured() || this.isLoadingClothing()) {
       return;
     }
 
@@ -537,7 +537,7 @@ Try again once you've completed these steps!`;
     try {
       const prompt = `Based on this weather: ${weather.temperature}°F, ${weather.description}, humidity ${weather.humidity}%, wind ${weather.windSpeed} mph - write ONE short, friendly sentence (max 15 words) suggesting what to wear including both clothing AND footwear. Be conversational and helpful. Just return the sentence, nothing else.`;
       
-      const response = await this.geminiAi.generateContent(prompt);
+      const response = await this.githubAi.generateContent(prompt);
       
       if (response.success && response.text.trim()) {
         const fullText = response.text.trim().replace(/^["']|["']$/g, '');
