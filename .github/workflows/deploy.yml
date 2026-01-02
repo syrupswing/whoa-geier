@@ -40,10 +40,10 @@ jobs:
       - name: Inject secrets into environment file
         run: |
           echo "Injecting secrets into environment.ts..."
-          sed -i "s|\${{ secrets.FIREBASE_API_KEY }}|${{ secrets.FIREBASE_API_KEY }}|g" src/environments/environment.ts
-          sed -i "s|\${{ secrets.GHAI_TOKEN }}|${{ secrets.GHAI_TOKEN }}|g" src/environments/environment.ts
-          sed -i "s|\${{ secrets.OPEN_WEATHER_API_KEY }}|${{ secrets.OPEN_WEATHER_API_KEY }}|g" src/environments/environment.ts
-          sed -i "s|\${{ secrets.GEMINI_API_KEY }}|${{ secrets.GEMINI_API_KEY }}|g" src/environments/environment.ts
+          sed -i 's#\${{ secrets.FIREBASE_API_KEY }}#${{ secrets.FIREBASE_API_KEY }}#g' src/environments/environment.ts
+          sed -i 's#\${{ secrets.GHAI_TOKEN }}#${{ secrets.GHAI_TOKEN }}#g' src/environments/environment.ts
+          sed -i 's#\${{ secrets.OPEN_WEATHER_API_KEY }}#${{ secrets.OPEN_WEATHER_API_KEY }}#g' src/environments/environment.ts
+          sed -i 's#\${{ secrets.GEMINI_API_KEY }}#${{ secrets.GEMINI_API_KEY }}#g' src/environments/environment.ts
           echo "✅ Secrets injected successfully"
           
       - name: Build Angular app
