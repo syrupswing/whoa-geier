@@ -1,5 +1,5 @@
-import { Component, OnInit, signal } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, OnInit, signal, effect } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { MatToolbarModule } from '@angular/material/toolbar';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,6 +8,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { Observable } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
@@ -31,7 +32,8 @@ import { AuthService } from './services/auth.service';
     MatListModule,
     MatTooltipModule,
     MatDividerModule,
-    MatMenuModule
+    MatMenuModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss']
@@ -50,10 +52,18 @@ export class AppComponent implements OnInit {
 
   constructor(
     private breakpointObserver: BreakpointObserver,
+    private router: Router,
     public themeService: ThemeService,
     public weatherService: WeatherService,
     public authService: AuthService
-  ) {}
+  ) {
+    // Redirect to dashboard if authenticated and on login page
+    effect(() => {
+      if (this.authService.isAuthenticated() && this.router.url === '/login') {
+        this.router.navigate(['/']);
+      }
+    });
+  }
   
   ngOnInit(): void {
     // Load API call count from localStorage
@@ -80,6 +90,7 @@ export class AppComponent implements OnInit {
   async signOut(): Promise<void> {
     try {
       await this.authService.signOut();
+      // Router will automatically redirect to /login via authGuard
     } catch (error) {
       console.error('Error signing out:', error);
     }

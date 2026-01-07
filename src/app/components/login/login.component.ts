@@ -1,6 +1,7 @@
 import { Component, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -34,7 +35,7 @@ export class LoginComponent {
   isLoading = signal<boolean>(false);
   errorMessage = signal<string>('');
 
-  constructor(public authService: AuthService) {}
+  constructor(public authService: AuthService, private router: Router) {}
 
   async onSubmit(): Promise<void> {
     if (!this.email().trim() || !this.password().trim()) {
@@ -51,6 +52,8 @@ export class LoginComponent {
       } else {
         await this.authService.signInWithEmail(this.email(), this.password());
       }
+      // Navigate to dashboard on successful login
+      this.router.navigate(['/']);
     } catch (error: any) {
       this.errorMessage.set(error.message);
     } finally {
@@ -64,6 +67,8 @@ export class LoginComponent {
 
     try {
       await this.authService.signInWithGoogle();
+      // Navigate to dashboard on successful login
+      this.router.navigate(['/']);
     } catch (error: any) {
       this.errorMessage.set(error.message);
     } finally {

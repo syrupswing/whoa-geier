@@ -63,16 +63,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   constructor(
     public calendarService: GoogleCalendarService,
     public groceryService: GroceryService,
-    private githubAi: GithubAiService,
+    public githubAi: GithubAiService,
     public weatherService: WeatherService
   ) {
-    // Watch for weather changes and generate clothing recommendation
-    effect(() => {
-      const weather = this.weatherService.weather();
-      if (weather && !this.clothingRecommendation() && !this.isLoadingClothing()) {
-        this.generateClothingRecommendation();
-      }
-    }, { allowSignalWrites: true });
+    // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
   }
 
   ngOnInit(): void {
@@ -541,15 +535,18 @@ Try again once you've completed these steps!`;
       
       if (response.success && response.text.trim()) {
         const fullText = response.text.trim().replace(/^["']|["']$/g, '');
+        // Set loading to false BEFORE animating so text is visible
+        this.isLoadingClothing.set(false);
         // Animate the text typing effect
         await this.animateTypingEffect(fullText);
+      } else {
+        this.isLoadingClothing.set(false);
       }
     } catch (error) {
       console.error('Error generating clothing recommendation:', error);
+      this.isLoadingClothing.set(false);
       // Provide a fallback recommendation with typing effect
       await this.animateTypingEffect('Check the weather and dress comfortably with suitable shoes!');
-    } finally {
-      this.isLoadingClothing.set(false);
     }
   }
 

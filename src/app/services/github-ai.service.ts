@@ -31,6 +31,7 @@ export interface MealPlanSuggestion {
 })
 export class GithubAiService {
   private readonly API_URL = 'https://models.inference.ai.azure.com/chat/completions';
+  private readonly MODEL = 'gpt-4o-mini'; // GitHub Models default
   
   constructor() {}
 
@@ -40,7 +41,7 @@ export class GithubAiService {
   isConfigured(): boolean {
     return !!environment.githubToken && 
            environment.githubToken !== 'GHAI_TOKEN' && 
-           environment.githubToken.startsWith('github_pat_');
+           (environment.githubToken.startsWith('github_pat_') || environment.githubToken.startsWith('ghp_'));
   }
 
   /**
@@ -187,21 +188,26 @@ Provide brief descriptions and what makes each one special. Format as a simple t
           'Authorization': `Bearer ${environment.githubToken}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
           messages: [
             {
               role: 'user',
               content: prompt
             }
           ],
+          model: this.MODEL,
           temperature: 0.7,
-          max_tokens: 2048
+          max_tokens: 4096
         })
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `API request failed: ${response.status}`);
+        console.error('GitHub Models API Error Details:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        throw new Error(errorData.error?.message || `API request failed: ${response.status} - ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -212,7 +218,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
 
       const resultText = data.choices[0].message.content;
 
-      // Increment GitHub API call counter
+      // Increment API call counter
       this.incrementApiCounter();
 
       return {
@@ -230,7 +236,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
   }
 
   /**
-   * Increment GitHub API call counter and persist to localStorage
+   * Increment API call counter and persist to localStorage
    */
   private incrementApiCounter(): void {
     const currentCount = parseInt(localStorage.getItem('githubApiCallCount') || '0', 10);

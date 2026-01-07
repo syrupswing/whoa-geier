@@ -51,14 +51,27 @@
           <mat-icon>location_on</mat-icon>
           {{ weatherService.weather()?.city }}
         </span>
+        <button 
+          mat-icon-button 
+          class="clothing-suggest-btn"
+          (click)="generateClothingRecommendation()"
+          [disabled]="isLoadingClothing() || !githubAi.isConfigured()"
+          [matTooltip]="githubAi.isConfigured() ? 'Get clothing suggestion' : 'GitHub AI not configured'"
+          *ngIf="!clothingRecommendation()">
+          <mat-icon>checkroom</mat-icon>
+        </button>
       </div>
     </div>
 
     <!-- Clothing Recommendation -->
-    <div class="clothing-recommendation" *ngIf="weatherService.weather() && clothingRecommendation()">
+    <div class="clothing-recommendation" *ngIf="weatherService.weather() && (clothingRecommendation() || isLoadingClothing())">
       <mat-icon class="clothing-icon">checkroom</mat-icon>
-      <div class="clothing-text">
+      <div class="clothing-text" *ngIf="!isLoadingClothing()">
         {{ clothingRecommendation() }}
+      </div>
+      <div class="clothing-loading" *ngIf="isLoadingClothing()">
+        <mat-spinner diameter="16"></mat-spinner>
+        <span>Getting clothing suggestion...</span>
       </div>
     </div>
     

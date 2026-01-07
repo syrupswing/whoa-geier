@@ -871,6 +871,28 @@
     margin-left: auto;
     font-weight: 500;
   }
+  
+  .clothing-suggest-btn {
+    margin-left: 8px;
+    color: rgba(255, 255, 255, 0.9);
+    transition: all 0.3s ease;
+    
+    &:hover:not(:disabled) {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.1);
+    }
+    
+    &:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
 }
 
 .weather-bar-refresh {
@@ -934,6 +956,18 @@
       animation: blink 0.7s infinite;
       font-weight: 400;
       opacity: 1;
+    }
+  }
+  
+  .clothing-loading {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 500;
+    
+    mat-spinner {
+      flex-shrink: 0;
     }
   }
   

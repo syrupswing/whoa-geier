@@ -1,4 +1,13 @@
-<mat-sidenav-container class="sidenav-container">
+<!-- Loading state -->
+<div *ngIf="authService.isLoading()" style="display: flex; justify-content: center; align-items: center; height: 100vh;">
+  <mat-spinner></mat-spinner>
+</div>
+
+<!-- Show login component when not authenticated and not loading -->
+<router-outlet *ngIf="!authService.isAuthenticated() && !authService.isLoading()"></router-outlet>
+
+<!-- Show main app when authenticated and not loading -->
+<mat-sidenav-container class="sidenav-container" *ngIf="authService.isAuthenticated() && !authService.isLoading()">
 
   <mat-sidenav 
     #drawer 

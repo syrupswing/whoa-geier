@@ -31,6 +31,7 @@ export interface MealPlanSuggestion {
 })
 export class GeminiAiService {
   private readonly API_URL = 'https://models.inference.ai.azure.com/chat/completions';
+  private readonly MODEL = 'gpt-4o-mini'; // GitHub Models default
   
   constructor() {}
 
@@ -40,7 +41,8 @@ export class GeminiAiService {
   isConfigured(): boolean {
     return !!environment.githubToken && 
            environment.githubToken !== 'YOUR_GITHUB_PAT' && 
-           environment.githubToken.startsWith('github_pat_');
+           environment.githubToken !== 'GHAI_TOKEN' &&
+           (environment.githubToken.startsWith('github_pat_') || environment.githubToken.startsWith('ghp_'));
   }
 
   /**
@@ -187,7 +189,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
           'Authorization': `Bearer ${environment.githubToken}`
         },
         body: JSON.stringify({
-          model: 'gpt-4o-mini',
+          model: this.MODEL,
           messages: [
             {
               role: 'user',
@@ -195,7 +197,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
             }
           ],
           temperature: 0.7,
-          max_tokens: 2048
+          max_tokens: 4096
         })
       });
 
@@ -207,7 +209,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
       const data = await response.json();
       
       if (!data.choices || !data.choices[0]?.message?.content) {
-        throw new Error('Invalid response format from OpenAI API');
+        throw new Error('Invalid response format from GitHub Models API');
       }
 
       const resultText = data.choices[0].message.content;

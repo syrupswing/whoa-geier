@@ -28,7 +28,7 @@ export const environment = {
     measurementId: "G-YEFTQYSHBR"
   },
   useFirestore: true, // Set to true when Firebase is configured and you want to use it (requires authentication setup)
-  githubToken: 'GHAI_TOKEN', // Get from https://github.com/settings/tokens?type=beta (requires 'Model inference: Read' permission)
+  githubToken: 'GHAI_TOKEN', // Get from https://github.com/settings/tokens (classic token with no scopes needed for GitHub Models API)
   weatherApiKey: 'OPEN_WEATHER_API_KEY', // Get from https://openweathermap.org/api (free tier available)
   defaultCity: 'Minneapolis' // Fallback city if geolocation fails
 };
