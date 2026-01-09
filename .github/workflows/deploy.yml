@@ -40,7 +40,7 @@ jobs:
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_API_KEY }}
           WEATHER_KEY: ${{ secrets.OPEN_WEATHER_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GHAI_TOKEN }}
+          GHAI_TOKEN_VAR: ${{ secrets.GHAI_TOKEN }}
         run: |
           cat > src/environments/environment.prod.ts << EOF
           export const environment = {
@@ -62,7 +62,7 @@ jobs:
             },
             useFirebaseProxy: false,
             useFirestore: true,
-            githubToken: '$GITHUB_TOKEN',
+            githubToken: '$GHAI_TOKEN_VAR',
             weatherApiKey: '$WEATHER_KEY',
             defaultCity: 'Minneapolis'
           };
