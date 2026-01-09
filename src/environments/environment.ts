@@ -27,7 +27,8 @@ export const environment = {
     appId: "1:457123034868:web:4dac03baaae1786da390a1",
     measurementId: "G-YEFTQYSHBR"
   },
-  useFirestore: true, // Set to true when Firebase is configured and you want to use it (requires authentication setup)
+  useFirebaseProxy: false, // Use Firebase Functions to proxy GitHub API calls (more secure for production)
+  useFirestore: true, // Use Firestore for data storage (recipes, grocery lists, etc.)
   githubToken: 'GHAI_TOKEN', // Get from https://github.com/settings/tokens (classic token with no scopes needed for GitHub Models API)
   weatherApiKey: 'OPEN_WEATHER_API_KEY', // Get from https://openweathermap.org/api (free tier available)
   defaultCity: 'Minneapolis' // Fallback city if geolocation fails

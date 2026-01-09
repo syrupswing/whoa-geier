@@ -32,23 +32,18 @@ jobs:
         run: |
           echo "Checking if secrets are set..."
           if [ -z "${{ secrets.FIREBASE_API_KEY }}" ]; then echo "⚠️  FIREBASE_API_KEY is not set"; fi
-          if [ -z "${{ secrets.GHAI_TOKEN }}" ]; then echo "⚠️  GHAI_TOKEN is not set"; fi
           if [ -z "${{ secrets.OPEN_WEATHER_API_KEY }}" ]; then echo "⚠️  OPEN_WEATHER_API_KEY is not set"; fi
-          if [ -z "${{ secrets.GEMINI_API_KEY }}" ]; then echo "⚠️  GEMINI_API_KEY is not set"; fi
-          echo "✅ Secret check complete"
+          echo "✅ Secret check complete (GitHub PAT should NOT be deployed to frontend)"
         
       - name: Inject secrets into environment file
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_API_KEY }}
-          GHAI: ${{ secrets.GHAI_TOKEN }}
           WEATHER_KEY: ${{ secrets.OPEN_WEATHER_API_KEY }}
-          GEMINI_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
           echo "Injecting secrets into environment.ts..."
           sed -i "s/FIREBASE_API_KEY/$FIREBASE_KEY/g" src/environments/environment.ts
-          sed -i "s/GHAI_TOKEN/$GHAI/g" src/environments/environment.ts
           sed -i "s/OPEN_WEATHER_API_KEY/$WEATHER_KEY/g" src/environments/environment.ts
-          sed -i "s/GEMINI_API_KEY/$GEMINI_KEY/g" src/environments/environment.ts
+          echo "⚠️  NOTE: GitHub PAT should NOT be in frontend code - use backend proxy instead"
           echo "✅ Secrets injected successfully"
           
       - name: Build Angular app

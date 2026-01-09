@@ -16,6 +16,7 @@ import { CommonModule } from '@angular/common';
 import { ThemeService } from './services/theme.service';
 import { WeatherService } from './services/weather.service';
 import { AuthService } from './services/auth.service';
+import { GithubAiService } from './services/github-ai.service';
 
 @Component({
   selector: 'app-root',
@@ -43,6 +44,10 @@ export class AppComponent implements OnInit {
   
   // API call counter
   githubApiCalls = signal<number>(0);
+  
+  // AI connection status
+  isAIConnected = signal<boolean>(false);
+  showAISetupPrompt = signal<boolean>(false);
 
   isHandset$: Observable<boolean> = this.breakpointObserver.observe(Breakpoints.Handset)
     .pipe(
@@ -55,7 +60,8 @@ export class AppComponent implements OnInit {
     private router: Router,
     public themeService: ThemeService,
     public weatherService: WeatherService,
-    public authService: AuthService
+    public authService: AuthService,
+    public githubAiService: GithubAiService
   ) {
     // Redirect to dashboard if authenticated and on login page
     effect(() => {
@@ -72,6 +78,9 @@ export class AppComponent implements OnInit {
     if (githubCount) {
       this.githubApiCalls.set(parseInt(githubCount, 10));
     }
+    
+    // Check AI connection status
+    this.isAIConnected.set(this.githubAiService.isConfigured());
     
     // Listen for storage changes to update counter in real-time
     window.addEventListener('storage', this.handleStorageChange.bind(this));
@@ -107,5 +116,20 @@ export class AppComponent implements OnInit {
       case 'foggy': return 'foggy';
       default: return 'wb_sunny';
     }
+  }
+  
+  toggleAISetupPrompt(): void {
+    this.showAISetupPrompt.update(v => !v);
+  }
+  
+  navigateToAISetup(): void {
+    this.showAISetupPrompt.set(false);
+    // Token must be configured in src/environments/environment.local.ts
+    alert('To configure GitHub AI:\n\n1. Get a token from: https://github.com/settings/tokens\n2. Add it to: src/environments/environment.local.ts\n3. Restart the dev server');
+  }
+  
+  resetApiCounter(): void {
+    this.githubApiCalls.set(0);
+    localStorage.setItem('githubApiCallCount', '0');
   }
 }
