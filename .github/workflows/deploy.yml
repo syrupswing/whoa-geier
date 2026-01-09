@@ -79,3 +79,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist/family-command-center/browser
           cname: false
+          
