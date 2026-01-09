@@ -42,7 +42,7 @@ jobs:
           WEATHER_KEY: ${{ secrets.OPEN_WEATHER_API_KEY }}
           GHAI_TOKEN_VAR: ${{ secrets.GHAI_TOKEN }}
         run: |
-          cat > src/environments/environment.prod.ts << EOF
+          cat > src/environments/environment.prod.ts << 'EOF'
           export const environment = {
             production: true,
             googleCalendar: {
@@ -52,7 +52,7 @@ jobs:
               scopes: 'https://www.googleapis.com/auth/calendar.readonly'
             },
             firebase: {
-              apiKey: "$FIREBASE_KEY",
+              apiKey: "FIREBASE_KEY_PLACEHOLDER",
               authDomain: "whoa-geier.firebaseapp.com",
               projectId: "whoa-geier",
               storageBucket: "whoa-geier.firebasestorage.app",
@@ -62,11 +62,14 @@ jobs:
             },
             useFirebaseProxy: false,
             useFirestore: true,
-            githubToken: '$GHAI_TOKEN_VAR',
-            weatherApiKey: '$WEATHER_KEY',
+            githubToken: 'GHAI_TOKEN_PLACEHOLDER',
+            weatherApiKey: 'WEATHER_KEY_PLACEHOLDER',
             defaultCity: 'Minneapolis'
           };
           EOF
+          sed -i "s|FIREBASE_KEY_PLACEHOLDER|$FIREBASE_KEY|g" src/environments/environment.prod.ts
+          sed -i "s|GHAI_TOKEN_PLACEHOLDER|$GHAI_TOKEN_VAR|g" src/environments/environment.prod.ts
+          sed -i "s|WEATHER_KEY_PLACEHOLDER|$WEATHER_KEY|g" src/environments/environment.prod.ts
           echo "✅ Production environment file created with secrets"
           
       - name: Build Angular app
@@ -79,4 +82,3 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./dist/family-command-center/browser
           cname: false
-          
