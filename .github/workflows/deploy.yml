@@ -42,7 +42,7 @@ jobs:
           WEATHER_KEY: ${{ secrets.OPEN_WEATHER_API_KEY }}
           GHAI_TOKEN_VAR: ${{ secrets.GHAI_TOKEN }}
         run: |
-          cat > src/environments/environment.prod.ts << 'EOF'
+          cat > src/environments/environment.prod.ts <<EOF
           export const environment = {
             production: true,
             googleCalendar: {
@@ -52,7 +52,7 @@ jobs:
               scopes: 'https://www.googleapis.com/auth/calendar.readonly'
             },
             firebase: {
-              apiKey: "FIREBASE_KEY_PLACEHOLDER",
+              apiKey: "${FIREBASE_KEY}",
               authDomain: "whoa-geier.firebaseapp.com",
               projectId: "whoa-geier",
               storageBucket: "whoa-geier.firebasestorage.app",
@@ -62,17 +62,15 @@ jobs:
             },
             useFirebaseProxy: false,
             useFirestore: true,
-            githubToken: 'GHAI_TOKEN_PLACEHOLDER',
-            weatherApiKey: 'WEATHER_KEY_PLACEHOLDER',
+            githubToken: '${GHAI_TOKEN_VAR}',
+            weatherApiKey: '${WEATHER_KEY}',
             defaultCity: 'Minneapolis'
           };
           EOF
-          sed -i "s|FIREBASE_KEY_PLACEHOLDER|$FIREBASE_KEY|g" src/environments/environment.prod.ts
-          sed -i "s|GHAI_TOKEN_PLACEHOLDER|$GHAI_TOKEN_VAR|g" src/environments/environment.prod.ts
-          sed -i "s|WEATHER_KEY_PLACEHOLDER|$WEATHER_KEY|g" src/environments/environment.prod.ts
           echo "✅ Production environment file created with secrets"
-          echo "Verifying environment file (first 30 lines, secrets masked):"
-          head -30 src/environments/environment.prod.ts | sed 's/AIza[A-Za-z0-9_-]*/AIza***MASKED***/g' | sed 's/github_pat_[A-Za-z0-9_-]*/github_pat_***MASKED***/g' | sed 's/ghp_[A-Za-z0-9_-]*/ghp_***MASKED***/g'
+          echo "Verifying Firebase key is set: $(if [ -n "$FIREBASE_KEY" ]; then echo "✅ Present"; else echo "❌ Missing"; fi)"
+          echo "Verifying GitHub token is set: $(if [ -n "$GHAI_TOKEN_VAR" ]; then echo "✅ Present"; else echo "❌ Missing"; fi)"
+          echo "Verifying Weather key is set: $(if [ -n "$WEATHER_KEY" ]; then echo "✅ Present"; else echo "❌ Missing"; fi)"
           
       - name: Build Angular app
         run: npm run build -- --configuration production --base-href /whoa-geier/
