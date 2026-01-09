@@ -15,8 +15,9 @@ export const environment = {
     appId: "1:457123034868:web:4dac03baaae1786da390a1",
     measurementId: "G-YEFTQYSHBR"
   },
-  useFirestore: true, // Use Firebase Function proxy in production
-  githubToken: '', // NOT USED in production - function uses server-side token
-  weatherApiKey: 'OPEN_WEATHER_API_KEY',
+  useFirebaseProxy: false, // Set to true when Firebase Function is deployed
+  useFirestore: true, // Use Firestore for data storage
+  githubToken: 'YOUR_GITHUB_TOKEN_HERE', // Add your token for now, or deploy Firebase Function
+  weatherApiKey: '92201f509d2af1b53bba583a108c2422',
   defaultCity: 'Minneapolis'
 };

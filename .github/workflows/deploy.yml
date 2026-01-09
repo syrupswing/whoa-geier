@@ -33,18 +33,41 @@ jobs:
           echo "Checking if secrets are set..."
           if [ -z "${{ secrets.FIREBASE_API_KEY }}" ]; then echo "⚠️  FIREBASE_API_KEY is not set"; fi
           if [ -z "${{ secrets.OPEN_WEATHER_API_KEY }}" ]; then echo "⚠️  OPEN_WEATHER_API_KEY is not set"; fi
-          echo "✅ Secret check complete (GitHub PAT should NOT be deployed to frontend)"
+          if [ -z "${{ secrets.GITHUB_AI_TOKEN }}" ]; then echo "⚠️  GITHUB_AI_TOKEN is not set"; fi
+          echo "✅ Secret check complete"
         
-      - name: Inject secrets into environment file
+      - name: Create production environment file with secrets
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_API_KEY }}
           WEATHER_KEY: ${{ secrets.OPEN_WEATHER_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_AI_TOKEN }}
         run: |
-          echo "Injecting secrets into environment.ts..."
-          sed -i "s/FIREBASE_API_KEY/$FIREBASE_KEY/g" src/environments/environment.ts
-          sed -i "s/OPEN_WEATHER_API_KEY/$WEATHER_KEY/g" src/environments/environment.ts
-          echo "⚠️  NOTE: GitHub PAT should NOT be in frontend code - use backend proxy instead"
-          echo "✅ Secrets injected successfully"
+          cat > src/environments/environment.prod.ts << EOF
+          export const environment = {
+            production: true,
+            googleCalendar: {
+              apiKey: '',
+              clientId: '675585365638-bi72vup1j25pgpa2orhul8i18507cs4p.apps.googleusercontent.com',
+              discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
+              scopes: 'https://www.googleapis.com/auth/calendar.readonly'
+            },
+            firebase: {
+              apiKey: "$FIREBASE_KEY",
+              authDomain: "whoa-geier.firebaseapp.com",
+              projectId: "whoa-geier",
+              storageBucket: "whoa-geier.firebasestorage.app",
+              messagingSenderId: "457123034868",
+              appId: "1:457123034868:web:4dac03baaae1786da390a1",
+              measurementId: "G-YEFTQYSHBR"
+            },
+            useFirebaseProxy: false,
+            useFirestore: true,
+            githubToken: '$GITHUB_TOKEN',
+            weatherApiKey: '$WEATHER_KEY',
+            defaultCity: 'Minneapolis'
+          };
+          EOF
+          echo "✅ Production environment file created with secrets"
           
       - name: Build Angular app
         run: npm run build -- --configuration production --base-href /whoa-geier/
