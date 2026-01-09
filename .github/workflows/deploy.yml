@@ -71,9 +71,16 @@ jobs:
           sed -i "s|GHAI_TOKEN_PLACEHOLDER|$GHAI_TOKEN_VAR|g" src/environments/environment.prod.ts
           sed -i "s|WEATHER_KEY_PLACEHOLDER|$WEATHER_KEY|g" src/environments/environment.prod.ts
           echo "✅ Production environment file created with secrets"
+          echo "Verifying environment file (first 30 lines, secrets masked):"
+          head -30 src/environments/environment.prod.ts | sed 's/AIza[A-Za-z0-9_-]*/AIza***MASKED***/g' | sed 's/github_pat_[A-Za-z0-9_-]*/github_pat_***MASKED***/g' | sed 's/ghp_[A-Za-z0-9_-]*/ghp_***MASKED***/g'
           
       - name: Build Angular app
         run: npm run build -- --configuration production --base-href /whoa-geier/
+        
+      - name: Copy index.html as 404.html for GitHub Pages routing
+        run: |
+          cp dist/family-command-center/browser/index.html dist/family-command-center/browser/404.html
+          echo "✅ Copied index.html to 404.html for client-side routing"
         
       - name: Deploy to GitHub Pages
         if: github.ref == 'refs/heads/main'
