@@ -271,11 +271,121 @@
       margin-bottom: 12px;
     }
     
+    // Connection Status Badge
+    .connection-status-badge {
+      cursor: pointer;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      border-radius: 8px;
+      border: 2px solid;
+      transition: all 0.2s ease;
+      
+      .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        
+        .status-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+        
+        .status-text {
+          font-size: 13px;
+          font-weight: 600;
+        }
+      }
+      
+      &.connected {
+        background-color: rgba(76, 175, 80, 0.1);
+        border-color: #4caf50;
+        
+        .status-icon {
+          color: #4caf50;
+        }
+        
+        .status-text {
+          color: #2e7d32;
+        }
+        
+        &:hover {
+          background-color: rgba(76, 175, 80, 0.15);
+        }
+      }
+      
+      &.disconnected {
+        background-color: rgba(255, 152, 0, 0.1);
+        border-color: #ff9800;
+        
+        .status-icon {
+          color: #ff9800;
+        }
+        
+        .status-text {
+          color: #e65100;
+        }
+        
+        &:hover {
+          background-color: rgba(255, 152, 0, 0.15);
+        }
+      }
+    }
+    
+    // Setup Prompt Card
+    .setup-prompt-card {
+      background: linear-gradient(135deg, rgba(255, 152, 0, 0.05) 0%, rgba(255, 152, 0, 0.1) 100%);
+      border: 1px solid rgba(255, 152, 0, 0.3);
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      animation: slideIn 0.3s ease;
+      
+      .prompt-icon {
+        color: #ff9800;
+        font-size: 24px;
+        width: 24px;
+        height: 24px;
+        margin-bottom: 8px;
+      }
+      
+      .prompt-text {
+        margin: 0 0 12px 0;
+        font-size: 12px;
+        line-height: 1.4;
+        color: rgba(0, 0, 0, 0.87);
+      }
+      
+      .setup-button {
+        width: 100%;
+        font-size: 12px;
+        
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          margin-right: 4px;
+        }
+      }
+    }
+    
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-8px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+    
     .counter-item {
       display: flex;
       align-items: center;
       gap: 12px;
       padding: 8px 0;
+      position: relative;
       
       .counter-icon {
         font-size: 20px;
@@ -302,6 +412,21 @@
           font-weight: 600;
           color: rgba(0, 0, 0, 0.87);
           line-height: 1.2;
+        }
+      }
+      
+      .reset-counter-btn {
+        opacity: 0.6;
+        transition: opacity 0.2s ease;
+        
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+        
+        &:hover {
+          opacity: 1;
         }
       }
     }
@@ -340,6 +465,41 @@
     .counter-section {
       .counter-label {
         color: rgba(255, 255, 255, 0.6);
+      }
+      
+      // Dark mode connection status badge
+      .connection-status-badge {
+        &.connected {
+          background-color: rgba(76, 175, 80, 0.15);
+          border-color: #66bb6a;
+          
+          .status-text {
+            color: #81c784;
+          }
+        }
+        
+        &.disconnected {
+          background-color: rgba(255, 152, 0, 0.15);
+          border-color: #ffa726;
+          
+          .status-text {
+            color: #ffb74d;
+          }
+        }
+      }
+      
+      // Dark mode setup prompt
+      .setup-prompt-card {
+        background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.15) 100%);
+        border-color: rgba(255, 152, 0, 0.4);
+        
+        .prompt-icon {
+          color: #ffa726;
+        }
+        
+        .prompt-text {
+          color: rgba(255, 255, 255, 0.87);
+        }
       }
       
       .counter-item {

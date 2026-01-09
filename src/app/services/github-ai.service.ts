@@ -1,5 +1,6 @@
 import { Injectable } from '@angular/core';
 import { environment } from '../../environments/environment';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 
 export interface GithubAiResponse {
   text: string;
@@ -30,15 +31,15 @@ export interface MealPlanSuggestion {
   providedIn: 'root'
 })
 export class GithubAiService {
-  private readonly API_URL = 'https://models.inference.ai.azure.com/chat/completions';
-  private readonly MODEL = 'gpt-4o-mini'; // GitHub Models default
+  private useFirebaseProxy = environment.production || environment.useFirebaseProxy;
   
   constructor() {}
 
   /**
-   * Check if API key is configured
+   * Check if API is configured with a valid GitHub token
    */
   isConfigured(): boolean {
+    // Always check for a valid token, regardless of proxy setting
     return !!environment.githubToken && 
            environment.githubToken !== 'GHAI_TOKEN' && 
            (environment.githubToken.startsWith('github_pat_') || environment.githubToken.startsWith('ghp_'));
@@ -176,12 +177,25 @@ Provide brief descriptions and what makes each one special. Format as a simple t
       return {
         success: false,
         text: '',
-        error: 'GitHub Personal Access Token not configured. Please add your token to the environment file.'
+        error: 'AI service not configured.'
       };
     }
 
     try {
-      const response = await fetch(this.API_URL, {
+      // Use Firebase Cloud Function proxy in production
+      if (this.useFirebaseProxy) {
+        const functions = getFunctions();
+        const aiProxy = httpsCallable(functions, 'aiProxy');
+        const result = await aiProxy({ prompt });
+        
+        // Increment API call counter
+        this.incrementApiCounter();
+        
+        return result.data as GithubAiResponse;
+      }
+
+      // Use direct API call in local development
+      const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -194,7 +208,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
               content: prompt
             }
           ],
-          model: this.MODEL,
+          model: 'gpt-4o-mini',
           temperature: 0.7,
           max_tokens: 4096
         })
@@ -226,7 +240,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
         text: resultText
       };
     } catch (error: any) {
-      console.error('GitHub Models API error:', error);
+      console.error('AI API error:', error);
       return {
         success: false,
         text: '',

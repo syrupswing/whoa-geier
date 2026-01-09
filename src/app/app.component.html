@@ -58,12 +58,44 @@
       <div class="counter-section">
         <div class="counter-label">AI API Usage</div>
         
-        <div class="counter-item">
+        <!-- Connection Status Badge -->
+        <div class="connection-status-badge" 
+             [class.connected]="isAIConnected()"
+             [class.disconnected]="!isAIConnected()"
+             (click)="toggleAISetupPrompt()">
+          <div class="status-indicator">
+            <mat-icon class="status-icon">
+              {{ isAIConnected() ? 'check_circle' : 'warning' }}
+            </mat-icon>
+            <span class="status-text">
+              {{ isAIConnected() ? 'Connected' : 'Not Connected' }}
+            </span>
+          </div>
+        </div>
+        
+        <!-- Setup Prompt -->
+        <div class="setup-prompt-card" *ngIf="showAISetupPrompt() && !isAIConnected()">
+          <mat-icon class="prompt-icon">info</mat-icon>
+          <p class="prompt-text">GitHub AI features need configuration</p>
+          <button mat-raised-button color="primary" class="setup-button" (click)="navigateToAISetup()">
+            <mat-icon>settings</mat-icon>
+            Configure Now
+          </button>
+        </div>
+        
+        <div class="counter-item" *ngIf="isAIConnected()">
           <mat-icon class="counter-icon github">code</mat-icon>
           <div class="counter-info">
             <span class="counter-name">GitHub Models</span>
-            <span class="counter-value">{{ githubApiCalls() }}</span>
+            <span class="counter-value">{{ githubApiCalls() }} calls</span>
           </div>
+          <button 
+            mat-icon-button 
+            class="reset-counter-btn"
+            (click)="resetApiCounter()"
+            matTooltip="Reset counter">
+            <mat-icon>refresh</mat-icon>
+          </button>
         </div>
       </div>
     </div>
