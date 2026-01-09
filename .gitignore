@@ -31,6 +31,7 @@ yarn-error.log
 
 # Environment files with secrets
 /src/environments/environment.local.ts
+/src/environments/environment.prod.ts
 
 # Miscellaneous
 /.angular/cache
