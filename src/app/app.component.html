@@ -3,10 +3,12 @@
   <mat-spinner></mat-spinner>
 </div>
 
-<!-- Show login component when not authenticated and not loading -->
-<router-outlet *ngIf="!authService.isAuthenticated() && !authService.isLoading()"></router-outlet>
+<!-- Show login page without chrome when not authenticated -->
+<div *ngIf="!authService.isAuthenticated() && !authService.isLoading()" class="login-container">
+  <router-outlet></router-outlet>
+</div>
 
-<!-- Show main app when authenticated and not loading -->
+<!-- Show main app with sidenav when authenticated and not loading -->
 <mat-sidenav-container class="sidenav-container" *ngIf="authService.isAuthenticated() && !authService.isLoading()">
 
   <mat-sidenav 

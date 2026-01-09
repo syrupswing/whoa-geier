@@ -15,11 +15,8 @@ export const environment = {
     scopes: 'https://www.googleapis.com/auth/calendar.readonly'
   },
   firebase: {
-    // Get these from Firebase Console: https://console.firebase.google.com/
-    // 1. Create a new project (can use same as Google Calendar)
-    // 2. Add a web app to your Firebase project
-    // 3. Copy the config values here
-    apiKey: "FIREBASE_API_KEY",
+    // These will be injected during build from GitHub Secrets in production
+    apiKey: "FIREBASE_API_KEY_PLACEHOLDER",
     authDomain: "whoa-geier.firebaseapp.com",
     projectId: "whoa-geier",
     storageBucket: "whoa-geier.firebasestorage.app",
@@ -29,7 +26,7 @@ export const environment = {
   },
   useFirebaseProxy: false, // Use Firebase Functions to proxy GitHub API calls (more secure for production)
   useFirestore: true, // Use Firestore for data storage (recipes, grocery lists, etc.)
-  githubToken: 'GHAI_TOKEN', // Get from https://github.com/settings/tokens (classic token with no scopes needed for GitHub Models API)
-  weatherApiKey: 'OPEN_WEATHER_API_KEY', // Get from https://openweathermap.org/api (free tier available)
+  githubToken: 'GHAI_TOKEN_PLACEHOLDER', // Will be injected during build from GitHub Secrets
+  weatherApiKey: 'OPEN_WEATHER_API_KEY_PLACEHOLDER', // Will be injected during build from GitHub Secrets
   defaultCity: 'Minneapolis' // Fallback city if geolocation fails
 };

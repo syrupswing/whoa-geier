@@ -47,5 +47,9 @@ export const routes: Routes = [
     path: 'remi-world',
     loadComponent: () => import('./features/remi-world/remi-world.component').then(m => m.RemiWorldComponent),
     canActivate: [authGuard]
+  },
+  {
+    path: '**',
+    redirectTo: '/login'
   }
 ];

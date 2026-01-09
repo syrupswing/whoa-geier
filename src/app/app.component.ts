@@ -99,7 +99,8 @@ export class AppComponent implements OnInit {
   async signOut(): Promise<void> {
     try {
       await this.authService.signOut();
-      // Router will automatically redirect to /login via authGuard
+      // Explicitly navigate to login page
+      this.router.navigate(['/login']);
     } catch (error) {
       console.error('Error signing out:', error);
     }
