@@ -33,14 +33,14 @@ jobs:
           echo "Checking if secrets are set..."
           if [ -z "${{ secrets.FIREBASE_API_KEY }}" ]; then echo "⚠️  FIREBASE_API_KEY is not set"; fi
           if [ -z "${{ secrets.OPEN_WEATHER_API_KEY }}" ]; then echo "⚠️  OPEN_WEATHER_API_KEY is not set"; fi
-          if [ -z "${{ secrets.GITHUB_AI_TOKEN }}" ]; then echo "⚠️  GITHUB_AI_TOKEN is not set"; fi
+          if [ -z "${{ secrets.GHAI_TOKEN }}" ]; then echo "⚠️  GHAI_TOKEN is not set"; fi
           echo "✅ Secret check complete"
         
       - name: Create production environment file with secrets
         env:
           FIREBASE_KEY: ${{ secrets.FIREBASE_API_KEY }}
           WEATHER_KEY: ${{ secrets.OPEN_WEATHER_API_KEY }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_AI_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GHAI_TOKEN }}
         run: |
           cat > src/environments/environment.prod.ts << EOF
           export const environment = {
