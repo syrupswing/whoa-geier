@@ -36,12 +36,18 @@ export class GithubAiService {
   constructor() {}
 
   /**
-   * Check if API is configured with a valid GitHub token
+   * Check if API is configured with a valid GitHub token OR using Firebase proxy
    */
   isConfigured(): boolean {
-    // Always check for a valid token, regardless of proxy setting
+    // If using Firebase proxy, we don't need a client-side token
+    if (this.useFirebaseProxy) {
+      return true;
+    }
+    
+    // For direct API calls, check for a valid token
     return !!environment.githubToken && 
            environment.githubToken !== 'GHAI_TOKEN' && 
+           environment.githubToken !== '' &&
            (environment.githubToken.startsWith('github_pat_') || environment.githubToken.startsWith('ghp_'));
   }
 
