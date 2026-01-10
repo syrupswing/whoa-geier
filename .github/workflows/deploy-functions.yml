@@ -33,6 +33,6 @@ jobs:
           cd functions
           npm ci
           cd ..
-          # Provide the environment variable value for deployment
-          echo "GITHUB_TOKEN=$GITHUB_TOKEN" > .env.local
+          # Provide the environment variable value for deployment in the functions directory
+          echo "GITHUB_TOKEN=$GITHUB_TOKEN" > functions/.env
           firebase deploy --only functions --project whoa-geier --non-interactive --force
