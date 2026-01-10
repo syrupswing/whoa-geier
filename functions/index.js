@@ -1,30 +1,25 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
+const {onCall} = require('firebase-functions/v2/https');
+const {defineSecret} = require('firebase-functions/params');
 
-admin.initializeApp();
+// Define the secret parameter
+const githubToken = defineSecret('GITHUB_TOKEN');
 
 /**
  * Proxy requests to GitHub Models API
  * Keeps the GitHub PAT secure on the backend
  */
-exports.aiProxy = functions.https.onCall(async (data, context) => {
-  // Get the GitHub PAT from environment variable
-  const githubToken = process.env.GITHUB_TOKEN;
+exports.aiProxy = onCall({secrets: [githubToken]}, async (request) => {
+  // Get the GitHub PAT from secret
+  const token = githubToken.value();
   
-  if (!githubToken) {
-    throw new functions.https.HttpsError(
-      'failed-precondition',
-      'GitHub token not configured. Set GITHUB_TOKEN environment variable.'
-    );
+  if (!token) {
+    throw new Error('GitHub token not configured');
   }
 
-  const { prompt } = data;
+  const { prompt } = request.data;
 
   if (!prompt || typeof prompt !== 'string') {
-    throw new functions.https.HttpsError(
-      'invalid-argument',
-      'Prompt is required and must be a string'
-    );
+    throw new Error('Prompt is required and must be a string');
   }
 
   try {
@@ -32,7 +27,7 @@ exports.aiProxy = functions.https.onCall(async (data, context) => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${githubToken}`
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify({
         messages: [

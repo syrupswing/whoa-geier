@@ -21,13 +21,13 @@ jobs:
       - name: Install Firebase CLI
         run: npm install -g firebase-tools
       
-      - name: Deploy to Firebase Functions
+      - name: Deploy to Firebase Functions  
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          GITHUB_TOKEN_FOR_AI: ${{ secrets.GHAI_TOKEN }}
+          GITHUB_TOKEN_SECRET: ${{ secrets.GHAI_TOKEN }}
         run: |
           cd functions
           npm ci
           cd ..
-          firebase functions:config:set github.token="$GITHUB_TOKEN_FOR_AI" --token "$FIREBASE_TOKEN" --project whoa-geier
-          firebase deploy --only functions --token "$FIREBASE_TOKEN" --project whoa-geier
+          # Deploy with the secret value
+          firebase deploy --only functions --token "$FIREBASE_TOKEN" --project whoa-geier --non-interactive --force
