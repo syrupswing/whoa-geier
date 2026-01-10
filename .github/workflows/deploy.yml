@@ -60,15 +60,14 @@ jobs:
               appId: "1:457123034868:web:4dac03baaae1786da390a1",
               measurementId: "G-YEFTQYSHBR"
             },
-            useFirebaseProxy: false,
+            useFirebaseProxy: true, // Use Firebase Functions for AI in production
             useFirestore: true,
-            githubToken: 'GHAI_TOKEN_PLACEHOLDER',
+            githubToken: '', // DO NOT put secret tokens in client-side code - use Firebase Functions instead
             weatherApiKey: 'WEATHER_KEY_PLACEHOLDER',
             defaultCity: 'Minneapolis'
           };
           EOF
           sed -i "s|FIREBASE_KEY_PLACEHOLDER|$FIREBASE_KEY|g" src/environments/environment.prod.ts
-          sed -i "s|GHAI_TOKEN_PLACEHOLDER|$GHAI_TOKEN_VAR|g" src/environments/environment.prod.ts
           sed -i "s|WEATHER_KEY_PLACEHOLDER|$WEATHER_KEY|g" src/environments/environment.prod.ts
           echo "✅ Production environment file created with secrets"
           echo "Verifying environment file (first 30 lines, secrets masked):"
