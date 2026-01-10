@@ -26,25 +26,6 @@ jobs:
         with:
           credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       
-      - name: Create Secret in Secret Manager
-        run: |
-          # Create or update the secret
-          if gcloud secrets describe GITHUB_TOKEN --project=whoa-geier 2>/dev/null; then
-            echo "Secret exists, updating..."
-            echo -n "${{ secrets.GHAI_TOKEN }}" | gcloud secrets versions add GITHUB_TOKEN --data-file=- --project=whoa-geier
-          else
-            echo "Creating new secret..."
-            echo -n "${{ secrets.GHAI_TOKEN }}" | gcloud secrets create GITHUB_TOKEN --data-file=- --project=whoa-geier
-          fi
-          
-      - name: Grant Secret Access to Function
-        run: |
-          # Grant the Cloud Functions service account access to the secret
-          gcloud secrets add-iam-policy-binding GITHUB_TOKEN \
-            --member="serviceAccount:whoa-geier@appspot.gserviceaccount.com" \
-            --role="roles/secretmanager.secretAccessor" \
-            --project=whoa-geier
-      
       - name: Deploy to Firebase Functions  
         run: |
           cd functions
