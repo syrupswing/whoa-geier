@@ -33,4 +33,6 @@ jobs:
           cd functions
           npm ci
           cd ..
-          firebase deploy --only functions --project whoa-geier --non-interactive --force
+          # Deploy and provide the secret value
+          firebase deploy --only functions --project whoa-geier --non-interactive --force \
+            --set-secrets="GITHUB_TOKEN=$GITHUB_TOKEN_SECRET"
