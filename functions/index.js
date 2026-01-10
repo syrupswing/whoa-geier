@@ -1,4 +1,8 @@
 const {onCall} = require('firebase-functions/v2/https');
+const {defineString} = require('firebase-functions/params');
+
+// Define environment variable parameter
+const githubToken = defineString('GITHUB_TOKEN');
 
 /**
  * Proxy requests to GitHub Models API
@@ -6,7 +10,7 @@ const {onCall} = require('firebase-functions/v2/https');
  */
 exports.aiProxy = onCall(async (request) => {
   // Get the GitHub PAT from environment variable
-  const token = process.env.GITHUB_TOKEN;
+  const token = githubToken.value();
   
   if (!token) {
     throw new Error('GitHub token not configured');
