@@ -31,4 +31,6 @@ jobs:
           cd functions
           npm ci
           cd ..
+          # Set environment variable during deploy
+          firebase functions:config:set github.token="${{ secrets.GHAI_TOKEN }}" --project whoa-geier --non-interactive || true
           firebase deploy --only functions --project whoa-geier --non-interactive --force

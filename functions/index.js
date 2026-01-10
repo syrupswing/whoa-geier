@@ -1,16 +1,12 @@
 const {onCall} = require('firebase-functions/v2/https');
-const {defineSecret} = require('firebase-functions/params');
-
-// Define the secret parameter
-const githubToken = defineSecret('GITHUB_TOKEN');
 
 /**
  * Proxy requests to GitHub Models API
  * Keeps the GitHub PAT secure on the backend
  */
-exports.aiProxy = onCall({secrets: [githubToken]}, async (request) => {
-  // Get the GitHub PAT from secret
-  const token = githubToken.value();
+exports.aiProxy = onCall(async (request) => {
+  // Get the GitHub PAT from environment variable
+  const token = process.env.GITHUB_TOKEN;
   
   if (!token) {
     throw new Error('GitHub token not configured');
