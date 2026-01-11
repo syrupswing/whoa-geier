@@ -13,7 +13,6 @@ import { BreakpointObserver, Breakpoints } from '@angular/cdk/layout';
 import { Observable } from 'rxjs';
 import { map, shareReplay } from 'rxjs/operators';
 import { CommonModule } from '@angular/common';
-import { ThemeService } from './services/theme.service';
 import { WeatherService } from './services/weather.service';
 import { AuthService } from './services/auth.service';
 import { GithubAiService } from './services/github-ai.service';
@@ -58,7 +57,6 @@ export class AppComponent implements OnInit {
   constructor(
     private breakpointObserver: BreakpointObserver,
     private router: Router,
-    public themeService: ThemeService,
     public weatherService: WeatherService,
     public authService: AuthService,
     public githubAiService: GithubAiService
@@ -90,10 +88,6 @@ export class AppComponent implements OnInit {
     if (event.key === 'githubApiCallCount' && event.newValue) {
       this.githubApiCalls.set(parseInt(event.newValue, 10));
     }
-  }
-
-  toggleTheme(): void {
-    this.themeService.toggle();
   }
 
   async signOut(): Promise<void> {

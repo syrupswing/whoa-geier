@@ -113,6 +113,7 @@
         *ngIf="isHandset$ | async">
         <mat-icon>menu</mat-icon>
       </button>
+      <img src="assets/WG-logo-white.svg" alt="App Logo" height="30" />
       <span>{{ title }}</span>
       <span class="spacer"></span>
       
@@ -133,15 +134,6 @@
           </button>
         </mat-menu>
       </div>
-      
-      <button
-        type="button"
-        mat-icon-button
-        (click)="toggleTheme()"
-        [matTooltip]="themeService.isDarkMode() ? 'Switch to light mode' : 'Switch to dark mode'"
-        aria-label="Toggle dark mode">
-        <mat-icon>{{ themeService.isDarkMode() ? 'light_mode' : 'dark_mode' }}</mat-icon>
-      </button>
     </mat-toolbar>
 
     <div class="content">

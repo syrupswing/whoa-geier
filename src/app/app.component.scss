@@ -239,6 +239,9 @@
   position: sticky;
   top: 0;
   z-index: 12;
+  background-color: #60316b;
+  gap: 12px;
+  height: 44px;
 }
 
 .content {
@@ -446,77 +449,6 @@
         font-size: 14px;
         width: 14px;
         height: 14px;
-      }
-    }
-  }
-}
-
-/* Dark mode adjustments */
-:host-context(.dark-mode) {
-  .active-link {
-    background-color: rgba(255, 255, 255, 0.08);
-  }
-  
-  .sidenav {
-    background-color: #2d2d2d;
-  }
-  
-  .api-counters {
-    .counter-section {
-      .counter-label {
-        color: rgba(255, 255, 255, 0.6);
-      }
-      
-      // Dark mode connection status badge
-      .connection-status-badge {
-        &.connected {
-          background-color: rgba(76, 175, 80, 0.15);
-          border-color: #66bb6a;
-          
-          .status-text {
-            color: #81c784;
-          }
-        }
-        
-        &.disconnected {
-          background-color: rgba(255, 152, 0, 0.15);
-          border-color: #ffa726;
-          
-          .status-text {
-            color: #ffb74d;
-          }
-        }
-      }
-      
-      // Dark mode setup prompt
-      .setup-prompt-card {
-        background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(255, 152, 0, 0.15) 100%);
-        border-color: rgba(255, 152, 0, 0.4);
-        
-        .prompt-icon {
-          color: #ffa726;
-        }
-        
-        .prompt-text {
-          color: rgba(255, 255, 255, 0.87);
-        }
-      }
-      
-      .counter-item {
-        .counter-info {
-          .counter-name {
-            color: rgba(255, 255, 255, 0.87);
-          }
-          
-          .counter-value {
-            color: rgba(255, 255, 255, 0.87);
-          }
-        }
-      }
-      
-      .counter-note {
-        background: rgba(255, 255, 255, 0.08);
-        color: rgba(255, 255, 255, 0.6);
       }
     }
   }

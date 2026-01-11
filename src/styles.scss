@@ -8,8 +8,8 @@ $primary-palette: mat.define-palette(mat.$indigo-palette);
 $accent-palette: mat.define-palette(mat.$pink-palette, A200, A100, A400);
 $warn-palette: mat.define-palette(mat.$red-palette);
 
-// Light Theme Configuration
-$light-theme: mat.define-light-theme((
+// Theme Configuration
+$theme: mat.define-light-theme((
   color: (
     primary: $primary-palette,
     accent: $accent-palette,
@@ -19,27 +19,8 @@ $light-theme: mat.define-light-theme((
   density: 0,
 ));
 
-// Dark Theme Configuration
-$dark-theme: mat.define-dark-theme((
-  color: (
-    primary: $primary-palette,
-    accent: $accent-palette,
-    warn: $warn-palette,
-  ),
-  typography: mat.define-typography-config(),
-  density: 0,
-));
-
-// Default light theme
-@include mat.all-component-themes($light-theme);
-
-// Dark theme styles
-.dark-mode {
-  @include mat.all-component-colors($dark-theme);
-  
-  background-color: #1e1e1e;
-  color: #e0e0e0;
-}
+// Apply theme
+@include mat.all-component-themes($theme);
 
 /* Global Styles */
 * {
@@ -51,7 +32,6 @@ $dark-theme: mat.define-dark-theme((
 html, body {
   height: 100%;
   font-family: Roboto, "Helvetica Neue", sans-serif;
-  transition: background-color 0.25s ease-in-out, color 0.25s ease-in-out;
 }
 
 /* Material Symbols Configuration */
@@ -76,11 +56,6 @@ html, body {
 body {
   margin: 0;
   background-color: #f5f5f5;
-}
-
-body.dark-mode {
-  background-color: #1e1e1e;
-  color: #e0e0e0;
 }
 
 /* Mobile-First Container Styles */
@@ -110,10 +85,6 @@ body.dark-mode {
 /* Utility Classes */
 .mat-elevation-z2 {
   box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-}
-
-.dark-mode .mat-elevation-z2 {
-  box-shadow: 0 2px 4px rgba(0,0,0,0.5);
 }
 
 .spacer {
