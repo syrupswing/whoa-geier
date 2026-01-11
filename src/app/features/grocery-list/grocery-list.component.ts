@@ -13,6 +13,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatSelectModule } from '@angular/material/select';
 import { FormControl } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
@@ -37,7 +38,8 @@ import { GithubAiService } from '../../services/github-ai.service';
     MatBadgeModule,
     MatTooltipModule,
     MatSnackBarModule,
-    MatAutocompleteModule
+    MatAutocompleteModule,
+    MatSelectModule
   ],
   templateUrl: './grocery-list.component.html',
   styleUrls: ['./grocery-list.component.scss']
@@ -45,6 +47,9 @@ import { GithubAiService } from '../../services/github-ai.service';
 export class GroceryListComponent implements OnInit {
   @ViewChild('itemInput') itemInput!: ElementRef<HTMLInputElement>;
   newItemName = '';
+  newItemQuantity?: number;
+  newItemUnit?: string;
+  newItemNotes?: string;
   itemControl = new FormControl('');
   filteredItems!: Observable<string[]>;
   itemLocations = new Map<string, string>();
@@ -53,6 +58,31 @@ export class GroceryListComponent implements OnInit {
   isSortingByStore = false;
   isSorting = false;
   showAddItemForm = false;
+  editingItemId: string | null = null;
+  editingItemName = '';
+  editingItemQuantity?: number;
+  editingItemUnit?: string;
+  editingItemNotes?: string;
+  
+  unitOptions = [
+    { value: 'each', label: 'Each' },
+    { value: 'oz', label: 'Ounce (oz)' },
+    { value: 'lbs', label: 'Pound (lbs)' },
+    { value: 'kg', label: 'Kilogram (kg)' },
+    { value: 'g', label: 'Gram (g)' },
+    { value: 'ml', label: 'Milliliter (ml)' },
+    { value: 'l', label: 'Liter (L)' },
+    { value: 'cup', label: 'Cup' },
+    { value: 'tbsp', label: 'Tablespoon' },
+    { value: 'tsp', label: 'Teaspoon' },
+    { value: 'dozen', label: 'Dozen' },
+    { value: 'pkg', label: 'Package' },
+    { value: 'can', label: 'Can' },
+    { value: 'bottle', label: 'Bottle' },
+    { value: 'box', label: 'Box' },
+    { value: 'bag', label: 'Bag' }
+  ];
+  
   private githubAi = inject(GithubAiService);
   private snackBar = inject(MatSnackBar);
   
@@ -126,9 +156,20 @@ export class GroceryListComponent implements OnInit {
         .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
         .join(' ');
       
-      await this.groceryService.addItem(capitalizedName);
+      // Convert empty string to undefined for unit
+      const unitValue = this.newItemUnit && this.newItemUnit.trim() ? this.newItemUnit : undefined;
+      
+      await this.groceryService.addItem(
+        capitalizedName,
+        this.newItemQuantity,
+        unitValue,
+        this.newItemNotes
+      );
       this.itemControl.setValue('');
       this.newItemName = '';
+      this.newItemQuantity = undefined;
+      this.newItemUnit = undefined;
+      this.newItemNotes = undefined;
       this.showAddItemForm = false;
       this.snackBar.open(`Added "${capitalizedName}" to your list`, 'Close', { duration: 2000 });
     }
@@ -343,5 +384,62 @@ Return ONLY a JSON object mapping each item name to its category. Example format
 
   isLoadingLocation(itemId: string): boolean {
     return this.loadingLocations.has(itemId);
+  }
+
+  startEditItem(item: GroceryItem): void {
+    this.editingItemId = item.id;
+    this.editingItemName = item.name;
+    this.editingItemQuantity = item.quantity;
+    this.editingItemUnit = item.unit;
+    this.editingItemNotes = item.notes;
+  }
+
+  cancelEdit(): void {
+    this.editingItemId = null;
+    this.editingItemName = '';
+    this.editingItemQuantity = undefined;
+    this.editingItemUnit = undefined;
+    this.editingItemNotes = undefined;
+  }
+
+  async saveEdit(): Promise<void> {
+    if (!this.editingItemId || !this.editingItemName.trim()) {
+      return;
+    }
+
+    try {
+      // Convert empty string to undefined for unit
+      const unitValue = this.editingItemUnit && this.editingItemUnit.trim() ? this.editingItemUnit : undefined;
+      
+      await this.groceryService.updateItem(this.editingItemId, {
+        name: this.editingItemName.trim(),
+        quantity: this.editingItemQuantity,
+        unit: unitValue,
+        notes: this.editingItemNotes
+      });
+      
+      this.snackBar.open('Item updated successfully', 'Close', { duration: 2000 });
+      this.cancelEdit();
+    } catch (error) {
+      console.error('Error updating item:', error);
+      this.snackBar.open('Failed to update item. Please try again.', 'Close', { duration: 3000 });
+    }
+  }
+
+  isEditing(itemId: string): boolean {
+    return this.editingItemId === itemId;
+  }
+
+  getItemDisplayText(item: GroceryItem): string {
+    let text = item.name;
+    if (item.quantity) {
+      // Always show quantity (and unit if present) in parentheses after the name
+      if (item.unit && item.unit.trim()) {
+        text = `${text} (${item.quantity} ${item.unit})`;
+      } else {
+        text = `${text} (${item.quantity})`;
+      }
+    }
+    return text;
   }
 }

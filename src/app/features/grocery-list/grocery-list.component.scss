@@ -100,6 +100,76 @@
     &:last-child {
       border-bottom: none;
     }
+
+    &.editing {
+      padding: 16px 0;
+    }
+  }
+}
+
+.item-normal-view {
+  display: flex;
+  width: 100%;
+  gap: 12px;
+
+  .item-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 8px;
+
+    .item-name {
+      font-size: 1rem;
+      font-weight: 500;
+    }
+
+    .item-notes {
+      font-size: 0.875rem;
+      color: #666;
+      font-style: italic;
+    }
+  }
+}
+
+.item-edit-view {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-start;
+  width: 100%;
+  padding: 8px;
+  background-color: rgba(33, 150, 243, 0.05);
+  border-radius: 8px;
+
+  .edit-name-input {
+    flex: 1;
+    min-width: 200px;
+  }
+
+  .edit-quantity-input {
+    width: 80px;
+  }
+
+  .edit-unit-select {
+    width: 120px;
+  }
+
+  .edit-notes-input {
+    flex: 1;
+    min-width: 150px;
+  }
+
+  .edit-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 8px;
+
+    button {
+      width: 40px;
+      height: 40px;
+    }
   }
 }
 
@@ -116,9 +186,24 @@
     display: flex;
     gap: 8px;
     align-items: flex-start;
+    flex-wrap: wrap;
 
     .inline-input {
       flex: 1;
+      min-width: 200px;
+    }
+
+    .quantity-input {
+      width: 80px;
+    }
+
+    .unit-select {
+      width: 120px;
+    }
+
+    .notes-input {
+      flex: 1;
+      min-width: 150px;
     }
 
     .add-button {

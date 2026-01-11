@@ -157,3 +157,25 @@ mat-checkbox.mdc-list-item.mdc-list-item--with-one-line .mdc-list-item__start {
 mat-card-actions.mdc-card__actions {
   justify-content: flex-end;
 }
+.grocery-container {
+  .mdc-list-item--with-trailing-meta .mdc-list-item__end {
+    margin: 0;
+  }
+  .mdc-list-item.mdc-list-item--with-one-line .mdc-list-item__start {
+    align-self: initial;
+  }
+  .mdc-list-item.mdc-list-item--with-one-line .mdc-list-item__end {
+    align-self: flex-start;
+  }
+  .mat-mdc-icon-button.mat-mdc-button-base,
+  .mat-mdc-icon-button .mat-mdc-button-touch-target {
+    height: 40px;
+    width: 40px;
+    padding: 0;
+  }
+  .item-actions button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}

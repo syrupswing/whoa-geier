@@ -9,6 +9,9 @@ export interface GroceryItem {
   id: string;
   name: string;
   completed: boolean;
+  quantity?: number;
+  unit?: string; // 'each', 'oz', 'lbs', 'kg', 'g', 'ml', 'l', 'dozen', etc.
+  notes?: string;
   userId?: string; // Track which user created the item
   createdAt?: string;
   updatedAt?: string;
@@ -79,7 +82,7 @@ export class GroceryService implements OnDestroy {
   /**
    * Add a new grocery item
    */
-  async addItem(name: string): Promise<void> {
+  async addItem(name: string, quantity?: number, unit?: string, notes?: string): Promise<void> {
     if (!name.trim()) return;
 
     const trimmedName = name.trim();
@@ -111,6 +114,9 @@ export class GroceryService implements OnDestroy {
       id: Date.now().toString(),
       name: trimmedName,
       completed: false,
+      quantity,
+      unit,
+      notes,
       userId: this.authService.getUserId() || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
@@ -118,13 +124,21 @@ export class GroceryService implements OnDestroy {
 
     if (this.useFirestore() && this.firestoreService.isInitialized()) {
       // Add to Firestore - don't include the timestamp ID, let Firestore generate it
-      const firestoreData = {
+      // Remove undefined fields as Firestore doesn't accept them
+      const firestoreData: any = {
         name: trimmedName,
         completed: false,
-        userId: this.authService.getUserId() || undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
+      
+      // Only add optional fields if they have values
+      if (quantity !== undefined) firestoreData.quantity = quantity;
+      if (unit !== undefined) firestoreData.unit = unit;
+      if (notes !== undefined) firestoreData.notes = notes;
+      
+      const userId = this.authService.getUserId();
+      if (userId) firestoreData.userId = userId;
       
       const docId = await this.firestoreService.addDocument(this.COLLECTION_NAME, firestoreData);
       
@@ -149,8 +163,18 @@ export class GroceryService implements OnDestroy {
    */
   async updateItem(id: string, updates: Partial<GroceryItem>): Promise<void> {
     if (this.useFirestore() && this.firestoreService.isInitialized()) {
+      // Remove undefined fields as Firestore doesn't accept them
+      const cleanUpdates: any = {};
+      Object.keys(updates).forEach(key => {
+        const value = (updates as any)[key];
+        if (value !== undefined) {
+          cleanUpdates[key] = value;
+        }
+      });
+      cleanUpdates.updatedAt = new Date().toISOString();
+      
       // Update in Firestore
-      await this.firestoreService.updateDocument(this.COLLECTION_NAME, id, updates);
+      await this.firestoreService.updateDocument(this.COLLECTION_NAME, id, cleanUpdates);
     } else {
       // Update in localStorage
       const currentItems = this.items();
