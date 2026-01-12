@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
+  <!-- Large sparkle (left) with rounded inner parts -->
+  <path d="M12 2 Q13 8 14.5 9.5 Q16 11 22 12 Q16 13 14.5 14.5 Q13 16 12 22 Q11 16 9.5 14.5 Q8 13 2 12 Q8 11 9.5 9.5 Q11 8 12 2 Z" />
+  
+  <!-- Small sparkle (top right) with rounded inner parts - moved further away -->
+  <path d="M20.5 1 Q20.7 2.8 21.3 3.5 Q21.9 4.1 23.8 4.5 Q21.9 4.9 21.3 5.5 Q20.7 6.2 20.5 8 Q20.3 6.2 19.7 5.5 Q19.1 4.9 17.2 4.5 Q19.1 4.1 19.7 3.5 Q20.3 2.8 20.5 1 Z" />
+</svg>
