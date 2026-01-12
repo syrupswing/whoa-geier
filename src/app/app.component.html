@@ -8,136 +8,162 @@
   <router-outlet></router-outlet>
 </div>
 
-<!-- Show main app with sidenav when authenticated and not loading -->
-<mat-sidenav-container class="sidenav-container" *ngIf="authService.isAuthenticated() && !authService.isLoading()">
-
-  <mat-sidenav 
-    #drawer 
-    class="sidenav" 
-    fixedInViewport
-    [attr.role]="(isHandset$ | async) ? 'dialog' : 'navigation'"
-    [mode]="(isHandset$ | async) ? 'over' : 'side'"
-    [opened]="(isHandset$ | async) === false">
-    
-    <mat-nav-list>
-      <a mat-list-item routerLink="/" routerLinkActive="active-link" [routerLinkActiveOptions]="{exact: true}">
-        <mat-icon matListItemIcon>dashboard</mat-icon>
-        <span matListItemTitle>Dashboard</span>
-      </a>
-      <a mat-list-item routerLink="/grocery-list" routerLinkActive="active-link">
-        <mat-icon matListItemIcon>shopping_cart</mat-icon>
-        <span matListItemTitle>Grocery List</span>
-      </a>
-      <a mat-list-item routerLink="/recipes" routerLinkActive="active-link">
-        <mat-icon matListItemIcon>restaurant</mat-icon>
-        <span matListItemTitle>Recipes</span>
-      </a>
-      <a mat-list-item routerLink="/restaurants" routerLinkActive="active-link">
-        <mat-icon matListItemIcon>restaurant_menu</mat-icon>
-        <span matListItemTitle>Restaurants</span>
-      </a>
-      <a mat-list-item routerLink="/calendar" routerLinkActive="active-link">
-        <mat-icon matListItemIcon>event</mat-icon>
-        <span matListItemTitle>Calendar</span>
-      </a>
-      <a mat-list-item routerLink="/vehicles" routerLinkActive="active-link">
-        <mat-icon matListItemIcon>directions_car</mat-icon>
-        <span matListItemTitle>Vehicles</span>
-      </a>
-      <a mat-list-item routerLink="/remi-world" routerLinkActive="active-link">
-        <mat-icon matListItemIcon>school</mat-icon>
-        <span matListItemTitle>Remi World</span>
-      </a>
-      <a mat-list-item routerLink="/quick-links" routerLinkActive="active-link">
-        <mat-icon matListItemIcon>link</mat-icon>
-        <span matListItemTitle>Quick Links</span>
-      </a>
-    </mat-nav-list>
-    
-    <mat-divider></mat-divider>
-    
-    <div class="api-counters">
-      <div class="counter-section">
-        <div class="counter-label">AI API Usage</div>
-        
-        <!-- Connection Status Badge -->
-        <div class="connection-status-badge" 
-             [class.connected]="isAIConnected()"
-             [class.disconnected]="!isAIConnected()"
-             (click)="toggleAISetupPrompt()">
-          <div class="status-indicator">
-            <mat-icon class="status-icon">
-              {{ isAIConnected() ? 'check_circle' : 'warning' }}
-            </mat-icon>
-            <span class="status-text">
-              {{ isAIConnected() ? 'Connected' : 'Not Connected' }}
-            </span>
-          </div>
-        </div>
-        
-        <!-- Setup Prompt -->
-        <div class="setup-prompt-card" *ngIf="showAISetupPrompt() && !isAIConnected()">
-          <mat-icon class="prompt-icon">info</mat-icon>
-          <p class="prompt-text">GitHub AI features need configuration</p>
-          <button mat-raised-button color="primary" class="setup-button" (click)="navigateToAISetup()">
-            <mat-icon>settings</mat-icon>
-            Configure Now
-          </button>
-        </div>
-        
-        <div class="counter-item" *ngIf="isAIConnected()">
-          <mat-icon class="counter-icon github">code</mat-icon>
-          <div class="counter-info">
-            <span class="counter-name">GitHub Models</span>
-            <span class="counter-value">{{ githubApiCalls() }} calls</span>
-          </div>
-          <button 
-            mat-icon-button 
-            class="reset-counter-btn"
-            (click)="resetApiCounter()"
-            matTooltip="Reset counter">
-            <mat-icon>refresh</mat-icon>
-          </button>
-        </div>
-      </div>
-    </div>
-  </mat-sidenav>
-
-  <mat-sidenav-content>
-    <mat-toolbar color="primary">
-      <button
-        type="button"
-        aria-label="Toggle sidenav"
-        mat-icon-button
-        (click)="drawer.toggle()"
-        *ngIf="isHandset$ | async">
-        <mat-icon>menu</mat-icon>
-      </button>
+<!-- Show main app when authenticated and not loading -->
+<div class="app-container" *ngIf="authService.isAuthenticated() && !authService.isLoading()">
+  <mat-toolbar color="primary">
+    <a routerLink="/" class="home-link">
       <img src="assets/WG-logo-white.svg" alt="App Logo" height="30" />
       <span>{{ title }}</span>
-      <span class="spacer"></span>
-      
-      <!-- User Menu -->
-      <div class="user-menu" *ngIf="authService.isAuthenticated()">
-        <button mat-icon-button [matMenuTriggerFor]="userMenu">
-          <mat-icon>account_circle</mat-icon>
+    </a>
+    <span class="spacer"></span>
+    
+    <!-- Monitoring Dashboard Toggle -->
+    <button 
+      mat-icon-button 
+      (click)="toggleMonitoringBar()"
+      [class.active]="showMonitoringBar()"
+      matTooltip="System Status"
+      *ngIf="authService.isAuthenticated()">
+      <mat-icon>speed</mat-icon>
+    </button>
+    
+    <!-- User Menu -->
+    <div class="user-menu" *ngIf="authService.isAuthenticated()">
+      <button mat-icon-button [matMenuTriggerFor]="userMenu">
+        <mat-icon>account_circle</mat-icon>
+      </button>
+      <mat-menu #userMenu="matMenu">
+        <div class="user-info">
+          <mat-icon>person</mat-icon>
+          <span>{{ authService.currentUser()?.email }}</span>
+        </div>
+        <mat-divider></mat-divider>
+        <button mat-menu-item (click)="signOut()">
+          <mat-icon>logout</mat-icon>
+          <span>Sign Out</span>
         </button>
-        <mat-menu #userMenu="matMenu">
-          <div class="user-info">
-            <mat-icon>person</mat-icon>
-            <span>{{ authService.currentUser()?.email }}</span>
-          </div>
-          <mat-divider></mat-divider>
-          <button mat-menu-item (click)="signOut()">
-            <mat-icon>logout</mat-icon>
-            <span>Sign Out</span>
-          </button>
-        </mat-menu>
-      </div>
-    </mat-toolbar>
-
-    <div class="content">
-      <router-outlet></router-outlet>
+      </mat-menu>
     </div>
-  </mat-sidenav-content>
-</mat-sidenav-container>
+  </mat-toolbar>
+  
+  <!-- Monitoring Status Bar -->
+  <div class="monitoring-bar" *ngIf="showMonitoringBar() && authService.isAuthenticated()">
+    <div class="monitoring-content">
+      <!-- Firebase/Firestore Status -->
+      <div class="status-item">
+        <mat-icon [class.connected]="firestoreService.isInitialized()" 
+                  [class.disconnected]="!firestoreService.isInitialized()">
+          {{ firestoreService.isInitialized() ? 'cloud_done' : 'cloud_off' }}
+        </mat-icon>
+        <span class="status-label">Firebase</span>
+        <span class="status-value" [class.connected]="firestoreService.isInitialized()" 
+              [class.disconnected]="!firestoreService.isInitialized()">
+          {{ firestoreService.isInitialized() ? 'Connected' : 'Local Only' }}
+        </span>
+      </div>
+      
+      <!-- GitHub AI Status -->
+      <div class="status-item">
+        <img src="assets/icons/sparkle.svg" 
+             alt="AI" 
+             class="custom-icon sparkle-icon"
+             [class.connected]="githubAiService.isConfigured()" 
+             [class.disconnected]="!githubAiService.isConfigured()">
+        <span class="status-label">GitHub AI</span>
+        <span class="status-value" [class.connected]="githubAiService.isConfigured()" 
+              [class.disconnected]="!githubAiService.isConfigured()">
+          {{ githubAiService.isConfigured() ? 'Active' : 'Not Configured' }}
+        </span>
+      </div>
+      
+      <!-- API Call Counter -->
+      <div class="status-item" *ngIf="githubAiService.isConfigured()">
+        <mat-icon class="api-icon">phone_forwarded</mat-icon>
+        <span class="status-label">API Calls</span>
+        <span class="status-value api-count">{{ githubApiCalls() }}</span>
+        <button 
+          mat-icon-button 
+          (click)="resetApiCounter()"
+          matTooltip="Reset counter"
+          class="reset-btn">
+          <mat-icon>refresh</mat-icon>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <router-outlet></router-outlet>
+  </div>
+  
+  <!-- Floating AI Chat -->
+  <div class="floating-chat" *ngIf="showChat()" [@slideUp]>
+    <div class="chat-header">
+      <img src="assets/icons/sparkle.svg" alt="AI" class="chat-header-icon">
+      <h3>AI Assistant</h3>
+      <button mat-icon-button (click)="clearChat()" *ngIf="chatMessages().length > 0" matTooltip="Clear chat">
+        <mat-icon>delete_sweep</mat-icon>
+      </button>
+      <button mat-icon-button (click)="toggleChat()" class="close-btn" matTooltip="Close">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    
+    <div class="chat-body" #floatingChatContainer>
+      <div *ngIf="chatMessages().length === 0" class="chat-empty">
+        <mat-icon>chat_bubble_outline</mat-icon>
+        <p>Start a conversation!</p>
+        <p class="subtitle">Ask about meal planning, schedules, or organizing tips</p>
+      </div>
+      
+      <div *ngFor="let message of chatMessages()" 
+           class="chat-message"
+           [class.user-message]="message.isUser"
+           [class.ai-message]="!message.isUser">
+        <div class="message-content">
+          <mat-icon class="message-icon">{{ message.isUser ? 'person' : 'smart_toy' }}</mat-icon>
+          <div class="message-text">{{ message.text }}</div>
+        </div>
+        <div class="message-time">{{ message.timestamp | date:'shortTime' }}</div>
+      </div>
+      
+      <div *ngIf="isChatLoading()" class="chat-message ai-message loading">
+        <div class="message-content">
+          <mat-icon class="message-icon">smart_toy</mat-icon>
+          <div class="message-text">
+            <mat-spinner diameter="20"></mat-spinner>
+            Thinking...
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="chat-footer">
+      <mat-form-field appearance="outline" class="chat-input-field">
+        <input 
+          matInput 
+          [(ngModel)]="chatInput"
+          (keyup.enter)="sendChatMessage()"
+          placeholder="Type your message..."
+          [disabled]="isChatLoading()">
+      </mat-form-field>
+      <button 
+        mat-mini-fab 
+        color="primary" 
+        (click)="sendChatMessage()"
+        [disabled]="!chatInput.trim() || isChatLoading()">
+        <mat-icon>send</mat-icon>
+      </button>
+    </div>
+  </div>
+  
+  <!-- Chat Toggle Button -->
+  <button 
+    mat-fab 
+    class="chat-toggle-btn"
+    (click)="toggleChat()"
+    [class.chat-open]="showChat()"
+    matTooltip="AI Assistant">
+    <img src="assets/icons/sparkle.svg" alt="AI" class="toggle-icon">
+  </button>
+</div>

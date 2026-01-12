@@ -255,15 +255,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getActiveGroceryItems(): GroceryItem[] {
-    return this.groceryService.items().filter(item => !item.completed).slice(0, 5);
+    return this.groceryService.getActiveItems();
   }
 
   getCompletedGroceryItems(): GroceryItem[] {
-    return this.groceryService.items().filter(item => item.completed).slice(0, 3);
+    return this.groceryService.getCompletedItems().slice(0, 3);
   }
 
   getTotalActiveCount(): number {
-    return this.groceryService.items().filter(item => !item.completed).length;
+    return this.groceryService.getActiveItems().length;
   }
 
   async toggleGroceryItem(id: string): Promise<void> {

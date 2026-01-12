@@ -133,12 +133,15 @@
               <div matListItemMeta class="item-actions">
                 <button 
                   mat-icon-button
-                  (click)="getStoreLocation(item)"
+                  (click)="getStoreLocation(item, locationTooltip)"
                   [matTooltip]="getLocationTooltip(item)"
                   matTooltipPosition="below"
+                  matTooltipShowDelay="300"
+                  matTooltipTouchGestures="on"
                   [disabled]="isLoadingLocation(item.id)"
                   [class.found]="itemLocations.has(item.id)"
-                  class="location-button">
+                  class="location-button"
+                  #locationTooltip="matTooltip">
                   <mat-spinner *ngIf="isLoadingLocation(item.id)" diameter="20"></mat-spinner>
                   <mat-icon *ngIf="!isLoadingLocation(item.id)">
                     {{ itemLocations.has(item.id) ? 'place' : 'not_listed_location' }}

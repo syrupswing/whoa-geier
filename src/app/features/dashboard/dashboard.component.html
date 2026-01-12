@@ -102,6 +102,91 @@
   </div>
 
   <div class="grid">
+    
+    <!-- Quick Link Widgets -->
+    <div class="quick-links-section">
+      <!-- PickUp Patrol Link -->
+      <a href="https://app.pickuppatrol.net/parents/" target="_blank" rel="noopener noreferrer" class="quick-link-card">
+        <mat-icon class="quick-link-icon">directions_bus</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">PickUp Patrol</h3>
+          <p class="quick-link-subtitle">School attendance for Remi</p>
+        </div>
+        <mat-icon class="external-icon">open_in_new</mat-icon>
+      </a>
+      <!-- Lake Harriet School Link -->
+      <a href="https://lakeharriet.mpschools.org/" target="_blank" rel="noopener noreferrer" class="quick-link-card">
+        <mat-icon class="quick-link-icon">school</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">Lake Harriet School</h3>
+          <p class="quick-link-subtitle">Homepage for LHS</p>
+        </div>
+        <mat-icon class="external-icon">open_in_new</mat-icon>
+      </a>
+      <!-- Breakfast Menu Link -->
+      <a href="https://resources.finalsite.net/images/v1765916093/mplsk12mnus/yoikpwn0iqzrkj2geyed/2025-26JanMenus_WEB_D2-1.pdf" target="_blank" rel="noopener noreferrer" class="quick-link-card">
+        <mat-icon class="quick-link-icon">egg_alt</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">School Breakfast</h3>
+          <p class="quick-link-subtitle">PDF of January breakfast at LHS</p>
+        </div>
+        <mat-icon class="external-icon">open_in_new</mat-icon>
+      </a>
+      <!-- Lunch Menu Link -->
+      <a href="https://resources.finalsite.net/images/v1765990747/mplsk12mnus/xeocvayr29nladhgpsee/2025-26JanMenus_WEB_D3_04.pdf" target="_blank" rel="noopener noreferrer" class="quick-link-card">
+        <mat-icon class="quick-link-icon">lunch_dining</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">School Lunch</h3>
+          <p class="quick-link-subtitle">PDF of January lunch at LHS</p>
+        </div>
+        <mat-icon class="external-icon">open_in_new</mat-icon>
+      </a>
+      <!-- Recipes -->
+      <a href="/recipes" class="quick-link-card">
+        <mat-icon class="quick-link-icon">chef_hat</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">Recipes</h3>
+        </div>
+      </a>
+      <!-- Restaurants -->
+      <a href="/restaurants" class="quick-link-card">
+        <mat-icon class="quick-link-icon">local_dining</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">Restaurants and delivery</h3>
+        </div>
+      </a>
+      <!-- Quick Links -->
+      <a href="/quick-links" class="quick-link-card">
+        <mat-icon class="quick-link-icon">link</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">Quick Links</h3>
+        </div>
+      </a>
+      <!-- Calendar -->
+      <a href="/calendar" class="quick-link-card">
+        <mat-icon class="quick-link-icon">event</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">Calendar</h3>
+          <p class="quick-link-subtitle">Family events</p>
+        </div>
+      </a>
+      <!-- Vehicles -->
+      <a href="/vehicles" class="quick-link-card">
+        <mat-icon class="quick-link-icon">directions_car</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">Vehicles</h3>
+          <p class="quick-link-subtitle">Maintenance tracking</p>
+        </div>
+      </a>
+      <!-- Remi World -->
+      <a href="/remi-world" class="quick-link-card">
+        <mat-icon class="quick-link-icon">child_care</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">Remi World</h3>
+          <p class="quick-link-subtitle">Activities & fun</p>
+        </div>
+      </a>
+    </div>
 
     <!-- Grocery List Widget -->
     <mat-card class="grocery-widget">
@@ -111,206 +196,37 @@
             <div class="widget-title">
               <mat-icon>shopping_cart</mat-icon>
               Grocery List
-              <span class="count-badge" *ngIf="getTotalActiveCount() > 0">{{ getTotalActiveCount() }}</span>
+              <mat-icon 
+                class="storage-status-icon"
+                [matTooltip]="groceryService.useFirestore() ? 'Cloud synced' : 'Local only'"
+                [class.connected]="groceryService.useFirestore()"
+                [class.disconnected]="!groceryService.useFirestore()">
+                {{ groceryService.useFirestore() ? 'cloud_done' : 'cloud_off' }}
+              </mat-icon>
             </div>
           </div>
         </mat-card-title>
-        <mat-card-subtitle>
-          <mat-icon class="storage-icon">{{ groceryService.useFirestore() ? 'cloud_done' : 'storage' }}</mat-icon>
-          {{ groceryService.useFirestore() ? 'Synced with family' : 'Saved locally' }}
-        </mat-card-subtitle>
         <div class="widget-actions">
           <a mat-icon-button [routerLink]="'/grocery-list'" class="grocery-link">
-            <mat-icon>open_in_new</mat-icon>
+            <mat-icon>crop_free</mat-icon>
           </a>
         </div>
       </mat-card-header>
       <mat-card-content>
-        <div class="add-item-form-compact">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Add item</mat-label>
-            <input 
-              matInput 
-              [(ngModel)]="newItemName"
-              (keyup.enter)="addGroceryItem()"
-              placeholder="Enter item"
-              autocomplete="off">
-          </mat-form-field>
-          <button 
-            mat-mini-fab 
-            color="primary" 
-            (click)="addGroceryItem()"
-            [disabled]="!newItemName.trim()">
-            <mat-icon>add</mat-icon>
-          </button>
-        </div>
-        <div *ngIf="getActiveGroceryItems().length > 0; else noGroceryItems">
-          <mat-list class="grocery-list-compact">
-            <mat-list-item *ngFor="let item of getActiveGroceryItems()">
-              <mat-checkbox 
-                [checked]="item.completed"
-                (change)="toggleGroceryItem(item.id)"
-                matListItemIcon>
-              </mat-checkbox>
-              <span matListItemTitle>{{ item.name }}</span>
-            </mat-list-item>
-          </mat-list>
-          <div class="more-items" *ngIf="getTotalActiveCount() > 5">
-            <a mat-button [routerLink]="'/food'" color="primary">
-              +{{ getTotalActiveCount() - 5 }} more items
-            </a>
-          </div>
+        <div class="grocery-list-scrollable" *ngIf="getActiveGroceryItems().length > 0; else noGroceryItems">
+          <ul class="grocery-list-static">
+            <li *ngFor="let item of getActiveGroceryItems()">
+              {{ item.name }}
+            </li>
+          </ul>
         </div>
         <ng-template #noGroceryItems>
           <div class="no-items-small">
             <mat-icon>shopping_cart</mat-icon>
             <p>No items in your list</p>
-            <a mat-button [routerLink]="'/food'" color="primary">
+            <a mat-button [routerLink]="'/grocery-list'" color="primary">
               Add items
             </a>
-          </div>
-        </ng-template>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- AI Chat Widget -->
-    <mat-card class="chat-widget">
-      <mat-card-header>
-        <mat-card-title>
-          <div class="widget-header">
-            <div class="widget-title">
-              <mat-icon>psychology</mat-icon>
-              AI Assistant
-            </div>
-          </div>
-        </mat-card-title>
-        <mat-card-subtitle>Ask me anything about family organization</mat-card-subtitle>
-        <div class="widget-actions">
-          <button mat-icon-button (click)="clearChat()" *ngIf="chatMessages().length > 0" matTooltip="Clear chat">
-            <mat-icon>delete_sweep</mat-icon>
-          </button>
-        </div>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="chat-messages" #chatContainer>
-          <div *ngIf="chatMessages().length === 0" class="chat-empty">
-            <mat-icon>chat_bubble_outline</mat-icon>
-            <p>Start a conversation!</p>
-            <p class="subtitle">Ask about meal planning, schedules, or organizing tips</p>
-          </div>
-          <div *ngFor="let message of chatMessages()" 
-               class="chat-message"
-               [class.user-message]="message.isUser"
-               [class.ai-message]="!message.isUser">
-            <div class="message-content">
-              <mat-icon class="message-icon">{{ message.isUser ? 'person' : 'smart_toy' }}</mat-icon>
-              <div class="message-text">{{ message.text }}</div>
-            </div>
-            <div class="message-time">{{ message.timestamp | date:'shortTime' }}</div>
-          </div>
-          <div *ngIf="isChatLoading()" class="chat-message ai-message loading">
-            <div class="message-content">
-              <mat-icon class="message-icon">smart_toy</mat-icon>
-              <div class="message-text">
-                <mat-spinner diameter="20"></mat-spinner>
-                Thinking...
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="chat-input-container">
-          <mat-form-field appearance="outline" class="chat-input-field">
-            <input 
-              matInput 
-              [(ngModel)]="chatInput"
-              (keyup.enter)="sendChatMessage()"
-              placeholder="Type your message..."
-              [disabled]="isChatLoading()">
-          </mat-form-field>
-          <button 
-            mat-mini-fab 
-            color="primary" 
-            (click)="sendChatMessage()"
-            [disabled]="!chatInput.trim() || isChatLoading()">
-            <mat-icon>send</mat-icon>
-          </button>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Calendar Widget -->
-    <mat-card class="calendar-widget">
-      <mat-card-header>
-        <mat-card-title>
-          <div class="widget-header">
-            <div class="widget-title">
-              <mat-icon>event</mat-icon>
-              Today's Schedule
-              <span class="spacer"></span>
-            </div>
-          </div>
-        </mat-card-title>
-        <mat-card-subtitle *ngIf="calendarService.isSignedIn()">{{ currentTime() | date:'EEEE, MMMM d' }}</mat-card-subtitle>
-        <mat-card-subtitle *ngIf="!calendarService.isSignedIn()">Connect to view your calendar</mat-card-subtitle>
-        <div class="widget-actions">
-          <a mat-icon-button [routerLink]="'/calendar'" class="calendar-link">
-            <mat-icon>open_in_new</mat-icon>
-          </a>
-        </div>
-      </mat-card-header>
-      <mat-card-content>
-        <div *ngIf="calendarService.isSignedIn(); else calendarDisconnected">
-          <div class="timeline-container-small" #dashboardTimeline>
-            <div class="time-labels-small">
-              <div *ngFor="let hour of hours" class="time-label-small">
-                {{ formatHour(hour) }}
-              </div>
-            </div>
-            <div class="timeline-grid-small">
-              <div *ngFor="let hour of hours" class="hour-line-small"></div>
-              
-              <div 
-                class="current-time-indicator-small"
-                [style.top.px]="getCurrentTimePosition()">
-                <div class="time-marker-small"></div>
-                <div class="time-line-small"></div>
-              </div>
-
-              <div 
-                *ngFor="let event of getTodayEvents()"
-                class="timeline-event-small"
-                [style.top.px]="event.topPosition"
-                [style.height.px]="event.height"
-                [style.background-color]="getEventColor(event)">
-                <div class="event-content-small">
-                  <strong>{{ event.summary }}</strong>
-                  <div class="event-time-tiny">{{ formatEventTime(event) }}</div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div *ngIf="getTodayEvents().length === 0" class="no-events-small">
-            <mat-icon>event_available</mat-icon>
-            <p>No events today</p>
-          </div>
-        </div>
-        <ng-template #calendarDisconnected>
-          <div class="calendar-connect-placeholder">
-            <mat-icon>event_busy</mat-icon>
-            <h3>Calendar Not Connected</h3>
-            <p>Connect your Google Calendar to see your family's schedule right here on the dashboard.</p>
-            <button 
-              mat-raised-button 
-              color="primary" 
-              (click)="signInToCalendar()"
-              [disabled]="!calendarService.isInitialized()">
-              <mat-icon>login</mat-icon>
-              Connect Google Calendar
-            </button>
-            <p class="loading-text" *ngIf="!calendarService.isInitialized()">
-              <mat-icon>hourglass_empty</mat-icon>
-              Initializing...
-            </p>
           </div>
         </ng-template>
       </mat-card-content>

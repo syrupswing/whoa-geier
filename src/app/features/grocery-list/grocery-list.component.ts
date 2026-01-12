@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, inject, ViewChild, ElementRef, QueryList, ViewChildren } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -10,7 +10,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatBadgeModule } from '@angular/material/badge';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatSelectModule } from '@angular/material/select';
@@ -46,6 +46,7 @@ import { GithubAiService } from '../../services/github-ai.service';
 })
 export class GroceryListComponent implements OnInit {
   @ViewChild('itemInput') itemInput!: ElementRef<HTMLInputElement>;
+  @ViewChildren('locationTooltip') locationTooltips!: QueryList<MatTooltip>;
   newItemName = '';
   newItemQuantity?: number;
   newItemUnit?: string;
@@ -335,7 +336,7 @@ Return ONLY a JSON object mapping each item name to its category. Example format
     return this.groceryService.getCompletedItems();
   }
 
-  async getStoreLocation(item: GroceryItem): Promise<void> {
+  async getStoreLocation(item: GroceryItem, tooltip?: MatTooltip): Promise<void> {
     if (!this.githubAi.isConfigured()) {
       this.snackBar.open(
         'GitHub AI is not configured. Add your token to use this feature.',
@@ -345,8 +346,16 @@ Return ONLY a JSON object mapping each item name to its category. Example format
       return;
     }
 
-    // If already loaded or currently loading, don't fetch again
-    if (this.itemLocations.has(item.id) || this.loadingLocations.has(item.id)) {
+    // If already loaded, show the tooltip and return
+    if (this.itemLocations.has(item.id)) {
+      if (tooltip) {
+        tooltip.show();
+      }
+      return;
+    }
+    
+    // If currently loading, just return
+    if (this.loadingLocations.has(item.id)) {
       return;
     }
 
@@ -359,6 +368,10 @@ Return ONLY a JSON object mapping each item name to its category. Example format
       
       if (response.success) {
         this.itemLocations.set(item.id, response.text.trim());
+        // Show tooltip after location is fetched
+        if (tooltip) {
+          setTimeout(() => tooltip.show(), 100);
+        }
       } else {
         throw new Error(response.error || 'Failed to get location');
       }

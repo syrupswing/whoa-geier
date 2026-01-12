@@ -267,15 +267,31 @@ export class GroceryService implements OnDestroy {
 
   /**
    * Get active (not completed) items
+   * Sorted by newest added first (createdAt descending)
    */
   getActiveItems(): GroceryItem[] {
-    return this.items().filter(item => !item.completed);
+    return this.items()
+      .filter(item => !item.completed)
+      .sort((a, b) => {
+        // Sort by createdAt descending (newest first)
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      });
   }
 
   /**
    * Get completed items
+   * Sorted by latest completed first (updatedAt descending)
    */
   getCompletedItems(): GroceryItem[] {
-    return this.items().filter(item => item.completed);
+    return this.items()
+      .filter(item => item.completed)
+      .sort((a, b) => {
+        // Sort by updatedAt descending (latest completed first)
+        const dateA = new Date(a.updatedAt || 0).getTime();
+        const dateB = new Date(b.updatedAt || 0).getTime();
+        return dateB - dateA;
+      });
   }
 }
