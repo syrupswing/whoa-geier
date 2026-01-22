@@ -119,9 +119,15 @@ export class GroceryListComponent implements OnInit {
   showAddForm(): void {
     this.showAddItemForm = true;
     // Use setTimeout to ensure the input is rendered before focusing
+    // Increased timeout for better mobile compatibility
     setTimeout(() => {
-      this.itemInput?.nativeElement.focus();
-    }, 0);
+      if (this.itemInput?.nativeElement) {
+        // Focus the input
+        this.itemInput.nativeElement.focus();
+        // On mobile devices, also click to ensure keyboard appears
+        this.itemInput.nativeElement.click();
+      }
+    }, 100);
   }
 
   async preloadLocations(): Promise<void> {
@@ -177,7 +183,13 @@ export class GroceryListComponent implements OnInit {
   }
 
   private _filterItems(value: string): string[] {
-    const filterValue = value.toLowerCase();
+    const filterValue = value.toLowerCase().trim();
+    
+    // Only show autocomplete suggestions if at least one character is entered
+    if (!filterValue || filterValue.length === 0) {
+      return [];
+    }
+    
     const completedItemNames = this.getUniqueCompletedItemNames();
     
     return completedItemNames.filter(item => 
