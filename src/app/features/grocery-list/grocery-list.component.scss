@@ -298,6 +298,26 @@
   }
 }
 
+// Autocomplete styling
+.already-in-list {
+  color: #4caf50;
+}
+
+.already-in-list-text {
+  margin-left: 8px;
+  font-size: 0.85em;
+  color: #666;
+  font-style: italic;
+}
+
+::ng-deep .mat-mdc-option.mat-mdc-option-disabled {
+  opacity: 0.7;
+  
+  .already-in-list-text {
+    color: #999;
+  }
+}
+
 /* Mobile optimizations */
 @media (max-width: 767px) {
   .grocery-container {

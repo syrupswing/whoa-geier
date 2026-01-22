@@ -62,9 +62,12 @@
                 autocomplete="off"
                 #itemInput>
               <mat-autocomplete #auto="matAutocomplete">
-                <mat-option *ngFor="let item of filteredItems | async" [value]="item">
-                  <mat-icon>history</mat-icon>
-                  {{ item }}
+                <mat-option *ngFor="let item of filteredItems | async" [value]="item.name" [disabled]="item.isInActiveList">
+                  <mat-icon [class.already-in-list]="item.isInActiveList">
+                    {{ item.isInActiveList ? 'check_circle' : 'history' }}
+                  </mat-icon>
+                  {{ item.name }}
+                  <span *ngIf="item.isInActiveList" class="already-in-list-text">(already in list)</span>
                 </mat-option>
               </mat-autocomplete>
             </mat-form-field>

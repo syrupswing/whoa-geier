@@ -1,4 +1,4 @@
-import { Component, OnInit, inject, ViewChild, ElementRef, QueryList, ViewChildren } from '@angular/core';
+import { Component, OnInit, AfterViewChecked, inject, ViewChild, ElementRef, QueryList, ViewChildren, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -19,6 +19,11 @@ import { Observable } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
+
+interface AutocompleteItem {
+  name: string;
+  isInActiveList: boolean;
+}
 
 @Component({
   selector: 'app-grocery-list',
@@ -44,15 +49,16 @@ import { GithubAiService } from '../../services/github-ai.service';
   templateUrl: './grocery-list.component.html',
   styleUrls: ['./grocery-list.component.scss']
 })
-export class GroceryListComponent implements OnInit {
+export class GroceryListComponent implements OnInit, AfterViewChecked {
   @ViewChild('itemInput') itemInput!: ElementRef<HTMLInputElement>;
   @ViewChildren('locationTooltip') locationTooltips!: QueryList<MatTooltip>;
   newItemName = '';
+  private shouldFocusInput = false;
   newItemQuantity?: number;
   newItemUnit?: string;
   newItemNotes?: string;
   itemControl = new FormControl('');
-  filteredItems!: Observable<string[]>;
+  filteredItems!: Observable<AutocompleteItem[]>;
   itemLocations = new Map<string, string>();
   itemCategories = new Map<string, string>();
   loadingLocations = new Set<string>();
@@ -86,6 +92,7 @@ export class GroceryListComponent implements OnInit {
   
   private githubAi = inject(GithubAiService);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
   
   // Typical grocery store section order
   private storeSectionOrder = [
@@ -118,16 +125,21 @@ export class GroceryListComponent implements OnInit {
 
   showAddForm(): void {
     this.showAddItemForm = true;
-    // Use setTimeout to ensure the input is rendered before focusing
-    // Increased timeout for better mobile compatibility
-    setTimeout(() => {
-      if (this.itemInput?.nativeElement) {
-        // Focus the input
-        this.itemInput.nativeElement.focus();
-        // On mobile devices, also click to ensure keyboard appears
-        this.itemInput.nativeElement.click();
-      }
-    }, 100);
+    this.shouldFocusInput = true;
+  }
+
+  ngAfterViewChecked(): void {
+    if (this.shouldFocusInput && this.itemInput?.nativeElement) {
+      this.shouldFocusInput = false;
+      // Use requestAnimationFrame to ensure DOM is ready
+      requestAnimationFrame(() => {
+        if (this.itemInput?.nativeElement) {
+          this.itemInput.nativeElement.focus();
+          // Trigger click for mobile keyboard
+          this.itemInput.nativeElement.click();
+        }
+      });
+    }
   }
 
   async preloadLocations(): Promise<void> {
@@ -182,7 +194,7 @@ export class GroceryListComponent implements OnInit {
     }
   }
 
-  private _filterItems(value: string): string[] {
+  private _filterItems(value: string): AutocompleteItem[] {
     const filterValue = value.toLowerCase().trim();
     
     // Only show autocomplete suggestions if at least one character is entered
@@ -190,11 +202,27 @@ export class GroceryListComponent implements OnInit {
       return [];
     }
     
+    // Get all unique item names from both active and completed lists
+    const activeItemNames = this.activeItems.map(item => item.name);
     const completedItemNames = this.getUniqueCompletedItemNames();
+    const activeItemNamesSet = new Set(activeItemNames);
     
-    return completedItemNames.filter(item => 
-      item.toLowerCase().includes(filterValue)
-    );
+    // Combine both lists and remove duplicates
+    const allItemNames = new Set([...activeItemNames, ...completedItemNames]);
+    
+    // Filter and map to AutocompleteItem
+    return Array.from(allItemNames)
+      .filter(item => item.toLowerCase().includes(filterValue))
+      .map(name => ({
+        name,
+        isInActiveList: activeItemNamesSet.has(name)
+      }))
+      .sort((a, b) => {
+        // Sort: active items first, then alphabetically
+        if (a.isInActiveList && !b.isInActiveList) return -1;
+        if (!a.isInActiveList && b.isInActiveList) return 1;
+        return a.name.localeCompare(b.name);
+      });
   }
 
   private getUniqueCompletedItemNames(): string[] {
