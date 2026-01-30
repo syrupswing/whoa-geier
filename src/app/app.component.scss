@@ -12,7 +12,7 @@
   top: 80px;
   right: 20px;
   width: 280px;
-  background: rgba(255, 255, 255, 0.95);
+  background: rgba(66, 66, 66, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 20px;
   padding: 20px;
@@ -61,12 +61,12 @@
       font-weight: 700;
       line-height: 1;
       margin-bottom: 4px;
-      color: #333;
+      color: var(--color-text-primary);
     }
     
     .conditions {
       font-size: 14px;
-      color: #666;
+      color: var(--color-text-secondary);
       text-transform: capitalize;
       margin-bottom: 12px;
     }
@@ -81,7 +81,7 @@
         align-items: center;
         gap: 4px;
         font-size: 12px;
-        color: #666;
+        color: var(--color-text-secondary);
         
         mat-icon {
           font-size: 16px;
@@ -267,7 +267,7 @@
   min-height: calc(100vh - 64px);
   flex: 1;
   overflow-y: auto;
-  background-color: #f5f5f5;
+  background-color: #303030;
 }
 
 /* Mobile adjustments */
@@ -294,10 +294,10 @@
   align-items: center;
   gap: 12px;
   padding: 12px 16px;
-  color: rgba(0, 0, 0, 0.87);
+  color: var(--color-text-primary);
 
   mat-icon {
-    color: rgba(0, 0, 0, 0.54);
+    color: var(--color-text-secondary);
   }
 
   span {
@@ -423,13 +423,14 @@
   right: 24px;
   width: 380px;
   max-height: 600px;
-  background: white;
+  background: var(--color-surface);
   border-radius: 16px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   display: flex;
   flex-direction: column;
   z-index: 1000;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   
   @media (max-width: 768px) {
     width: calc(100vw - 48px);
@@ -475,7 +476,7 @@
     padding: 16px;
     min-height: 300px;
     max-height: 450px;
-    background: #f5f5f5;
+    background: var(--color-surface-dark);
     
     .chat-empty {
       display: flex;
@@ -484,14 +485,14 @@
       justify-content: center;
       height: 100%;
       text-align: center;
-      color: rgba(0, 0, 0, 0.6);
+      color: var(--color-text-secondary);
       
       mat-icon {
         font-size: 48px;
         width: 48px;
         height: 48px;
         margin-bottom: 16px;
-        color: rgba(0, 0, 0, 0.3);
+        color: var(--color-text-disabled);
       }
       
       p {
@@ -499,7 +500,7 @@
         
         &.subtitle {
           font-size: 12px;
-          color: rgba(0, 0, 0, 0.5);
+          color: var(--color-text-disabled);
         }
       }
     }
@@ -531,14 +532,15 @@
       
       &.ai-message {
         .message-icon {
-          background: #e0e0e0;
-          color: rgba(0, 0, 0, 0.7);
+          background: var(--color-surface-light);
+          color: var(--color-text-primary);
         }
         
         .message-text {
-          background: white;
-          color: rgba(0, 0, 0, 0.87);
+          background: var(--color-surface);
+          color: var(--color-text-primary);
           border-radius: 16px 16px 16px 4px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
         }
         
         &.loading .message-text {
@@ -574,7 +576,7 @@
       
       .message-time {
         font-size: 10px;
-        color: rgba(0, 0, 0, 0.5);
+        color: var(--color-text-disabled);
         margin-top: 4px;
         padding: 0 40px;
       }
@@ -585,8 +587,8 @@
     display: flex;
     gap: 8px;
     padding: 16px;
-    background: white;
-    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    background: var(--color-surface);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
     
     .chat-input-field {
       flex: 1;

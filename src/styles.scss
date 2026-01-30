@@ -3,13 +3,85 @@
 
 @include mat.core();
 
+/* CSS Custom Properties (Variables) */
+:root {
+  /* Purple Theme Colors */
+  --color-purple-50: #f3e5f5;
+  --color-purple-100: #e1bee7;
+  --color-purple-200: #ce93d8;
+  --color-purple-300: #ba68c8;
+  --color-purple-400: #ab47bc;
+  --color-purple-500: #933ea7;
+  --color-purple-600: #8e24aa;
+  --color-purple-700: #7b1fa2;
+  --color-purple-800: #6a1b9a;
+  --color-purple-900: #4a148c;
+  
+  /* Primary Color */
+  --color-primary: var(--color-purple-500);
+  --color-primary-light: var(--color-purple-300);
+  --color-primary-dark: var(--color-purple-700);
+  
+  /* Accent Colors (Light/White) */
+  --color-accent: #fafafa;
+  --color-accent-light: #ffffff;
+  --color-accent-dark: #f5f5f5;
+  
+  /* Background Colors */
+  --color-background: #303030;
+  --color-background-light: #424242;
+  --color-background-dark: #212121;
+  
+  /* Surface Colors */
+  --color-surface: #424242;
+  --color-surface-light: #616161;
+  --color-surface-dark: #303030;
+  
+  /* Text Colors */
+  --color-text-primary: rgba(255, 255, 255, 0.87);
+  --color-text-secondary: rgba(255, 255, 255, 0.60);
+  --color-text-disabled: rgba(255, 255, 255, 0.38);
+  --color-text-inverse: #4e3e61;
+  
+  /* Warn/Error Colors */
+  --color-warn: #f44336;
+  --color-warn-light: #e57373;
+  --color-warn-dark: #d32f2f;
+}
+
+// Define custom purple color palette
+$custom-purple: (
+  50: #f3e5f5,
+  100: #e1bee7,
+  200: #ce93d8,
+  300: #ba68c8,
+  400: #ab47bc,
+  500: #933ea7,
+  600: #8e24aa,
+  700: #7b1fa2,
+  800: #6a1b9a,
+  900: #4a148c,
+  contrast: (
+    50: rgba(black, 0.87),
+    100: rgba(black, 0.87),
+    200: rgba(black, 0.87),
+    300: white,
+    400: white,
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+  )
+);
+
 // Define custom Material Design palettes
-$primary-palette: mat.define-palette(mat.$indigo-palette);
-$accent-palette: mat.define-palette(mat.$pink-palette, A200, A100, A400);
+$primary-palette: mat.define-palette($custom-purple, 500);
+$accent-palette: mat.define-palette(mat.$grey-palette, 50, 100, 200);
 $warn-palette: mat.define-palette(mat.$red-palette);
 
-// Theme Configuration
-$theme: mat.define-light-theme((
+// Theme Configuration - Dark Theme
+$theme: mat.define-dark-theme((
   color: (
     primary: $primary-palette,
     accent: $accent-palette,
@@ -55,7 +127,8 @@ html, body {
 
 body {
   margin: 0;
-  background-color: #f5f5f5;
+  background-color: var(--color-background);
+  color: var(--color-text-primary);
 }
 
 /* Mobile-First Container Styles */
@@ -187,4 +260,38 @@ mat-card-actions.mdc-card__actions {
 }
 .mat-mdc-card-header {
   align-items: center;
+}
+/* Dark Theme Material Component Overrides */
+.mat-mdc-card {
+  background-color: var(--color-surface);
+  color: var(--color-text-primary);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mat-mdc-list-item {
+  color: var(--color-text-primary);
+}
+
+.mat-mdc-list-item-title {
+  color: var(--color-text-primary);
+}
+
+.mat-mdc-list-item-meta {
+  color: var(--color-text-secondary);
+}
+
+.mat-mdc-chip {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mat-mdc-form-field {
+  .mat-mdc-text-field-wrapper {
+    .mdc-text-field--outlined .mdc-notched-outline {
+      .mdc-notched-outline__leading,
+      .mdc-notched-outline__notch,
+      .mdc-notched-outline__trailing {
+        border-color: rgba(255, 255, 255, 0.24);
+      }
+    }
+  }
 }

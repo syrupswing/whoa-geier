@@ -32,7 +32,7 @@
 
   .subtitle {
     font-size: 1.2rem;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--color-text-secondary);
     margin: 0;
   }
 }
@@ -41,7 +41,7 @@
   h2 {
     text-align: center;
     margin-bottom: 32px;
-    color: rgba(0, 0, 0, 0.87);
+    color: var(--color-text-primary);
   }
 
   .category-grid {
@@ -75,12 +75,12 @@
     h3 {
       margin: 0 0 8px;
       font-size: 1.5rem;
-      color: rgba(0, 0, 0, 0.87);
+      color: var(--color-text-primary);
     }
 
     p {
       margin: 0;
-      color: rgba(0, 0, 0, 0.6);
+      color: var(--color-text-secondary);
     }
   }
 }
@@ -104,7 +104,7 @@
 
       h2 {
         margin: 0;
-        color: rgba(0, 0, 0, 0.87);
+        color: var(--color-text-primary);
       }
 
       .score-badge {
@@ -126,7 +126,7 @@
       h3 {
         font-size: 1.5rem;
         margin: 0 0 16px;
-        color: rgba(0, 0, 0, 0.87);
+        color: var(--color-text-primary);
       }
 
       .hint {
@@ -136,7 +136,7 @@
         padding: 12px;
         background: #FFF9C4;
         border-radius: 8px;
-        color: rgba(0, 0, 0, 0.7);
+        color: var(--color-text-primary);
         margin: 0;
 
         mat-icon {
@@ -159,7 +159,7 @@
 
         .radio-option {
           padding: 16px;
-          border: 2px solid #e0e0e0;
+          border: 2px solid rgba(255, 255, 255, 0.12);
           border-radius: 8px;
           transition: all 0.2s ease;
 
@@ -232,16 +232,17 @@
 
     p {
       margin: 8px 0;
-      color: rgba(0, 0, 0, 0.7);
+      color: var(--color-text-secondary);
     }
 
     .progress-bar {
       width: 100%;
       height: 24px;
-      background: #e0e0e0;
+      background: var(--color-surface-light);
       border-radius: 12px;
       overflow: hidden;
       margin: 16px 0;
+      border: 1px solid rgba(255, 255, 255, 0.12);
 
       .progress-fill {
         height: 100%;

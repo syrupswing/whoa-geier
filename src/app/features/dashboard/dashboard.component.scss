@@ -87,15 +87,16 @@
   flex-direction: column;
   align-items: center;
   padding: 12px;
-  background: white;
+  background: var(--color-surface);
   border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
   text-decoration: none;
-  color: inherit;
+  color: var(--color-text-primary);
   transition: all 0.3s ease;
   position: relative;
   cursor: pointer;
   gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   
   &:hover {
     transform: translateY(-2px);
@@ -129,13 +130,13 @@
     font-weight: 600;
     line-height: 20px;
     margin: 0 0 2px 0;
-    color: rgba(0, 0, 0, 0.87);
+    color: var(--color-text-primary);
   }
   
   .quick-link-subtitle {
     font-size: 10px;
     margin: 0;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--color-text-secondary);
     line-height: 1.3;
   }
   
@@ -146,15 +147,17 @@
     font-size: 14px;
     width: 14px;
     height: 14px;
-    color: rgba(0, 0, 0, 0.4);
+    color: var(--color-text-secondary);
     opacity: 0;
     transition: opacity 0.3s ease;
   }
 }
 
 .grocery-widget {
-  background-color: #ffffdd;
+  background-color: #797967;
+  color: var(--color-text-primary);
   max-height: 360px;
+  border: 2px solid var(--color-primary);
 }
 
 .calendar-widget {
@@ -180,14 +183,14 @@
   display: flex;
   overflow-y: auto;
   position: relative;
-  background: rgba(0, 0, 0, 0.02);
+  background: var(--color-surface-dark);
 }
 
 .time-labels-small {
   width: 60px;
   flex-shrink: 0;
-  border-right: 1px solid rgba(0, 0, 0, 0.12);
-  background: white;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--color-surface);
   
   .time-label-small {
     height: 60px;
@@ -195,7 +198,7 @@
     align-items: flex-start;
     justify-content: center;
     font-size: 11px;
-    color: rgba(0, 0, 0, 0.6);
+    color: var(--color-text-secondary);
     padding-top: 4px;
     border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
@@ -241,10 +244,11 @@
   right: 4px;
   border-radius: 4px;
   padding: 4px 8px;
-  color: rgba(0, 0, 0, 0.87);
+  color: var(--color-text-primary);
   cursor: pointer;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
   
   &:hover {
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
@@ -275,7 +279,7 @@
   align-items: center;
   justify-content: center;
   height: 200px;
-  color: rgba(0, 0, 0, 0.38);
+  color: var(--color-text-disabled);
   
   mat-icon {
     font-size: 48px;
@@ -465,7 +469,7 @@
   li {
     padding: 8px 0;
     font-size: 20px;
-    color: rgba(0, 0, 0, 0.87);
+    color: var(--color-text-primary);
     line-height: 1.4;
     font-family: 'Patrick Hand', 'Indie Flower', 'Comic Sans MS', cursive;
     letter-spacing: 0.3px;

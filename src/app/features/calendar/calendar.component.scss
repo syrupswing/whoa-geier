@@ -20,7 +20,7 @@
   .subtitle {
     font-size: 1.1rem;
     margin-bottom: 8px;
-    color: #666;
+    color: var(--color-text-secondary);
   }
 
   .actions {
@@ -40,9 +40,10 @@
   align-items: flex-start;
   gap: 12px;
   padding: 16px;
-  background-color: #E3F2FD;
+  background-color: var(--color-surface-light);
   border-radius: 8px;
   margin-bottom: 24px;
+  border: 1px solid #2196F3;
 
   mat-icon {
     color: #2196F3;
@@ -51,7 +52,7 @@
 
   p {
     margin: 4px 0;
-    color: #1565C0;
+    color: var(--color-text-primary);
   }
 }
 
@@ -60,9 +61,10 @@
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background-color: #ffebee;
+  background-color: var(--color-surface-light);
   border-radius: 8px;
   margin-bottom: 24px;
+  border: 1px solid #d32f2f;
 
   mat-icon {
     color: #d32f2f;
@@ -70,7 +72,7 @@
 
   p {
     margin: 0;
-    color: #c62828;
+    color: var(--color-text-primary);
   }
 }
 
@@ -83,7 +85,7 @@
   gap: 16px;
 
   p {
-    color: #666;
+    color: var(--color-text-secondary);
   }
 }
 
@@ -98,9 +100,10 @@
   justify-content: space-between;
   margin-bottom: 24px;
   padding: 16px;
-  background: white;
+  background: var(--color-surface);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 
   .current-date {
     display: flex;
@@ -120,10 +123,11 @@
 // Day view (mobile)
 .timeline-day-view {
   display: block;
-  background: white;
+  background: var(--color-surface);
   border-radius: 8px;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  box-shadow: 0 2px 4px rgba(0,0,0,0.3);
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .timeline-container {
@@ -135,8 +139,8 @@
 .time-labels {
   width: 80px;
   flex-shrink: 0;
-  border-right: 1px solid #e0e0e0;
-  background: #fafafa;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--color-surface-dark);
   position: sticky;
   left: 0;
   z-index: 2;
@@ -148,8 +152,8 @@
     justify-content: flex-end;
     padding: 4px 12px 0 8px;
     font-size: 0.75rem;
-    color: #666;
-    border-top: 1px solid #e0e0e0;
+    color: var(--color-text-secondary);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
 
     &:first-child {
       border-top: none;
@@ -160,12 +164,12 @@
 .timeline-grid {
   flex: 1;
   position: relative;
-  background: linear-gradient(to bottom, transparent 0px, transparent 59px, #e0e0e0 59px, #e0e0e0 60px);
+  background: linear-gradient(to bottom, transparent 0px, transparent 59px, rgba(255, 255, 255, 0.12) 59px, rgba(255, 255, 255, 0.12) 60px);
   background-size: 100% 60px;
 
   .hour-line {
     height: 60px;
-    border-top: 1px solid #e0e0e0;
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
 
     &:first-child {
       border-top: none;

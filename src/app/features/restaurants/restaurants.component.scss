@@ -34,7 +34,7 @@
 
     .count {
       font-size: 1rem;
-      color: rgba(0, 0, 0, 0.6);
+      color: var(--color-text-secondary);
       font-weight: normal;
     }
   }
@@ -58,7 +58,7 @@
     h3 {
       font-size: 1rem;
       margin: 16px 0 8px;
-      color: rgba(0, 0, 0, 0.87);
+      color: var(--color-text-primary);
     }
 
     .order-link-form {
@@ -149,7 +149,7 @@
       font-size: 20px;
       width: 20px;
       height: 20px;
-      color: rgba(0, 0, 0, 0.26);
+      color: var(--color-text-disabled);
 
       &.filled {
         color: #FFB300;
@@ -171,7 +171,7 @@
         font-size: 18px;
         width: 18px;
         height: 18px;
-        color: rgba(0, 0, 0, 0.54);
+        color: var(--color-text-secondary);
       }
 
       a {
@@ -192,7 +192,7 @@
       display: block;
       margin-bottom: 8px;
       font-size: 14px;
-      color: rgba(0, 0, 0, 0.87);
+      color: var(--color-text-primary);
     }
 
     mat-chip {
@@ -212,7 +212,7 @@
       display: block;
       margin-bottom: 8px;
       font-size: 14px;
-      color: rgba(0, 0, 0, 0.87);
+      color: var(--color-text-primary);
     }
 
     .clickable-chip {
@@ -245,14 +245,15 @@
     gap: 8px;
     margin-top: 16px;
     padding: 12px;
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--color-surface-light);
     border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.12);
 
     mat-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
-      color: rgba(0, 0, 0, 0.54);
+      color: var(--color-text-secondary);
       flex-shrink: 0;
     }
 
@@ -260,7 +261,7 @@
       margin: 0;
       font-size: 14px;
       font-style: italic;
-      color: rgba(0, 0, 0, 0.7);
+      color: var(--color-text-secondary);
     }
   }
 }
@@ -271,7 +272,7 @@
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  color: rgba(0, 0, 0, 0.38);
+  color: var(--color-text-secondary);
 
   mat-icon {
     font-size: 64px;
