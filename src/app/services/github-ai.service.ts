@@ -1,6 +1,7 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { getFunctions, httpsCallable } from 'firebase/functions';
+import { FirestoreService } from './firestore.service';
 
 export interface GithubAiResponse {
   text: string;
@@ -32,6 +33,7 @@ export interface MealPlanSuggestion {
 })
 export class GithubAiService {
   private useFirebaseProxy = environment.production || environment.useFirebaseProxy;
+  private firestoreService = inject(FirestoreService);
   
   constructor() {}
 
@@ -256,18 +258,24 @@ Provide brief descriptions and what makes each one special. Format as a simple t
   }
 
   /**
-   * Increment API call counter and persist to localStorage
+   * Increment API call counter - uses Firestore if available, otherwise localStorage
    */
-  private incrementApiCounter(): void {
-    const currentCount = parseInt(localStorage.getItem('githubApiCallCount') || '0', 10);
-    const newCount = currentCount + 1;
-    localStorage.setItem('githubApiCallCount', newCount.toString());
-    
-    // Dispatch storage event to update UI counters
-    window.dispatchEvent(new StorageEvent('storage', {
-      key: 'githubApiCallCount',
-      newValue: newCount.toString()
-    }));
+  private async incrementApiCounter(): Promise<void> {
+    if (this.firestoreService.isInitialized()) {
+      // Use Firestore for synced counter
+      await this.firestoreService.incrementApiCounter();
+    } else {
+      // Fallback to localStorage
+      const currentCount = parseInt(localStorage.getItem('githubApiCallCount') || '0', 10);
+      const newCount = currentCount + 1;
+      localStorage.setItem('githubApiCallCount', newCount.toString());
+      
+      // Dispatch storage event to update UI counters
+      window.dispatchEvent(new StorageEvent('storage', {
+        key: 'githubApiCallCount',
+        newValue: newCount.toString()
+      }));
+    }
   }
 
   /**

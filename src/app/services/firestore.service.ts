@@ -13,7 +13,10 @@ import {
   query,
   Unsubscribe,
   QuerySnapshot,
-  DocumentData
+  DocumentData,
+  getDoc,
+  setDoc,
+  increment
 } from 'firebase/firestore';
 import { environment } from '../../environments/environment';
 
@@ -175,6 +178,109 @@ export class FirestoreService {
     } catch (err: any) {
       this.error.set(`Error deleting document: ${err.message}`);
       console.error('Firestore delete error:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Get app-wide stats (API counter, etc.)
+   */
+  async getAppStats(): Promise<{ apiCallCount: number } | null> {
+    if (!this.db) {
+      return null;
+    }
+
+    try {
+      const statsRef = doc(this.db, 'app-stats', 'global');
+      const statsDoc = await getDoc(statsRef);
+      
+      if (statsDoc.exists()) {
+        return statsDoc.data() as { apiCallCount: number };
+      } else {
+        // Initialize if doesn't exist
+        await setDoc(statsRef, { apiCallCount: 0 });
+        return { apiCallCount: 0 };
+      }
+    } catch (err: any) {
+      console.error('Error getting app stats:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to app-wide stats for real-time updates
+   */
+  subscribeToAppStats(callback: (apiCallCount: number) => void): Unsubscribe | null {
+    if (!this.db) {
+      return null;
+    }
+
+    try {
+      const statsRef = doc(this.db, 'app-stats', 'global');
+      
+      return onSnapshot(statsRef, async (docSnapshot) => {
+        if (docSnapshot.exists()) {
+          const data = docSnapshot.data();
+          callback(data['apiCallCount'] || 0);
+        } else {
+          // Initialize if doesn't exist
+          await setDoc(statsRef, { apiCallCount: 0 });
+          callback(0);
+        }
+      }, (err) => {
+        console.error('Error subscribing to app stats:', err);
+      });
+    } catch (err: any) {
+      console.error('Error setting up app stats subscription:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Increment API call counter in Firestore
+   */
+  async incrementApiCounter(): Promise<boolean> {
+    if (!this.db) {
+      return false;
+    }
+
+    try {
+      const statsRef = doc(this.db, 'app-stats', 'global');
+      await updateDoc(statsRef, {
+        apiCallCount: increment(1)
+      });
+      return true;
+    } catch (err: any) {
+      // If document doesn't exist, create it
+      if (err.code === 'not-found') {
+        try {
+          const statsRef = doc(this.db!, 'app-stats', 'global');
+          await setDoc(statsRef, { apiCallCount: 1 });
+          return true;
+        } catch (createErr: any) {
+          console.error('Error creating app stats:', createErr);
+          return false;
+        }
+      }
+      console.error('Error incrementing API counter:', err);
+      return false;
+    }
+  }
+
+  /**
+   * Reset API call counter
+   */
+  async resetApiCounter(): Promise<boolean> {
+    if (!this.db) {
+      return false;
+    }
+
+    try {
+      const statsRef = doc(this.db, 'app-stats', 'global');
+      await setDoc(statsRef, { apiCallCount: 0 });
+      return true;
+    } catch (err: any) {
+      console.error('Error resetting API counter:', err);
       return false;
     }
   }

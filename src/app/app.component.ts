@@ -59,6 +59,7 @@ interface ChatMessage {
 export class AppComponent implements OnInit, AfterViewChecked {
   @ViewChild('floatingChatContainer') private chatContainer!: ElementRef<HTMLDivElement>;
   private shouldScrollChat = false;
+  private statsUnsubscribe: (() => void) | null = null;
   
   title = 'Whoa Geier App';
   
@@ -94,18 +95,23 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
   
   ngOnInit(): void {
-    // Load API call count from localStorage
-    const githubCount = localStorage.getItem('githubApiCallCount');
-    
-    if (githubCount) {
-      this.githubApiCalls.set(parseInt(githubCount, 10));
-    }
-    
     // Check AI connection status
     this.isAIConnected.set(this.githubAiService.isConfigured());
     
-    // Listen for storage changes to update counter in real-time
-    window.addEventListener('storage', this.handleStorageChange.bind(this));
+    // Subscribe to Firestore for API counter if initialized
+    if (this.firestoreService.isInitialized()) {
+      this.statsUnsubscribe = this.firestoreService.subscribeToAppStats((count) => {
+        this.githubApiCalls.set(count);
+      });
+    } else {
+      // Fallback to localStorage if Firestore not available
+      const githubCount = localStorage.getItem('githubApiCallCount');
+      if (githubCount) {
+        this.githubApiCalls.set(parseInt(githubCount, 10));
+      }
+      // Listen for storage changes to update counter in real-time
+      window.addEventListener('storage', this.handleStorageChange.bind(this));
+    }
   }
   
   handleStorageChange(event: StorageEvent): void {
@@ -147,9 +153,15 @@ export class AppComponent implements OnInit, AfterViewChecked {
     alert('To configure GitHub AI:\n\n1. Get a token from: https://github.com/settings/tokens\n2. Add it to: src/environments/environment.local.ts\n3. Restart the dev server');
   }
   
-  resetApiCounter(): void {
+  async resetApiCounter(): Promise<void> {
     this.githubApiCalls.set(0);
-    localStorage.setItem('githubApiCallCount', '0');
+    
+    if (this.firestoreService.isInitialized()) {
+      await this.firestoreService.resetApiCounter();
+    } else {
+      // Fallback to localStorage
+      localStorage.setItem('githubApiCallCount', '0');
+    }
   }
   
   toggleMonitoringBar(): void {

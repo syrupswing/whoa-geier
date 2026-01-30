@@ -1,0 +1,26 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // App-wide statistics (API counter, etc.)
+    match /app-stats/{docId} {
+      // Anyone authenticated can read stats
+      allow read: if isAuthenticated();
+      // Anyone authenticated can increment the counter
+      allow update: if isAuthenticated();
+      // Only allow creating if it doesn't exist
+      allow create: if isAuthenticated();
+      // Don't allow deleting stats
+      allow delete: if false;
+    }
+    
+    // Default: deny all access unless explicitly granted above
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
