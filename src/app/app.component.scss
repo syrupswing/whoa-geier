@@ -254,9 +254,14 @@
     &:hover {
       opacity: 0.85;
     }
+
+    img {
+      filter: invert(1);
+    }
     
     span {
-      font-size: 20px;
+      font-family: 'Still Time', Roboto, "Helvetica Neue", sans-serif;
+      font-size: 54px;
       font-weight: 400;
     }
   }
