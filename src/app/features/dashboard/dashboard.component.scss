@@ -151,6 +151,55 @@
     opacity: 0;
     transition: opacity 0.3s ease;
   }
+  
+  // Minecraft-themed card styling
+  &.minecraft-themed {
+    background: linear-gradient(180deg, 
+      #5C8A3E 0%, 
+      #5C8A3E 25%, 
+      #8B6F47 25%, 
+      #8B6F47 100%
+    );
+    border: 3px solid #000;
+    box-shadow: 
+      0 4px 0 #000,
+      4px 4px 0 rgba(0,0,0,0.4);
+    
+    &:hover {
+      transform: translate(-1px, -3px);
+      box-shadow: 
+        0 6px 0 #000,
+        6px 6px 0 rgba(0,0,0,0.4);
+      
+      .minecraft-emoji {
+        transform: scale(1.15);
+      }
+    }
+
+    .quick-link-icon {
+      color: #FFF;
+      text-shadow: 2px 2px 0px #000;
+    }
+    
+    .quick-link-title,
+    .quick-link-subtitle {
+      font-family: 'MinecraftRegular', 'Courier New', monospace;
+    }
+    
+    .quick-link-title {
+      color: #FFF;
+      text-shadow: 2px 2px 0px #000;
+      font-weight: bold;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+    
+    .quick-link-subtitle {
+      color: #FFF;
+      text-shadow: 1px 1px 0px rgba(0,0,0,0.6);
+      font-weight: 600;
+    }
+  }
 }
 
 .grocery-widget {
