@@ -50,38 +50,17 @@ export class WeatherService {
 
     console.log('Weather service is configured, attempting to load weather...');
 
-    // Try to get user's location with timeout, or default to a city
-    if (navigator.geolocation) {
-      console.log('Attempting to get geolocation...');
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          console.log('Geolocation success:', position.coords.latitude, position.coords.longitude);
-          this.fetchWeatherByCoords(position.coords.latitude, position.coords.longitude);
-        },
-        (error) => {
-          // Fallback to default city if geolocation fails
-          console.log('Geolocation failed, using default city:', error.message);
-          this.fetchWeatherByCity(environment.defaultCity || 'Minneapolis');
-        },
-        {
-          timeout: 5000, // 5 second timeout
-          maximumAge: 300000, // Accept cached position up to 5 minutes old
-          enableHighAccuracy: false // Faster, less battery
-        }
-      );
-    } else {
-      console.log('Geolocation not available, using default city');
-      this.fetchWeatherByCity(environment.defaultCity || 'Minneapolis');
-    }
+    // Default to Minneapolis zipcode 55410
+    this.fetchWeatherByZipcode('55410');
   }
 
-  private async fetchWeatherByCoords(lat: number, lon: number): Promise<void> {
+  private async fetchWeatherByZipcode(zipcode: string): Promise<void> {
     this.isLoading.set(true);
     this.error.set(null);
 
     try {
-      const url = `${this.API_URL}?lat=${lat}&lon=${lon}&units=imperial&appid=${environment.weatherApiKey}`;
-      console.log('Fetching weather by coordinates:', lat, lon);
+      const url = `${this.API_URL}?zip=${zipcode},US&units=imperial&appid=${environment.weatherApiKey}`;
+      console.log('Fetching weather for zipcode:', zipcode);
       const response = await fetch(url);
 
       if (!response.ok) {
@@ -96,7 +75,7 @@ export class WeatherService {
       console.log('Weather data received:', data);
       this.weather.set(this.parseWeatherData(data));
     } catch (error: any) {
-      console.error('Error fetching weather by coords:', error);
+      console.error('Error fetching weather by zipcode:', error);
       this.error.set(error.message);
     } finally {
       this.isLoading.set(false);

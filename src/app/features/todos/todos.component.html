@@ -1,0 +1,246 @@
+<div class="todos-container">
+  <div class="header">
+    <div>
+      <h1>To-Do List</h1>
+      <p class="subtitle">Stay organized and productive</p>
+    </div>
+    <button 
+      mat-raised-button 
+      color="primary" 
+      (click)="toggleAddForm()"
+      class="add-button">
+      <mat-icon>{{ showAddForm ? 'close' : 'add' }}</mat-icon>
+      {{ showAddForm ? 'Cancel' : 'Add To-Do' }}
+    </button>
+  </div>
+
+  <!-- Loading State -->
+  <div *ngIf="todoService.isLoading()" class="loading-state">
+    <mat-spinner diameter="40"></mat-spinner>
+    <p>Loading your to-dos...</p>
+  </div>
+
+  <div *ngIf="!todoService.isLoading()">
+    <!-- Add Todo Form -->
+    <mat-card *ngIf="showAddForm" class="add-form-card">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>add_task</mat-icon>
+          New To-Do
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Title</mat-label>
+            <input matInput [(ngModel)]="newItem.title" placeholder="What needs to be done?" required>
+            <mat-icon matPrefix>title</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea 
+              matInput 
+              [(ngModel)]="newItem.description" 
+              placeholder="Add details (optional)"
+              rows="3"></textarea>
+            <mat-icon matPrefix>description</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Due Date</mat-label>
+            <input matInput [matDatepicker]="picker" [(ngModel)]="newItem.dueDate">
+            <mat-icon matPrefix>event</mat-icon>
+            <mat-datepicker-toggle matSuffix [for]="picker"></mat-datepicker-toggle>
+            <mat-datepicker #picker></mat-datepicker>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Priority</mat-label>
+            <mat-select [(ngModel)]="newItem.priority">
+              <mat-option *ngFor="let priority of priorities" [value]="priority.value">
+                <span [style.color]="priority.color">{{ priority.label }}</span>
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>flag</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Category</mat-label>
+            <input matInput [(ngModel)]="newItem.category" placeholder="e.g., Work, Personal, Shopping">
+            <mat-icon matPrefix>label</mat-icon>
+          </mat-form-field>
+        </div>
+      </mat-card-content>
+      <mat-card-actions>
+        <button mat-raised-button color="primary" (click)="addTodo()" [disabled]="!newItem.title.trim()">
+          <mat-icon>add</mat-icon>
+          Add To-Do
+        </button>
+        <button mat-button (click)="toggleAddForm()">Cancel</button>
+      </mat-card-actions>
+    </mat-card>
+
+    <!-- Overdue Items Alert -->
+    <mat-card *ngIf="overdueTodos.length > 0" class="alert-card overdue">
+      <mat-card-content>
+        <div class="alert-header">
+          <mat-icon>warning</mat-icon>
+          <div>
+            <h3>Overdue Items</h3>
+            <p>You have {{ overdueTodos.length }} overdue {{ overdueTodos.length === 1 ? 'item' : 'items' }}</p>
+          </div>
+        </div>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Active Todos -->
+    <mat-card class="todos-card active-todos">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>assignment</mat-icon>
+          Active To-Dos
+          <span class="count-badge">{{ incompleteTodos.length }}</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <div *ngIf="incompleteTodos.length === 0" class="no-items">
+          <mat-icon>task_alt</mat-icon>
+          <p>No active to-dos</p>
+          <p class="subtitle">All caught up! Add a new to-do to get started.</p>
+        </div>
+
+        <mat-expansion-panel *ngFor="let item of incompleteTodos" class="todo-item">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-checkbox
+                [checked]="item.completed"
+                (change)="toggleComplete(item.id)"
+                (click)="$event.stopPropagation()"
+                class="todo-checkbox">
+              </mat-checkbox>
+              <div class="todo-title-section">
+                <span class="todo-title" [class.overdue]="isOverdue(item)">
+                  {{ item.title }}
+                </span>
+                <div class="todo-meta">
+                  <mat-chip *ngIf="item.priority" [style.background-color]="getPriorityColor(item.priority)" class="priority-chip">
+                    {{ item.priority }}
+                  </mat-chip>
+                  <mat-chip *ngIf="item.category" class="category-chip">
+                    <mat-icon>label</mat-icon>
+                    {{ item.category }}
+                  </mat-chip>
+                  <span *ngIf="item.dueDate" class="due-date" [class.overdue]="isOverdue(item)" [class.today]="isDueToday(item)">
+                    <mat-icon>event</mat-icon>
+                    {{ formatDate(item.dueDate) }}
+                  </span>
+                </div>
+              </div>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="todo-details">
+            <div *ngIf="editingItemId !== item.id">
+              <p *ngIf="item.description" class="description">{{ item.description }}</p>
+              <div class="todo-actions">
+                <button mat-icon-button (click)="startEdit(item)" matTooltip="Edit">
+                  <mat-icon>edit</mat-icon>
+                </button>
+                <button mat-icon-button color="warn" (click)="deleteTodo(item.id)" matTooltip="Delete">
+                  <mat-icon>delete</mat-icon>
+                </button>
+              </div>
+            </div>
+
+            <div *ngIf="editingItemId === item.id" class="edit-form">
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Title</mat-label>
+                <input matInput [(ngModel)]="editForm.title">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Description</mat-label>
+                <textarea matInput [(ngModel)]="editForm.description" rows="3"></textarea>
+              </mat-form-field>
+
+              <div class="edit-row">
+                <mat-form-field appearance="outline">
+                  <mat-label>Due Date</mat-label>
+                  <input matInput [matDatepicker]="editPicker" [(ngModel)]="editForm.dueDate">
+                  <mat-datepicker-toggle matSuffix [for]="editPicker"></mat-datepicker-toggle>
+                  <mat-datepicker #editPicker></mat-datepicker>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Priority</mat-label>
+                  <mat-select [(ngModel)]="editForm.priority">
+                    <mat-option *ngFor="let priority of priorities" [value]="priority.value">
+                      <span [style.color]="priority.color">{{ priority.label }}</span>
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Category</mat-label>
+                  <input matInput [(ngModel)]="editForm.category">
+                </mat-form-field>
+              </div>
+
+              <div class="edit-actions">
+                <button mat-raised-button color="primary" (click)="saveEdit(item.id)">
+                  <mat-icon>save</mat-icon>
+                  Save
+                </button>
+                <button mat-button (click)="cancelEdit()">Cancel</button>
+              </div>
+            </div>
+          </div>
+        </mat-expansion-panel>
+      </mat-card-content>
+    </mat-card>
+
+    <!-- Completed Todos -->
+    <mat-card *ngIf="completedTodos.length > 0" class="todos-card completed-todos">
+      <mat-card-header>
+        <mat-card-title>
+          <mat-icon>done_all</mat-icon>
+          Completed
+          <span class="count-badge completed">{{ completedTodos.length }}</span>
+        </mat-card-title>
+      </mat-card-header>
+      <mat-card-content>
+        <mat-expansion-panel *ngFor="let item of completedTodos" class="todo-item completed">
+          <mat-expansion-panel-header>
+            <mat-panel-title>
+              <mat-checkbox
+                [checked]="item.completed"
+                (change)="toggleComplete(item.id)"
+                (click)="$event.stopPropagation()"
+                class="todo-checkbox">
+              </mat-checkbox>
+              <div class="todo-title-section">
+                <span class="todo-title completed-text">{{ item.title }}</span>
+                <div class="todo-meta">
+                  <mat-chip *ngIf="item.category" class="category-chip">
+                    <mat-icon>label</mat-icon>
+                    {{ item.category }}
+                  </mat-chip>
+                </div>
+              </div>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+
+          <div class="todo-details">
+            <p *ngIf="item.description" class="description">{{ item.description }}</p>
+            <div class="todo-actions">
+              <button mat-icon-button color="warn" (click)="deleteTodo(item.id)" matTooltip="Delete">
+                <mat-icon>delete</mat-icon>
+              </button>
+            </div>
+          </div>
+        </mat-expansion-panel>
+      </mat-card-content>
+    </mat-card>
+  </div>
+</div>

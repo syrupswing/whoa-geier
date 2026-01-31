@@ -11,6 +11,27 @@
   font-style: normal;
   font-display: swap;
 }
+@font-face {
+  font-family: 'MinecraftTen';
+  src: url('assets/MinecraftTen.ttf') format('');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'MinecraftRegular';
+  src: url('assets/MinecraftRegular.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'MinecraftBold';
+  src: url('assets/MinecraftBold.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
 
 /* CSS Custom Properties (Variables) */
 :root {

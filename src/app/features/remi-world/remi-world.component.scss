@@ -1,395 +1,649 @@
+// Minecraft-themed styles with authentic textures
+.minecraft-world-container,
 .remi-world-container {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 20px;
+  background: linear-gradient(180deg, #87CEEB 0%, #68B8D7 100%);
+  min-height: calc(100vh - 64px);
+  font-family: 'MinecraftBold', 'Courier New', monospace;
+}
+
+.minecraft-title {
+  font-family: 'MinecraftBold', Roboto, "Helvetica Neue", sans-serif;
+  font-size: 48px;
+  font-weight: 400;
+  color: #2C2C2C;
+  text-shadow: 
+    4px 4px 0px #000,
+    -2px -2px 0 #555;
+  letter-spacing: 3px;
 }
 
 .header {
   text-align: center;
   margin-bottom: 40px;
+  padding: 20px;
 
   h1 {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;
-    font-size: 2.5rem;
-    margin: 0 0 8px;
-    background: linear-gradient(45deg, #2196F3, #9C27B0, #FF5722);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+    gap: 16px;
+    font-size: 48px;
+    margin: 0 0 16px;
+    line-height: 1.2;
 
     mat-icon {
       font-size: 3rem;
       width: 3rem;
       height: 3rem;
-      background: linear-gradient(45deg, #2196F3, #9C27B0);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(3px 3px 0px #000);
     }
   }
 
   .subtitle {
-    font-size: 1.2rem;
-    color: var(--color-text-secondary);
+    font-size: 1.4rem;
+    color: #2C2C2C;
+    text-shadow: 2px 2px 0px rgba(255,255,255,0.8);
+    font-weight: bold;
     margin: 0;
   }
 }
 
+// Category selection with authentic Minecraft block textures
 .categories {
+  .minecraft-heading,
   h2 {
     text-align: center;
-    margin-bottom: 32px;
-    color: var(--color-text-primary);
+    font-size: 2.2rem;
+    color: #2C2C2C;
+    text-shadow: 
+      3px 3px 0px #000,
+      -1px -1px 0 #666;
+    letter-spacing: 4px;
+    margin-bottom: 40px;
+    font-weight: bold;
+    font-family: 'MinecraftBold', 'Courier New', monospace;
   }
 
   .category-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 24px;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 32px;
     margin-bottom: 40px;
   }
 
   .category-card {
     cursor: pointer;
-    text-align: center;
-    padding: 32px;
-    transition: all 0.3s ease;
-    border: 2px solid transparent;
+    border: 5px solid #000;
+    box-shadow: 
+      0 10px 0 #000,
+      10px 10px 0 rgba(0,0,0,0.4);
+    transition: all 0.1s ease;
+    position: relative;
+    min-height: 220px;
+    image-rendering: pixelated;
+    image-rendering: -moz-crisp-edges;
+    image-rendering: crisp-edges;
 
     &:hover {
-      transform: translateY(-8px);
-      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
-      border-color: #2196F3;
+      transform: translate(-3px, -3px);
+      box-shadow: 
+        0 13px 0 #000,
+        13px 13px 0 rgba(0,0,0,0.4);
     }
 
-    mat-icon {
-      font-size: 64px;
-      width: 64px;
-      height: 64px;
-      margin: 0 auto 16px;
-      color: #2196F3;
+    &:active {
+      transform: translate(3px, 5px);
+      box-shadow: 
+        0 5px 0 #000,
+        5px 5px 0 rgba(0,0,0,0.4);
     }
 
-    h3 {
-      margin: 0 0 8px;
-      font-size: 1.5rem;
-      color: var(--color-text-primary);
+    .block-top {
+      height: 24px;
+      border-bottom: 4px solid rgba(0,0,0,0.4);
     }
 
-    p {
-      margin: 0;
-      color: var(--color-text-secondary);
+    .block-content {
+      padding: 28px;
+      text-align: center;
+      
+      .block-icon-large {
+        font-size: 4.5rem;
+        margin-bottom: 20px;
+        filter: drop-shadow(3px 3px 0px rgba(0,0,0,0.4));
+      }
+
+      h3 {
+        font-size: 2rem;
+        margin: 0 0 16px;
+        color: #FFF;
+        text-shadow: 3px 3px 0px #000;
+        font-weight: bold;
+        letter-spacing: 3px;
+        font-family: 'MinecraftBold', 'Courier New', monospace;
+      }
+
+      p {
+        font-size: 1.2rem;
+        margin: 0;
+        color: #FFF;
+        text-shadow: 2px 2px 0px rgba(0,0,0,0.6);
+        font-weight: 600;
+      }
+    }
+  }
+
+  // Grass/Dirt block texture (brown pixelated base with green top)
+  .grass-block {
+    background: 
+      linear-gradient(180deg, 
+        #5C8A3E 0%, 
+        #5C8A3E 22%, 
+        #8B6F47 22%, 
+        #8B6F47 24%,
+        #7A5C3D 24%,
+        #7A5C3D 100%
+      );
+    
+    .block-top {
+      background: 
+        repeating-linear-gradient(90deg, 
+          #4A7C2F 0px, #4A7C2F 2px, 
+          #5C8A3E 2px, #5C8A3E 4px,
+          #3D6B29 4px, #3D6B29 6px,
+          #5C8A3E 6px, #5C8A3E 8px
+        );
+    }
+  }
+
+  // TNT block texture (red with white TNT text pattern)
+  .stone-block {
+    background: 
+      repeating-linear-gradient(0deg,
+        #CC4444 0px, #CC4444 4px,
+        #DD5555 4px, #DD5555 8px,
+        #AA3333 8px, #AA3333 12px,
+        #CC4444 12px, #CC4444 16px
+      ),
+      repeating-linear-gradient(90deg,
+        #CC4444 0px, #CC4444 4px,
+        #DD5555 4px, #DD5555 8px,
+        #AA3333 8px, #AA3333 12px,
+        #CC4444 12px, #CC4444 16px
+      );
+    background-blend-mode: multiply;
+    
+    .block-top {
+      background: 
+        linear-gradient(180deg,
+          #EEEEEE 0%,
+          #EEEEEE 30%,
+          #CC4444 30%,
+          #CC4444 70%,
+          #EEEEEE 70%,
+          #EEEEEE 100%
+        );
+      position: relative;
+      
+      &::after {
+        content: 'TNT';
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: #000;
+        font-size: 0.7rem;
+        font-weight: bold;
+        letter-spacing: 1px;
+      }
+    }
+  }
+
+  // Diamond texture (cyan/turquoise pixelated gem)
+  .diamond-block {
+    background: 
+      radial-gradient(circle at 30% 30%, 
+        #B8F3FF 0%,
+        #5DD3E8 20%,
+        #3CB5C9 40%,
+        #2A9AA9 60%,
+        #1E7A85 80%,
+        #155B63 100%
+      );
+    position: relative;
+    
+    // Add pixelated shine effect
+    &::before {
+      content: '';
+      position: absolute;
+      top: 10%;
+      left: 20%;
+      width: 30%;
+      height: 30%;
+      background: 
+        linear-gradient(135deg,
+          rgba(255,255,255,0.9) 0%,
+          rgba(255,255,255,0.4) 50%,
+          transparent 50%
+        );
+      image-rendering: pixelated;
+    }
+    
+    .block-top {
+      background: 
+        linear-gradient(135deg,
+          #3CB5C9 0%,
+          #2A9AA9 50%,
+          #1E7A85 100%
+        );
     }
   }
 }
 
+// Quiz section with Minecraft crafting table aesthetic
 .quiz-section {
-  .quiz-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    margin-bottom: 24px;
-
-    .back-btn {
-      color: #2196F3;
-    }
-
-    .quiz-info {
-      flex: 1;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-
-      h2 {
-        margin: 0;
-        color: var(--color-text-primary);
-      }
-
-      .score-badge {
-        background: #2196F3;
-        color: white;
-        padding: 8px 16px;
-        border-radius: 20px;
-        font-weight: 500;
-      }
+  .loading-container {
+    text-align: center;
+    padding: 80px 20px;
+    background: rgba(0,0,0,0.3);
+    border: 5px solid #000;
+    border-radius: 8px;
+    box-shadow: 0 8px 0 #000;
+    
+    .loading-text {
+      margin-top: 24px;
+      font-size: 1.6rem;
+      color: #FFF;
+      font-weight: bold;
+      text-shadow: 2px 2px 0px #000;
+      font-family: 'MinecraftBold', 'Courier New', monospace;
     }
   }
 
-  .question-card {
+  .quiz-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 24px;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
 
-    .question {
-      margin-bottom: 32px;
+  .back-btn {
+    color: #FFF !important;
+  }
 
-      h3 {
+  .minecraft-btn {
+    background: #7BC74D;
+    border: 4px solid #000;
+    color: #FFF;
+    font-weight: bold;
+    font-size: 1.2rem;
+    padding: 14px 28px;
+    cursor: pointer;
+    text-shadow: 2px 2px 0px #000;
+    letter-spacing: 2px;
+    box-shadow: 0 6px 0 #5FAC2D, 0 8px 8px rgba(0,0,0,0.3);
+    transition: all 0.1s ease;
+    font-family: 'MinecraftBold', 'Courier New', monospace;
+    border-radius: 0;
+
+    &:hover:not(:disabled) {
+      background: #8FD961;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 0 #5FAC2D, 0 10px 10px rgba(0,0,0,0.3);
+    }
+
+    &:active:not(:disabled) {
+      transform: translateY(3px);
+      box-shadow: 0 3px 0 #5FAC2D, 0 5px 5px rgba(0,0,0,0.3);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      filter: grayscale(0.3);
+    }
+  }
+
+  .minecraft-box {
+    background: rgba(0, 0, 0, 0.75);
+    border: 4px solid #000;
+    padding: 14px 24px;
+    color: #FFF;
+    font-weight: bold;
+    box-shadow: 0 6px 0 #000, 0 8px 8px rgba(0,0,0,0.3);
+    font-family: 'MinecraftBold', 'Courier New', monospace;
+  }
+
+  .score-display {
+    .score-label {
+      color: #FFD700;
+      margin-right: 10px;
+      font-size: 1.2rem;
+      text-shadow: 2px 2px 0px #000;
+    }
+    
+    .score-value {
+      font-size: 1.4rem;
+      text-shadow: 2px 2px 0px #000;
+    }
+  }
+
+  // Crafting table texture for question card
+  .question-card {
+    background: 
+      repeating-linear-gradient(0deg,
+        #B5926A 0px, #B5926A 8px,
+        #9D7E5C 8px, #9D7E5C 16px,
+        #8B6F4A 16px, #8B6F4A 24px,
+        #B5926A 24px, #B5926A 32px
+      ),
+      repeating-linear-gradient(90deg,
+        #B5926A 0px, #B5926A 8px,
+        #9D7E5C 8px, #9D7E5C 16px,
+        #8B6F4A 16px, #8B6F4A 24px,
+        #B5926A 24px, #B5926A 32px
+      );
+    background-blend-mode: multiply;
+    border: 5px solid #000;
+    padding: 0;
+    box-shadow: 
+      0 10px 0 #000,
+      10px 10px 0 rgba(0,0,0,0.4);
+    margin-bottom: 32px;
+    image-rendering: pixelated;
+
+    .question-header {
+      background: #6B4423;
+      color: #FFF;
+      padding: 20px;
+      text-align: center;
+      border-bottom: 4px solid #000;
+      font-size: 1.8rem;
+      letter-spacing: 3px;
+      text-shadow: 3px 3px 0px #000;
+      font-family: 'MinecraftBold', 'Courier New', monospace;
+    }
+
+    .question-content {
+      background: rgba(245, 230, 211, 0.95);
+      padding: 32px;
+      
+      .question-text {
         font-size: 1.5rem;
-        margin: 0 0 16px;
-        color: var(--color-text-primary);
+        color: #2C2C2C;
+        font-weight: bold;
+        margin: 0 0 20px;
+        line-height: 1.8;
+        font-family: 'MinecraftBold', 'Courier New', monospace;
       }
 
       .hint {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 12px;
         background: #FFF9C4;
-        border-radius: 8px;
-        color: var(--color-text-primary);
-        margin: 0;
-
-        mat-icon {
-          color: #F57F17;
-        }
+        border: 3px solid #F9A825;
+        padding: 16px 20px;
+        border-radius: 0;
+        font-size: 1.2rem;
+        color: #2C2C2C;
+        margin: 20px 0 0;
+        box-shadow: 0 4px 0 #F57F17;
+        font-weight: bold;
       }
     }
 
     .answer-section {
-      .answer-input {
+      background: rgba(245, 230, 211, 0.95);
+      padding: 0 32px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+
+      .minecraft-input {
         width: 100%;
-        margin-bottom: 16px;
+        padding: 18px;
+        font-size: 1.4rem;
+        border: 4px solid #000;
+        background: #FFF;
+        font-family: 'MinecraftBold', 'Courier New', monospace;
+        font-weight: bold;
+        box-shadow: inset 0 6px 0 rgba(0,0,0,0.15);
+        border-radius: 0;
+
+        &:focus {
+          outline: none;
+          border-color: #4CAF50;
+          box-shadow: 
+            inset 0 6px 0 rgba(0,0,0,0.15),
+            0 0 0 4px rgba(76, 175, 80, 0.4);
+        }
+
+        &::placeholder {
+          color: #999;
+        }
       }
 
-      .radio-group {
-        display: flex;
-        flex-direction: column;
-        gap: 16px;
-        margin-bottom: 24px;
+      .options-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 20px;
+        margin-bottom: 20px;
 
-        .radio-option {
-          padding: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.12);
-          border-radius: 8px;
-          transition: all 0.2s ease;
+        .option-btn {
+          padding: 24px;
+          font-size: 1.3rem;
+          min-height: 90px;
+          background: #BDBDBD;
+          box-shadow: 0 6px 0 #757575, 0 8px 8px rgba(0,0,0,0.3);
+          border: 4px solid #000;
+          font-family: 'MinecraftBold', 'Courier New', monospace;
 
-          &:hover {
-            border-color: #2196F3;
-            background: rgba(33, 150, 243, 0.05);
+          &.selected {
+            background: #FFD54F;
+            box-shadow: 0 6px 0 #F57C00, 0 8px 8px rgba(0,0,0,0.3);
+            border-color: #F57C00;
+          }
+
+          &:hover:not(:disabled) {
+            background: #E0E0E0;
+            transform: translateY(-2px);
+          }
+
+          &.selected:hover {
+            background: #FFE082;
           }
         }
       }
 
-      button {
-        width: 100%;
+      .submit-btn {
+        align-self: center;
+        min-width: 220px;
+        padding: 18px 36px;
+        font-size: 1.4rem;
       }
     }
 
     .result-section {
+      background: rgba(245, 230, 211, 0.95);
+      padding: 36px;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+      align-items: center;
+
       .result {
+        width: 100%;
+        padding: 36px;
         text-align: center;
-        padding: 32px;
-        border-radius: 12px;
-        margin-bottom: 24px;
+        border: 5px solid #000;
+        box-shadow: 0 8px 0 #000;
 
         &.correct {
-          background: linear-gradient(135deg, #4CAF50, #8BC34A);
-          color: white;
+          background: #81C784;
+          border-color: #2E7D32;
+          
+          .result-icon {
+            color: #1B5E20;
+            background: #4CAF50;
+            border-color: #2E7D32;
+          }
         }
 
         &.incorrect {
-          background: linear-gradient(135deg, #FF5722, #FF9800);
-          color: white;
+          background: #E57373;
+          border-color: #C62828;
+          
+          .result-icon {
+            color: #B71C1C;
+            background: #F44336;
+            border-color: #C62828;
+          }
         }
 
-        mat-icon {
-          font-size: 80px;
-          width: 80px;
-          height: 80px;
-          margin-bottom: 16px;
+        .result-icon {
+          width: 90px;
+          height: 90px;
+          border-radius: 0;
+          border: 5px solid #000;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 3.5rem;
+          font-weight: bold;
+          margin-bottom: 20px;
+          box-shadow: 0 6px 0 #000;
+          font-family: 'MinecraftBold', 'Courier New', monospace;
         }
 
-        h3 {
-          margin: 0 0 8px;
-          font-size: 2rem;
+        .result-title {
+          font-size: 2.2rem;
+          margin: 0 0 16px;
+          color: #FFF;
+          text-shadow: 3px 3px 0px #000;
+          letter-spacing: 3px;
+          font-family: 'MinecraftBold', 'Courier New', monospace;
         }
 
-        p {
-          margin: 8px 0 0;
-          font-size: 1.1rem;
+        .correct-answer {
+          font-size: 1.3rem;
+          margin: 0;
+          color: #FFF;
+          text-shadow: 2px 2px 0px rgba(0,0,0,0.6);
 
           strong {
-            font-weight: 600;
+            font-size: 1.6rem;
+            text-decoration: underline;
+            text-underline-offset: 4px;
           }
         }
       }
 
-      .result-actions {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
+      .next-btn {
+        min-width: 270px;
+        padding: 18px 36px;
+        font-size: 1.4rem;
+        background: #2196F3;
+        box-shadow: 0 6px 0 #1565C0, 0 8px 8px rgba(0,0,0,0.3);
 
-        button {
-          width: 100%;
+        &:hover {
+          background: #42A5F5;
+          box-shadow: 0 8px 0 #1565C0, 0 10px 10px rgba(0,0,0,0.3);
+        }
+
+        &:active {
+          box-shadow: 0 3px 0 #1565C0, 0 5px 5px rgba(0,0,0,0.3);
         }
       }
     }
   }
-
-  .progress-section {
-    text-align: center;
-    margin-top: 32px;
-
-    p {
-      margin: 8px 0;
-      color: var(--color-text-secondary);
-    }
-
-    .progress-bar {
-      width: 100%;
-      height: 24px;
-      background: var(--color-surface-light);
-      border-radius: 12px;
-      overflow: hidden;
-      margin: 16px 0;
-      border: 1px solid rgba(255, 255, 255, 0.12);
-
-      .progress-fill {
-        height: 100%;
-        background: linear-gradient(90deg, #2196F3, #4CAF50);
-        transition: width 0.5s ease;
-      }
-    }
-
-    .score-text {
-      font-size: 1.2rem;
-      font-weight: 500;
-      color: #2196F3;
-    }
-  }
 }
 
-.quiz-complete {
-  .complete-card {
-    text-align: center;
-    padding: 48px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-
-    .trophy {
-      font-size: 120px;
-      width: 120px;
-      height: 120px;
-      margin: 0 auto 24px;
-      color: #FFD700;
-      animation: bounce 1s infinite;
-    }
-
-    h2 {
-      margin: 0 0 32px;
-      font-size: 2.5rem;
-    }
-
-    .final-score {
-      margin-bottom: 32px;
-
-      h3 {
-        margin: 0 0 16px;
-        font-size: 1.5rem;
-      }
-
-      .score-display {
-        font-size: 3rem;
-        font-weight: 700;
-        margin: 16px 0;
-      }
-
-      .percentage {
-        font-size: 2rem;
-        opacity: 0.9;
-      }
-    }
-
-    .complete-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-      max-width: 300px;
-      margin: 0 auto;
-
-      button {
-        width: 100%;
-      }
-    }
+// Responsive design
+@media (max-width: 768px) {
+  .minecraft-title {
+    font-size: 32px;
   }
-}
 
-@keyframes bounce {
-  0%, 100% {
-    transform: translateY(0);
-  }
-  50% {
-    transform: translateY(-20px);
-  }
-}
-
-/* Mobile optimizations */
-@media (max-width: 767px) {
   .header {
     h1 {
-      font-size: 2rem;
-
-      mat-icon {
-        font-size: 2rem;
-        width: 2rem;
-        height: 2rem;
-      }
+      font-size: 32px;
     }
 
     .subtitle {
-      font-size: 1rem;
+      font-size: 1.1rem;
     }
   }
 
   .categories {
+    .minecraft-heading,
+    h2 {
+      font-size: 1.6rem;
+    }
+
     .category-grid {
       grid-template-columns: 1fr;
+      gap: 24px;
+    }
+
+    .category-card {
+      min-height: 180px;
     }
   }
 
   .quiz-section {
-    .quiz-header {
-      .quiz-info {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
+    .question-card {
+      .question-header {
+        font-size: 1.4rem;
+        padding: 16px;
+      }
 
-        h2 {
+      .question-content {
+        padding: 24px;
+        
+        .question-text {
           font-size: 1.3rem;
         }
       }
-    }
 
-    .question-card {
-      .question h3 {
-        font-size: 1.2rem;
-      }
-    }
-  }
+      .answer-section {
+        padding: 0 24px 24px;
 
-  .quiz-complete {
-    .complete-card {
-      padding: 32px 16px;
-
-      .trophy {
-        font-size: 80px;
-        width: 80px;
-        height: 80px;
-      }
-
-      h2 {
-        font-size: 1.8rem;
-      }
-
-      .final-score {
-        .score-display {
-          font-size: 2rem;
+        .options-grid {
+          grid-template-columns: 1fr;
+          gap: 16px;
         }
 
-        .percentage {
-          font-size: 1.5rem;
+        .minecraft-input {
+          font-size: 1.2rem;
+          padding: 16px;
         }
       }
+
+      .result-section {
+        padding: 24px;
+
+        .result {
+          padding: 24px;
+
+          .result-icon {
+            width: 70px;
+            height: 70px;
+            font-size: 2.8rem;
+          }
+
+          .result-title {
+            font-size: 1.8rem;
+          }
+        }
+      }
+    }
+
+    .minecraft-btn {
+      font-size: 1rem;
+      padding: 12px 20px;
     }
   }
 }

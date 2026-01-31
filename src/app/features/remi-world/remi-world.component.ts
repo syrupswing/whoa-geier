@@ -1,4 +1,4 @@
-import { Component, signal } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -8,10 +8,12 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { GithubAiService } from '../../services/github-ai.service';
 
 interface QuizQuestion {
   id: string;
-  type: 'spelling' | 'math' | 'multiple-choice';
+  type: 'spelling' | 'math' | 'fun-facts';
   question: string;
   correctAnswer: string;
   options?: string[]; // For multiple choice
@@ -36,155 +38,133 @@ interface QuizResult {
     MatFormFieldModule,
     MatInputModule,
     MatRadioModule,
-    MatChipsModule
+    MatChipsModule,
+    MatProgressSpinnerModule
   ],
   templateUrl: './remi-world.component.html',
   styleUrl: './remi-world.component.scss'
 })
 export class RemiWorldComponent {
+  private aiService = inject(GithubAiService);
+  
   selectedCategory = signal<string>('');
   currentQuestion = signal<QuizQuestion | null>(null);
   userAnswer = signal<string>('');
   quizResults = signal<QuizResult[]>([]);
   showResult = signal<boolean>(false);
   currentResult = signal<boolean | null>(null);
+  isLoading = signal<boolean>(false);
 
-  // Quiz questions by category
-  private quizQuestions: Record<string, QuizQuestion[]> = {
-    spelling: [
-      {
-        id: 's1',
-        type: 'spelling',
-        question: 'Spell the word: ELEPHANT',
-        correctAnswer: 'elephant',
-        hint: 'A large animal with a trunk'
-      },
-      {
-        id: 's2',
-        type: 'spelling',
-        question: 'Spell the word: BEAUTIFUL',
-        correctAnswer: 'beautiful',
-        hint: 'Something that looks very nice'
-      },
-      {
-        id: 's3',
-        type: 'spelling',
-        question: 'Spell the word: FRIENDSHIP',
-        correctAnswer: 'friendship',
-        hint: 'The relationship between friends'
-      },
-      {
-        id: 's4',
-        type: 'spelling',
-        question: 'Spell the word: BUTTERFLY',
-        correctAnswer: 'butterfly',
-        hint: 'A flying insect with colorful wings'
-      },
-      {
-        id: 's5',
-        type: 'spelling',
-        question: 'Spell the word: RAINBOW',
-        correctAnswer: 'rainbow',
-        hint: 'Appears in the sky after rain'
-      }
-    ],
-    math: [
-      {
-        id: 'm1',
-        type: 'math',
-        question: 'What is 5 + 7?',
-        correctAnswer: '12'
-      },
-      {
-        id: 'm2',
-        type: 'math',
-        question: 'What is 15 - 8?',
-        correctAnswer: '7'
-      },
-      {
-        id: 'm3',
-        type: 'math',
-        question: 'What is 6 × 4?',
-        correctAnswer: '24'
-      },
-      {
-        id: 'm4',
-        type: 'math',
-        question: 'What is 20 ÷ 5?',
-        correctAnswer: '4'
-      },
-      {
-        id: 'm5',
-        type: 'math',
-        question: 'What is 9 + 6?',
-        correctAnswer: '15'
-      },
-      {
-        id: 'm6',
-        type: 'math',
-        question: 'What is 12 × 3?',
-        correctAnswer: '36'
-      }
-    ],
-    trivia: [
-      {
-        id: 't1',
-        type: 'multiple-choice',
-        question: 'What color is the sky on a clear day?',
-        correctAnswer: 'Blue',
-        options: ['Red', 'Blue', 'Green', 'Yellow']
-      },
-      {
-        id: 't2',
-        type: 'multiple-choice',
-        question: 'How many legs does a spider have?',
-        correctAnswer: '8',
-        options: ['6', '8', '10', '4']
-      },
-      {
-        id: 't3',
-        type: 'multiple-choice',
-        question: 'What is the capital of the United States?',
-        correctAnswer: 'Washington, D.C.',
-        options: ['New York', 'Los Angeles', 'Washington, D.C.', 'Chicago']
-      },
-      {
-        id: 't4',
-        type: 'multiple-choice',
-        question: 'Which planet is known as the Red Planet?',
-        correctAnswer: 'Mars',
-        options: ['Venus', 'Mars', 'Jupiter', 'Saturn']
-      },
-      {
-        id: 't5',
-        type: 'multiple-choice',
-        question: 'How many days are in a leap year?',
-        correctAnswer: '366',
-        options: ['365', '366', '364', '367']
-      }
-    ]
-  };
-
-  selectCategory(category: string): void {
+  async selectCategory(category: string): Promise<void> {
     this.selectedCategory.set(category);
     this.quizResults.set([]);
-    this.loadNextQuestion();
+    await this.loadNextQuestion();
   }
 
-  loadNextQuestion(): void {
-    const category = this.selectedCategory();
-    const questions = this.quizQuestions[category];
-    const answeredIds = this.quizResults().map(r => r.questionId);
-    const unansweredQuestions = questions.filter(q => !answeredIds.includes(q.id));
+  async loadNextQuestion(): Promise<void> {
+    this.isLoading.set(true);
+    try {
+      const category = this.selectedCategory();
+      const question = await this.generateQuestion(category);
+      
+      if (question) {
+        this.currentQuestion.set(question);
+        this.userAnswer.set('');
+        this.showResult.set(false);
+        this.currentResult.set(null);
+      }
+    } catch (error) {
+      console.error('Error loading question:', error);
+    } finally {
+      this.isLoading.set(false);
+    }
+  }
 
-    if (unansweredQuestions.length > 0) {
-      const randomIndex = Math.floor(Math.random() * unansweredQuestions.length);
-      this.currentQuestion.set(unansweredQuestions[randomIndex]);
-      this.userAnswer.set('');
-      this.showResult.set(false);
-      this.currentResult.set(null);
-    } else {
-      this.currentQuestion.set(null);
+  private async generateQuestion(category: string): Promise<QuizQuestion | null> {
+    let prompt = '';
+    let questionType: QuizQuestion['type'] = 'math';
+
+    switch (category) {
+      case 'spelling':
+        questionType = 'spelling';
+        prompt = `Generate 1 unique and creative spelling question for a 5-6 year old child. Use variety in word selection across these categories:
+
+EASY WORDS (3-4 letters): cat, dog, sun, run, hat, mat, box, fox, bat, rat, bug, hug, jet, net, pen, hen, top, mop, car, jar
+MEDIUM WORDS (4-6 letters): happy, silly, funny, apple, pizza, tiger, ninja, magic, dragon, robot, wizard, castle, banana, cookie, rocket, turtle, monkey, pencil
+MINECRAFT THEMED: mine, cave, dirt, wood, tree, gold, iron, crop, farm, food, chest, sword, block, stone, craft
+NATURE WORDS: bird, fish, frog, leaf, seed, moon, star, rain, snow, wind
+ACTION WORDS: swim, jump, run, hop, skip, play, read, sing, dance, climb
+
+Pick ONE word randomly from ANY category above (mix it up!). Create an engaging sentence that relates to Minecraft, nature, or something fun. Return ONLY a JSON object in this format:
+{
+  "word": "dragon",
+  "sentence": "Can you spell DRAGON? In Minecraft, the ender dragon flies in the sky!",
+  "hint": "A big flying creature that breathes fire"
+}`;
+        break;
+      
+      case 'math':
+        questionType = 'math';
+        prompt = `Generate 1 simple math question for a 5-6 year old child. Use addition or subtraction with numbers 1-10 only. Make it fun and engaging. Return ONLY a JSON object in this format:
+{
+  "question": "If you have 3 blocks and get 2 more, how many blocks do you have?",
+  "answer": "5"
+}`;
+        break;
+      
+      case 'fun-facts':
+        questionType = 'fun-facts';
+        prompt = `Generate 1 fun multiple choice question for a 5-6 year old child about Minecraft or animals or nature. Make it fun and educational. Return ONLY a JSON object in this format:
+{
+  "question": "What do creepers in Minecraft do?",
+  "correctAnswer": "Explode",
+  "options": ["Explode", "Fly", "Swim", "Sleep"]
+}`;
+        break;
+    }
+
+    try {
+      const response = await this.aiService.generateContent(prompt);
+      
+      if (!response.success || !response.text) {
+        throw new Error(response.error || 'Failed to generate question');
+      }
+
+      // Parse the AI response
+      let jsonText = response.text.trim();
+      // Remove markdown code blocks if present
+      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+      
+      const data = JSON.parse(jsonText);
+      
+      // Build question based on category
+      if (category === 'spelling') {
+        return {
+          id: Date.now().toString(),
+          type: 'spelling',
+          question: data.sentence || `Spell the word: ${data.word.toUpperCase()}`,
+          correctAnswer: data.word.toLowerCase(),
+          hint: data.hint
+        };
+      } else if (category === 'math') {
+        return {
+          id: Date.now().toString(),
+          type: 'math',
+          question: data.question,
+          correctAnswer: data.answer.toString().toLowerCase()
+        };
+      } else { // fun-facts
+        return {
+          id: Date.now().toString(),
+          type: 'fun-facts',
+          question: data.question,
+          correctAnswer: data.correctAnswer,
+          options: data.options
+        };
+      }
+    } catch (error) {
+      console.error('Error parsing AI response:', error);
+      return null;
     }
   }
 
@@ -236,12 +216,5 @@ export class RemiWorldComponent {
     const score = this.getScore();
     if (score.total === 0) return 0;
     return Math.round((score.correct / score.total) * 100);
-  }
-
-  isQuizComplete(): boolean {
-    const category = this.selectedCategory();
-    if (!category) return false;
-    const totalQuestions = this.quizQuestions[category].length;
-    return this.quizResults().length >= totalQuestions;
   }
 }

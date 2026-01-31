@@ -18,6 +18,16 @@ service cloud.firestore {
       allow delete: if false;
     }
     
+    // Todo items collection
+    match /todoItems/{todoId} {
+      // Anyone authenticated can read all todos
+      allow read: if isAuthenticated();
+      // Anyone authenticated can create, update, or delete todos
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
     // Default: deny all access unless explicitly granted above
     match /{document=**} {
       allow read, write: if false;

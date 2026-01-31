@@ -116,7 +116,7 @@ export class FirestoreService {
   }
 
   /**
-   * Add a document to a collection
+   * Add a document to a collection (auto-generates ID)
    */
   async addDocument<T>(collectionName: string, data: Partial<T>): Promise<string | null> {
     if (!this.db) {
@@ -138,6 +138,33 @@ export class FirestoreService {
   }
 
   /**
+   * Set a document with a specific ID
+   */
+  async setDocument<T>(
+    collectionName: string,
+    documentId: string,
+    data: Partial<T>
+  ): Promise<boolean> {
+    if (!this.db) {
+      throw new Error('Firestore not initialized');
+    }
+
+    try {
+      const docRef = doc(this.db, collectionName, documentId);
+      await setDoc(docRef, {
+        ...data,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      return true;
+    } catch (err: any) {
+      this.error.set(`Error setting document: ${err.message}`);
+      console.error('Firestore set error:', err);
+      return false;
+    }
+  }
+
+  /**
    * Update a document in a collection
    */
   async updateDocument<T>(
@@ -151,10 +178,19 @@ export class FirestoreService {
 
     try {
       const docRef = doc(this.db, collectionName, documentId);
-      await updateDoc(docRef, {
-        ...data,
-        updatedAt: new Date().toISOString()
-      });
+      
+      // Convert the data to a plain object to ensure proper serialization
+      const updateData: any = {};
+      for (const key in data) {
+        if (data.hasOwnProperty(key)) {
+          updateData[key] = data[key];
+        }
+      }
+      updateData.updatedAt = new Date().toISOString();
+      
+      console.log(`Updating Firestore doc ${documentId} in ${collectionName}:`, updateData);
+      await updateDoc(docRef, updateData);
+      console.log('Firestore update successful');
       return true;
     } catch (err: any) {
       this.error.set(`Error updating document: ${err.message}`);

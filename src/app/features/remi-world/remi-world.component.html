@@ -1,173 +1,128 @@
-<div class="remi-world-container">
+<div class="minecraft-world-container">
   <div class="header">
-    <h1>
-      <mat-icon>school</mat-icon>
-      Remi's World
+    <h1 class="minecraft-title">
+      Remi's Minecraft World
     </h1>
-    <p class="subtitle">Learn and play with fun quizzes!</p>
+    <p class="subtitle">Build your knowledge, one block at a time!</p>
   </div>
 
   <!-- Category Selection -->
   <div class="categories" *ngIf="!selectedCategory()">
-    <h2>Choose a Quiz Category</h2>
+    <h2 class="minecraft-heading">CHOOSE YOUR QUEST</h2>
     <div class="category-grid">
-      <mat-card class="category-card" (click)="selectCategory('spelling')">
-        <mat-icon>spellcheck</mat-icon>
-        <h3>Spelling</h3>
-        <p>Practice spelling words</p>
-      </mat-card>
+      <div class="category-card grass-block" (click)="selectCategory('spelling')">
+        <div class="block-top"></div>
+        <div class="block-content">
+          <div class="block-icon-large">📝</div>
+          <h3>SPELLING</h3>
+          <p>Learn to spell words!</p>
+        </div>
+      </div>
 
-      <mat-card class="category-card" (click)="selectCategory('math')">
-        <mat-icon>calculate</mat-icon>
-        <h3>Math</h3>
-        <p>Solve math problems</p>
-      </mat-card>
+      <div class="category-card stone-block" (click)="selectCategory('math')">
+        <div class="block-top"></div>
+        <div class="block-content">
+          <div class="block-icon-large">➕</div>
+          <h3>MATH</h3>
+          <p>Count and solve!</p>
+        </div>
+      </div>
 
-      <mat-card class="category-card" (click)="selectCategory('trivia')">
-        <mat-icon>quiz</mat-icon>
-        <h3>Trivia</h3>
-        <p>Test your knowledge</p>
-      </mat-card>
+      <div class="category-card diamond-block" (click)="selectCategory('fun-facts')">
+        <div class="block-top"></div>
+        <div class="block-content">
+          <div class="block-icon-large">💎</div>
+          <h3>FUN FACTS</h3>
+          <p>Learn cool things!</p>
+        </div>
+      </div>
     </div>
   </div>
 
   <!-- Quiz Section -->
-  <div class="quiz-section" *ngIf="selectedCategory() && currentQuestion()">
-    <div class="quiz-header">
-      <button mat-icon-button (click)="backToCategories()" class="back-btn">
-        <mat-icon>arrow_back</mat-icon>
-      </button>
-      <div class="quiz-info">
-        <h2>{{ selectedCategory() | titlecase }} Quiz</h2>
-        <div class="score-badge">
-          Score: {{ getScore().correct }} / {{ getScore().total }}
-        </div>
-      </div>
+  <div class="quiz-section" *ngIf="selectedCategory()">
+    <!-- Loading Spinner -->
+    <div class="loading-container" *ngIf="isLoading()">
+      <mat-spinner diameter="60"></mat-spinner>
+      <p class="loading-text">Generating new question...</p>
     </div>
 
-    <mat-card class="question-card">
-      <mat-card-content>
-        <div class="question">
-          <h3>{{ currentQuestion()?.question }}</h3>
+    <!-- Question Card -->
+    <div *ngIf="!isLoading() && currentQuestion()" class="quiz-content">
+      <div class="quiz-header">
+        <button mat-raised-button (click)="backToCategories()" class="back-btn minecraft-btn">
+          ⬅ BACK
+        </button>
+        <div class="score-display minecraft-box">
+          <span class="score-label">SCORE:</span>
+          <span class="score-value">{{ getScore().correct }} / {{ getScore().total }}</span>
+        </div>
+      </div>
+
+      <div class="question-card minecraft-card">
+        <div class="question-header minecraft-heading">
+          {{ selectedCategory() | uppercase }} CHALLENGE
+        </div>
+        
+        <div class="question-content">
+          <p class="question-text">{{ currentQuestion()?.question }}</p>
           <p class="hint" *ngIf="currentQuestion()?.hint">
-            <mat-icon>lightbulb</mat-icon>
-            Hint: {{ currentQuestion()?.hint }}
+            💡 Hint: {{ currentQuestion()?.hint }}
           </p>
         </div>
 
         <!-- Text Input (for spelling and math) -->
-        <div class="answer-section" *ngIf="currentQuestion()?.type !== 'multiple-choice' && !showResult()">
-          <mat-form-field appearance="outline" class="answer-input">
-            <mat-label>Your Answer</mat-label>
-            <input 
-              matInput 
-              [(ngModel)]="userAnswer" 
-              (keyup.enter)="submitAnswer()"
-              placeholder="Type your answer here"
-              autofocus>
-          </mat-form-field>
+        <div class="answer-section" *ngIf="currentQuestion()?.type !== 'fun-facts' && !showResult()">
+          <input 
+            class="minecraft-input"
+            [(ngModel)]="userAnswer" 
+            (keyup.enter)="submitAnswer()"
+            placeholder="Type your answer here"
+            autofocus>
           <button 
-            mat-raised-button 
-            color="primary" 
+            class="minecraft-btn submit-btn"
             (click)="submitAnswer()"
             [disabled]="!userAnswer().trim()">
-            Submit Answer
+            SUBMIT
           </button>
         </div>
 
         <!-- Multiple Choice Options -->
-        <div class="answer-section" *ngIf="currentQuestion()?.type === 'multiple-choice' && !showResult()">
-          <mat-radio-group [(ngModel)]="userAnswer" class="radio-group">
-            <mat-radio-button 
+        <div class="answer-section" *ngIf="currentQuestion()?.type === 'fun-facts' && !showResult()">
+          <div class="options-grid">
+            <button 
               *ngFor="let option of currentQuestion()?.options" 
-              [value]="option"
-              class="radio-option">
+              class="option-btn minecraft-btn"
+              [class.selected]="userAnswer() === option"
+              (click)="userAnswer.set(option)">
               {{ option }}
-            </mat-radio-button>
-          </mat-radio-group>
+            </button>
+          </div>
           <button 
-            mat-raised-button 
-            color="primary" 
+            class="minecraft-btn submit-btn"
             (click)="submitAnswer()"
             [disabled]="!userAnswer().trim()">
-            Submit Answer
+            SUBMIT
           </button>
         </div>
 
         <!-- Result Display -->
         <div class="result-section" *ngIf="showResult()">
-          <div class="result" [class.correct]="currentResult()" [class.incorrect]="!currentResult()">
-            <mat-icon>{{ currentResult() ? 'check_circle' : 'cancel' }}</mat-icon>
-            <h3>{{ currentResult() ? 'Correct!' : 'Not quite!' }}</h3>
-            <p *ngIf="!currentResult()">
-              The correct answer is: <strong>{{ currentQuestion()?.correctAnswer }}</strong>
+          <div class="result minecraft-box" [class.correct]="currentResult()" [class.incorrect]="!currentResult()">
+            <div class="result-icon">{{ currentResult() ? '✓' : '✗' }}</div>
+            <h3 class="result-title">{{ currentResult() ? 'CORRECT!' : 'NOT QUITE!' }}</h3>
+            <p *ngIf="!currentResult()" class="correct-answer">
+              The answer is: <strong>{{ currentQuestion()?.correctAnswer }}</strong>
             </p>
           </div>
 
-          <div class="result-actions">
-            <button 
-              mat-raised-button 
-              color="primary" 
-              (click)="nextQuestion()"
-              *ngIf="!isQuizComplete()">
-              <mat-icon>arrow_forward</mat-icon>
-              Next Question
-            </button>
-            <button 
-              mat-raised-button 
-              color="accent" 
-              (click)="restartQuiz()"
-              *ngIf="isQuizComplete()">
-              <mat-icon>refresh</mat-icon>
-              Try Again
-            </button>
-            <button 
-              mat-button 
-              (click)="backToCategories()">
-              <mat-icon>home</mat-icon>
-              Back to Categories
-            </button>
-          </div>
-        </div>
-      </mat-card-content>
-    </mat-card>
-
-    <!-- Progress Indicator -->
-    <div class="progress-section">
-      <p>Questions Answered: {{ getScore().total }}</p>
-      <div class="progress-bar">
-        <div 
-          class="progress-fill" 
-          [style.width.%]="getScorePercentage()">
+          <button 
+            class="minecraft-btn next-btn"
+            (click)="nextQuestion()">
+            NEXT QUESTION ➡
+          </button>
         </div>
       </div>
-      <p class="score-text">{{ getScorePercentage() }}% Correct</p>
     </div>
-  </div>
-
-  <!-- Quiz Complete -->
-  <div class="quiz-complete" *ngIf="selectedCategory() && !currentQuestion() && isQuizComplete()">
-    <mat-card class="complete-card">
-      <mat-icon class="trophy">emoji_events</mat-icon>
-      <h2>Quiz Complete!</h2>
-      <div class="final-score">
-        <h3>Final Score</h3>
-        <div class="score-display">
-          {{ getScore().correct }} / {{ getScore().total }}
-        </div>
-        <div class="percentage">{{ getScorePercentage() }}%</div>
-      </div>
-
-      <div class="complete-actions">
-        <button mat-raised-button color="primary" (click)="restartQuiz()">
-          <mat-icon>refresh</mat-icon>
-          Try Again
-        </button>
-        <button mat-raised-button color="accent" (click)="backToCategories()">
-          <mat-icon>home</mat-icon>
-          Choose Another Quiz
-        </button>
-      </div>
-    </mat-card>
   </div>
 </div>
