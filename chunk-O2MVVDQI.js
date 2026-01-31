@@ -1,0 +1,1 @@
+import{$c as t,Y as a,Yc as n,ga as i}from"./chunk-JKUOVESX.js";var E=(()=>{class e{static{this.\u0275fac=function(o){return new(o||e)}}static{this.\u0275mod=i({type:e})}static{this.\u0275inj=a({imports:[n,t,t]})}}return e})();export{E as a};
