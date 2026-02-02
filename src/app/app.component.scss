@@ -257,6 +257,10 @@
 
     img {
       filter: invert(1);
+
+      @media screen and (max-width: 400px) {
+        display: none;
+      }
     }
     
     span {
@@ -264,6 +268,10 @@
       font-size: 54px;
       font-weight: 400;
       text-shadow: 2px 2px 0px #000;
+
+      @media screen and (max-width: 600px) {
+        font-size: 32px;
+      }
     }
   }
 }

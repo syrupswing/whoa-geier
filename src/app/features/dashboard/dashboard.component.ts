@@ -13,6 +13,7 @@ import { GoogleCalendarService, CalendarEvent } from '../../services/google-cale
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
 import { WeatherService } from '../../services/weather.service';
+import { TodoService, TodoItem } from '../../services/todo.service';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -57,6 +58,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private hasUserInteracted = false;
   private sharedAudioContext: AudioContext | null = null;
   
+  // Todos widget
+  todosExpanded = signal<boolean>(false);
+  
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
 
@@ -64,7 +68,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public calendarService: GoogleCalendarService,
     public groceryService: GroceryService,
     public githubAi: GithubAiService,
-    public weatherService: WeatherService
+    public weatherService: WeatherService,
+    public todoService: TodoService
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
   }
@@ -547,6 +552,42 @@ Try again once you've completed these steps!`;
       this.isLoadingClothing.set(false);
       // Provide a fallback recommendation with typing effect
       await this.animateTypingEffect('Check the weather and dress comfortably with suitable shoes!');
+    }
+  }
+
+  // Todos widget methods
+  get incompleteTodos(): TodoItem[] {
+    return this.todoService.items().filter(item => !item.completed);
+  }
+
+  get visibleTodos(): TodoItem[] {
+    const items = this.incompleteTodos;
+    return this.todosExpanded() ? items : items.slice(0, 4);
+  }
+
+  toggleTodosExpanded(): void {
+    this.todosExpanded.set(!this.todosExpanded());
+  }
+
+  async toggleTodoComplete(id: string): Promise<void> {
+    await this.todoService.toggleComplete(id);
+  }
+
+  isOverdue(item: TodoItem): boolean {
+    if (!item.dueDate) return false;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const dueDate = new Date(item.dueDate);
+    dueDate.setHours(0, 0, 0, 0);
+    return dueDate < today;
+  }
+
+  getPriorityColor(priority: string): string {
+    switch (priority) {
+      case 'high': return '#F44336';
+      case 'medium': return '#FF9800';
+      case 'low': return '#4CAF50';
+      default: return '#757575';
     }
   }
 

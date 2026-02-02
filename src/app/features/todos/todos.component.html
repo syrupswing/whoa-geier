@@ -4,8 +4,9 @@
       <h1>To-Do List</h1>
       <p class="subtitle">Stay organized and productive</p>
     </div>
-    <button 
-      mat-raised-button 
+    <button
+      mat-fab
+      extended
       color="primary" 
       (click)="toggleAddForm()"
       class="add-button">
@@ -123,6 +124,16 @@
                 <span class="todo-title" [class.overdue]="isOverdue(item)">
                   {{ item.title }}
                 </span>
+                <span *ngIf="item.dueDate" class="due-date" [class.overdue]="isOverdue(item)" [class.today]="isDueToday(item)">
+                  <mat-icon>event</mat-icon>
+                  {{ formatDate(item.dueDate) }}
+                </span>
+              </div>
+            </mat-panel-title>
+          </mat-expansion-panel-header>
+          <div class="todo-details">
+            <div *ngIf="editingItemId !== item.id" class="todo-details-primary">
+              <div>
                 <div class="todo-meta">
                   <mat-chip *ngIf="item.priority" [style.background-color]="getPriorityColor(item.priority)" class="priority-chip">
                     {{ item.priority }}
@@ -131,18 +142,9 @@
                     <mat-icon>label</mat-icon>
                     {{ item.category }}
                   </mat-chip>
-                  <span *ngIf="item.dueDate" class="due-date" [class.overdue]="isOverdue(item)" [class.today]="isDueToday(item)">
-                    <mat-icon>event</mat-icon>
-                    {{ formatDate(item.dueDate) }}
-                  </span>
                 </div>
+                <p *ngIf="item.description" class="description">{{ item.description }}</p>
               </div>
-            </mat-panel-title>
-          </mat-expansion-panel-header>
-
-          <div class="todo-details">
-            <div *ngIf="editingItemId !== item.id">
-              <p *ngIf="item.description" class="description">{{ item.description }}</p>
               <div class="todo-actions">
                 <button mat-icon-button (click)="startEdit(item)" matTooltip="Edit">
                   <mat-icon>edit</mat-icon>

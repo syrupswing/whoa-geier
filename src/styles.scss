@@ -325,3 +325,8 @@ mat-card-actions.mdc-card__actions {
     }
   }
 }
+.mdc-evolution-chip__text-label {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
