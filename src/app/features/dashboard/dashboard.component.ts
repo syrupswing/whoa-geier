@@ -67,7 +67,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   readingMinutes = signal<number>(0);
   showReadingForm = signal<boolean>(false);
   showReadingLog = signal<boolean>(false);
-  minutesToAdd = signal<number>(0);
+  minutesToAdd = signal<number | null>(null);
   private readingUnsubscribe: any = null;
   
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
@@ -618,7 +618,7 @@ Try again once you've completed these steps!`;
   toggleReadingForm(): void {
     this.showReadingForm.set(!this.showReadingForm());
     if (!this.showReadingForm()) {
-      this.minutesToAdd.set(0);
+      this.minutesToAdd.set(null);
     }
   }
 
@@ -628,10 +628,10 @@ Try again once you've completed these steps!`;
 
   async addReadingMinutes(): Promise<void> {
     const minutes = this.minutesToAdd();
-    if (minutes > 0) {
+    if (minutes && minutes > 0) {
       const entryId = await this.firestoreService.addReadingEntry(minutes);
       if (entryId) {
-        this.minutesToAdd.set(0);
+        this.minutesToAdd.set(null);
         this.showReadingForm.set(false);
       }
     }

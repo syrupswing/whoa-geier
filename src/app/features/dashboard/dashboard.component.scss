@@ -409,6 +409,9 @@
   margin-bottom: 20px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
   color: white;
+  height: fit-content;
+  max-height: 400px;
+  overflow: auto;
 
   .reading-counter-header {
     display: flex;
@@ -434,11 +437,6 @@
         color: white;
         text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
       }
-    }
-
-    .reading-actions {
-      display: flex;
-      gap: 4px;
     }
 
     button[mat-icon-button] {
@@ -506,26 +504,41 @@
 
       ::ng-deep {
         .mat-mdc-text-field-wrapper {
-          background: rgba(255, 255, 255, 0.95);
+          background: white;
           border-radius: 8px;
+          border: 2px solid rgba(102, 126, 234, 0.3);
         }
 
         .mat-mdc-form-field-focus-overlay {
           background: transparent;
         }
 
+        .mdc-text-field--focused .mat-mdc-text-field-wrapper {
+          border-color: #667eea;
+          box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.2);
+        }
+
         input {
-          color: #333;
+          color: #1a1a1a;
           font-size: 1.2rem;
           font-weight: 600;
+          caret-color: #667eea;
+        }
+
+        input::placeholder {
+          color: rgba(0, 0, 0, 0.4);
         }
 
         .mat-mdc-floating-label {
-          color: rgba(0, 0, 0, 0.6);
+          color: rgba(0, 0, 0, 0.7);
         }
 
         .mdc-text-field--focused .mat-mdc-floating-label {
           color: #667eea;
+        }
+
+        .mat-mdc-form-field-icon-prefix {
+          color: rgba(0, 0, 0, 0.6);
         }
       }
     }
@@ -613,7 +626,6 @@
 
         &:hover {
           background: rgba(255, 255, 255, 0.15);
-          transform: translateX(4px);
         }
 
         .entry-info {
@@ -669,6 +681,28 @@
         margin: 0;
         font-size: 0.85rem;
       }
+    }
+  }
+
+  .reading-expand-btn {
+    width: 100%;
+    margin-top: 8px;
+    color: white !important;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+
+    mat-icon {
+      margin-right: 4px;
+    }
+
+    &:hover {
+      background: rgba(255, 255, 255, 0.2);
     }
   }
 }

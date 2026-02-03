@@ -162,21 +162,17 @@
     </button>
   </div>
 
-  <!-- Reading Counter Widget -->
-  <div class="reading-counter-widget">
-    <div class="reading-counter-header">
-      <div class="reading-counter-title">
-        <mat-icon>menu_book</mat-icon>
-        <h2>Remi's Reading</h2>
-      </div>
-      <div class="reading-actions">
-        <button 
-          mat-icon-button 
-          (click)="toggleReadingLog()"
-          [class.active]="showReadingLog()"
-          matTooltip="View reading log">
-          <mat-icon>{{ showReadingLog() ? 'expand_less' : 'list' }}</mat-icon>
-        </button>
+  
+
+  <div class="grid">
+    
+    <!-- Reading Counter Widget -->
+    <div class="reading-counter-widget">
+      <div class="reading-counter-header">
+        <div class="reading-counter-title">
+          <mat-icon>menu_book</mat-icon>
+          <h2>Remi's Reading</h2>
+        </div>
         <button 
           mat-icon-button 
           (click)="toggleReadingForm()"
@@ -185,64 +181,70 @@
           <mat-icon>{{ showReadingForm() ? 'close' : 'add' }}</mat-icon>
         </button>
       </div>
-    </div>
-    
-    <div class="reading-display">
-      <div class="minutes-count">{{ readingMinutes() }}</div>
-      <div class="minutes-label">minutes read</div>
-    </div>
-    
-    <div class="reading-form" *ngIf="showReadingForm()">
-      <mat-form-field appearance="outline" class="minutes-input">
-        <mat-label>Minutes to add</mat-label>
-        <input 
-          matInput 
-          type="number" 
-          [(ngModel)]="minutesToAdd"
-          min="1"
-          max="999"
-          placeholder="Enter minutes">
-        <mat-icon matPrefix>timer</mat-icon>
-      </mat-form-field>
+      
+      <div class="reading-display">
+        <div class="minutes-count">{{ readingMinutes() }}</div>
+        <div class="minutes-label">minutes read</div>
+      </div>
+      
+      <div class="reading-form" *ngIf="showReadingForm()">
+        <mat-form-field appearance="outline" class="minutes-input">
+          <mat-label>Minutes to add</mat-label>
+          <input 
+            matInput 
+            type="number" 
+            [(ngModel)]="minutesToAdd"
+            min="1"
+            max="999"
+            placeholder="Enter minutes">
+          <mat-icon matPrefix>timer</mat-icon>
+        </mat-form-field>
+        <button 
+          mat-raised-button 
+          color="primary"
+          (click)="addReadingMinutes()"
+          [disabled]="!minutesToAdd()">
+          <mat-icon>check</mat-icon>
+          Add Minutes
+        </button>
+      </div>
+
+      <div class="reading-log" *ngIf="showReadingLog()">
+        <div class="log-header">
+          <h3>Reading History</h3>
+          <span class="entry-count">{{ readingEntries().length }} entries</span>
+        </div>
+        <div class="log-entries" *ngIf="readingEntries().length > 0">
+          <div class="log-entry" *ngFor="let entry of readingEntries()">
+            <div class="entry-info">
+              <div class="entry-minutes">{{ entry.minutes }} min</div>
+              <div class="entry-timestamp">{{ formatTimestamp(entry.timestamp) }}</div>
+            </div>
+            <button 
+              mat-icon-button 
+              (click)="deleteReadingEntry(entry.id)"
+              matTooltip="Delete this entry"
+              class="delete-btn">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+        <div class="no-entries" *ngIf="readingEntries().length === 0">
+          <mat-icon>bookmark_border</mat-icon>
+          <p>No reading entries yet. Add your first one!</p>
+        </div>
+      </div>
+
       <button 
-        mat-raised-button 
-        color="primary"
-        (click)="addReadingMinutes()"
-        [disabled]="minutesToAdd() <= 0">
-        <mat-icon>check</mat-icon>
-        Add Minutes
+        *ngIf="readingEntries().length > 0"
+        mat-button 
+        class="reading-expand-btn"
+        (click)="toggleReadingLog()">
+        <mat-icon>{{ showReadingLog() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        {{ showReadingLog() ? 'Hide History' : 'View History (' + readingEntries().length + ')' }}
       </button>
     </div>
 
-    <div class="reading-log" *ngIf="showReadingLog()">
-      <div class="log-header">
-        <h3>Reading History</h3>
-        <span class="entry-count">{{ readingEntries().length }} entries</span>
-      </div>
-      <div class="log-entries" *ngIf="readingEntries().length > 0">
-        <div class="log-entry" *ngFor="let entry of readingEntries()">
-          <div class="entry-info">
-            <div class="entry-minutes">{{ entry.minutes }} min</div>
-            <div class="entry-timestamp">{{ formatTimestamp(entry.timestamp) }}</div>
-          </div>
-          <button 
-            mat-icon-button 
-            (click)="deleteReadingEntry(entry.id)"
-            matTooltip="Delete this entry"
-            class="delete-btn">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </div>
-      </div>
-      <div class="no-entries" *ngIf="readingEntries().length === 0">
-        <mat-icon>bookmark_border</mat-icon>
-        <p>No reading entries yet. Add your first one!</p>
-      </div>
-    </div>
-  </div>
-
-  <div class="grid">
-    
     <!-- Quick Link Widgets -->
     <div class="quick-links-section">
       <!-- PickUp Patrol Link -->
