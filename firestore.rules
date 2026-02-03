@@ -28,6 +28,16 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
     
+    // Reading entries collection
+    match /reading-entries/{entryId} {
+      // Anyone authenticated can read all reading entries
+      allow read: if isAuthenticated();
+      // Anyone authenticated can create, update, or delete reading entries
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
     // Default: deny all access unless explicitly granted above
     match /{document=**} {
       allow read, write: if false;

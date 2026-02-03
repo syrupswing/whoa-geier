@@ -320,4 +320,52 @@ export class FirestoreService {
       return false;
     }
   }
+
+  /**
+   * Get all reading entries
+   */
+  async getReadingEntries(): Promise<any[]> {
+    return this.getCollection('reading-entries');
+  }
+
+  /**
+   * Subscribe to reading entries for real-time updates
+   */
+  subscribeToReadingEntries(
+    callback: (entries: any[]) => void
+  ): Unsubscribe | null {
+    return this.subscribeToCollection('reading-entries', callback);
+  }
+
+  /**
+   * Add a reading entry
+   */
+  async addReadingEntry(minutes: number): Promise<string | null> {
+    if (!this.db || minutes <= 0) {
+      return null;
+    }
+
+    try {
+      const entry = {
+        minutes,
+        timestamp: new Date().toISOString(),
+        date: new Date().toLocaleDateString('en-US', { 
+          year: 'numeric', 
+          month: 'short', 
+          day: 'numeric' 
+        })
+      };
+      return await this.addDocument('reading-entries', entry);
+    } catch (err: any) {
+      console.error('Error adding reading entry:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Delete a reading entry
+   */
+  async deleteReadingEntry(entryId: string): Promise<boolean> {
+    return this.deleteDocument('reading-entries', entryId);
+  }
 }

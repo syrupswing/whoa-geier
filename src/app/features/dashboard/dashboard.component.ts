@@ -14,6 +14,7 @@ import { GroceryService, GroceryItem } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
 import { WeatherService } from '../../services/weather.service';
 import { TodoService, TodoItem } from '../../services/todo.service';
+import { FirestoreService } from '../../services/firestore.service';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -61,6 +62,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   // Todos widget
   todosExpanded = signal<boolean>(false);
   
+  // Reading entries widget
+  readingEntries = signal<any[]>([]);
+  readingMinutes = signal<number>(0);
+  showReadingForm = signal<boolean>(false);
+  showReadingLog = signal<boolean>(false);
+  minutesToAdd = signal<number>(0);
+  private readingUnsubscribe: any = null;
+  
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
 
@@ -69,7 +78,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public groceryService: GroceryService,
     public githubAi: GithubAiService,
     public weatherService: WeatherService,
-    public todoService: TodoService
+    public todoService: TodoService,
+    public firestoreService: FirestoreService
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
   }
@@ -84,6 +94,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const savedCount = localStorage.getItem('githubApiCallCount');
     if (savedCount) {
       this.apiCallCount.set(parseInt(savedCount, 10));
+    }
+    
+    // Subscribe to reading entries from Firestore
+    if (this.firestoreService.isInitialized()) {
+      this.readingUnsubscribe = this.firestoreService.subscribeToReadingEntries((entries) => {
+        this.readingEntries.set(entries);
+        // Calculate total minutes
+        const total = entries.reduce((sum, entry) => sum + (entry.minutes || 0), 0);
+        this.readingMinutes.set(total);
+      });
     }
     
     // Set up one-time listener for user interaction to enable audio
@@ -109,6 +129,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
     if (this.sharedAudioContext) {
       this.sharedAudioContext.close().catch(() => {});
+    }
+    if (this.readingUnsubscribe) {
+      this.readingUnsubscribe();
     }
   }
 
@@ -589,6 +612,44 @@ Try again once you've completed these steps!`;
       case 'low': return '#4CAF50';
       default: return '#757575';
     }
+  }
+
+  // Reading entries methods
+  toggleReadingForm(): void {
+    this.showReadingForm.set(!this.showReadingForm());
+    if (!this.showReadingForm()) {
+      this.minutesToAdd.set(0);
+    }
+  }
+
+  toggleReadingLog(): void {
+    this.showReadingLog.set(!this.showReadingLog());
+  }
+
+  async addReadingMinutes(): Promise<void> {
+    const minutes = this.minutesToAdd();
+    if (minutes > 0) {
+      const entryId = await this.firestoreService.addReadingEntry(minutes);
+      if (entryId) {
+        this.minutesToAdd.set(0);
+        this.showReadingForm.set(false);
+      }
+    }
+  }
+
+  async deleteReadingEntry(entryId: string): Promise<void> {
+    await this.firestoreService.deleteReadingEntry(entryId);
+  }
+
+  formatTimestamp(timestamp: string): string {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
   }
 
   private async animateTypingEffect(fullText: string): Promise<void> {
