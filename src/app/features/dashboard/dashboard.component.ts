@@ -473,19 +473,6 @@ Try again once you've completed these steps!`;
     this.chatMessages.set([]);
   }
 
-  getWeatherIcon(): string {
-    const condition = this.weatherService.getWeatherConditionClass();
-    switch (condition) {
-      case 'rainy': return 'rainy';
-      case 'snowy': return 'ac_unit';
-      case 'cloudy': return 'cloud';
-      case 'clear': return 'wb_sunny';
-      case 'stormy': return 'thunderstorm';
-      case 'foggy': return 'foggy';
-      default: return 'wb_sunny';
-    }
-  }
-
   getMoonPhase(): string {
     // Calculate moon phase based on current date
     const now = new Date();

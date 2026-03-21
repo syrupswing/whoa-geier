@@ -34,7 +34,6 @@
     <!-- Loaded Weather Content -->
     <div class="weather-bar-content" *ngIf="weatherService.weather()">
       <div class="weather-bar-main">
-        <mat-icon class="weather-bar-icon">{{ getWeatherIcon() }}</mat-icon>
         <div class="weather-bar-temp">{{ weatherService.weather()?.temperature }}°F</div>
         <div class="weather-bar-description">{{ weatherService.weather()?.description | titlecase }}</div>
       </div>

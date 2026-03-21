@@ -130,19 +130,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
     }
   }
   
-  getWeatherIcon(): string {
-    const condition = this.weatherService.getWeatherConditionClass();
-    switch (condition) {
-      case 'rainy': return 'rainy';
-      case 'snowy': return 'ac_unit';
-      case 'cloudy': return 'cloud';
-      case 'clear': return 'wb_sunny';
-      case 'stormy': return 'thunderstorm';
-      case 'foggy': return 'foggy';
-      default: return 'wb_sunny';
-    }
-  }
-  
   toggleAISetupPrompt(): void {
     this.showAISetupPrompt.update(v => !v);
   }
