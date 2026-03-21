@@ -8,13 +8,20 @@ import { MatListModule } from '@angular/material/list';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';import { MatTooltipModule } from '@angular/material/tooltip';import { RouterLink } from '@angular/router';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
 import { WeatherService } from '../../services/weather.service';
 import { TodoService, TodoItem } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
+import { QuickLinkService, QuickLink } from '../../services/quick-link.service';
+import { QuickLinkDialogComponent } from '../../components/quick-link-dialog/quick-link-dialog.component';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -32,7 +39,7 @@ interface ChatMessage {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, MatListModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, RouterLink],
+  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, MatListModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule, MatMenuModule, MatSnackBarModule, RouterLink],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -79,7 +86,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public githubAi: GithubAiService,
     public weatherService: WeatherService,
     public todoService: TodoService,
-    public firestoreService: FirestoreService
+    public firestoreService: FirestoreService,
+    public quickLinkService: QuickLinkService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
   }
@@ -701,6 +711,57 @@ Try again once you've completed these steps!`;
       oscillator.stop(audioContext.currentTime + 0.04);
     } catch (error) {
       // Silently fail if audio context is not available
+    }
+  }
+
+  // Quick Links Management
+  openAddQuickLinkDialog(): void {
+    const dialogRef = this.dialog.open(QuickLinkDialogComponent, {
+      width: '500px',
+      data: { mode: 'add' }
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        try {
+          await this.quickLinkService.addLink(result);
+          this.snackBar.open('Quick link added successfully', 'Close', { duration: 3000 });
+        } catch (error) {
+          console.error('Error adding quick link:', error);
+          this.snackBar.open('Failed to add quick link', 'Close', { duration: 3000 });
+        }
+      }
+    });
+  }
+
+  openEditQuickLinkDialog(link: QuickLink): void {
+    const dialogRef = this.dialog.open(QuickLinkDialogComponent, {
+      width: '500px',
+      data: { mode: 'edit', link }
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        try {
+          await this.quickLinkService.updateLink(link.id, result);
+          this.snackBar.open('Quick link updated successfully', 'Close', { duration: 3000 });
+        } catch (error) {
+          console.error('Error updating quick link:', error);
+          this.snackBar.open('Failed to update quick link', 'Close', { duration: 3000 });
+        }
+      }
+    });
+  }
+
+  async deleteQuickLink(link: QuickLink): Promise<void> {
+    if (confirm(`Are you sure you want to delete "${link.title}"?`)) {
+      try {
+        await this.quickLinkService.deleteLink(link.id);
+        this.snackBar.open('Quick link deleted successfully', 'Close', { duration: 3000 });
+      } catch (error) {
+        console.error('Error deleting quick link:', error);
+        this.snackBar.open('Failed to delete quick link', 'Close', { duration: 3000 });
+      }
     }
   }
 }

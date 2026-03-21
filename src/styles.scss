@@ -238,9 +238,14 @@ body {
 .mat-mdc-form-field {
   margin-top: 4px;
 }
-.mat-mdc-form-field-has-icon-prefix .mdc-text-field--outlined:not(.mdc-text-field--focused) .mdc-floating-label {
-  transform: translate(30px, -10px) !important;
+
+/* Fix icon prefix label positioning for empty fields only */
+.mat-mdc-form-field-has-icon-prefix .mdc-text-field--outlined {
+  .mdc-floating-label:not(.mdc-floating-label--float-above) {
+    transform: translate(30px, -10px) !important;
+  }
 }
+
 .mat-mdc-card {
   gap: 16px;
 }

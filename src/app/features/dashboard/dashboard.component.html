@@ -207,7 +207,7 @@
       </button>
     </div>
     
-    <!-- Reading Counter Widget -->
+    <!-- Reading Counter Widget
     <div class="reading-counter-widget">
       <div class="reading-counter-header">
         <div class="reading-counter-title">
@@ -284,99 +284,94 @@
         <mat-icon>{{ showReadingLog() ? 'expand_less' : 'expand_more' }}</mat-icon>
         {{ showReadingLog() ? 'Hide History' : 'View History (' + readingEntries().length + ')' }}
       </button>
-    </div>
+    </div> -->
 
     <!-- Quick Link Widgets -->
     <div class="quick-links-section">
-      <!-- PickUp Patrol Link -->
-      <a href="https://app.pickuppatrol.net/parents/" target="_blank" rel="noopener noreferrer" class="quick-link-card">
-        <mat-icon class="quick-link-icon">directions_bus</mat-icon>
+      <!-- Display all links from service -->
+      <ng-container *ngFor="let link of quickLinkService.allLinks()">
+        <!-- External links -->
+        <a 
+          *ngIf="link.isExternal"
+          [href]="link.url"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="quick-link-card"
+          [class.minecraft-themed]="link.id === 'remi-world'">
+          <mat-icon class="quick-link-icon">{{ link.icon }}</mat-icon>
+          <div class="quick-link-content">
+            <h3 class="quick-link-title">{{ link.title }}</h3>
+            <p class="quick-link-subtitle" *ngIf="link.subtitle">{{ link.subtitle }}</p>
+          </div>
+          <mat-icon class="external-icon">open_in_new</mat-icon>
+          
+          <!-- Edit menu for user-generated links -->
+          <button 
+            *ngIf="link.isEditable"
+            mat-icon-button 
+            class="edit-link-btn"
+            [matMenuTriggerFor]="linkMenu"
+            (click)="$event.preventDefault(); $event.stopPropagation()"
+            matTooltip="Edit or delete">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #linkMenu="matMenu">
+            <button mat-menu-item (click)="openEditQuickLinkDialog(link)">
+              <mat-icon>edit</mat-icon>
+              <span>Edit Link</span>
+            </button>
+            <button mat-menu-item (click)="deleteQuickLink(link)">
+              <mat-icon>delete</mat-icon>
+              <span>Delete Link</span>
+            </button>
+          </mat-menu>
+        </a>
+        
+        <!-- Internal links -->
+        <a 
+          *ngIf="!link.isExternal"
+          [routerLink]="link.url"
+          class="quick-link-card"
+          [class.minecraft-themed]="link.id === 'remi-world'">
+          <mat-icon class="quick-link-icon">{{ link.icon }}</mat-icon>
+          <div class="quick-link-content">
+            <h3 class="quick-link-title">{{ link.title }}</h3>
+            <p class="quick-link-subtitle" *ngIf="link.subtitle">{{ link.subtitle }}</p>
+          </div>
+          
+          <!-- Edit menu for user-generated links -->
+          <button 
+            *ngIf="link.isEditable"
+            mat-icon-button 
+            class="edit-link-btn"
+            [matMenuTriggerFor]="linkMenu2"
+            (click)="$event.preventDefault(); $event.stopPropagation()"
+            matTooltip="Edit or delete">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #linkMenu2="matMenu">
+            <button mat-menu-item (click)="openEditQuickLinkDialog(link)">
+              <mat-icon>edit</mat-icon>
+              <span>Edit Link</span>
+            </button>
+            <button mat-menu-item (click)="deleteQuickLink(link)">
+              <mat-icon>delete</mat-icon>
+              <span>Delete Link</span>
+            </button>
+          </mat-menu>
+        </a>
+      </ng-container>
+      
+      <!-- Add New Link Button -->
+      <button 
+        class="quick-link-card add-link-card"
+        (click)="openAddQuickLinkDialog()">
+        <mat-icon class="quick-link-icon add-icon">add_circle</mat-icon>
         <div class="quick-link-content">
-          <h3 class="quick-link-title">PickUp Patrol</h3>
-          <p class="quick-link-subtitle">School attendance for Remi</p>
+          <h3 class="quick-link-title">Add Quick Link</h3>
+          <p class="quick-link-subtitle">Create custom link</p>
         </div>
-        <mat-icon class="external-icon">open_in_new</mat-icon>
-      </a>
-      <!-- Lake Harriet School Link -->
-      <a href="https://lakeharriet.mpschools.org/" target="_blank" rel="noopener noreferrer" class="quick-link-card">
-        <mat-icon class="quick-link-icon">school</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Lake Harriet School</h3>
-          <p class="quick-link-subtitle">Homepage for LHS</p>
-        </div>
-        <mat-icon class="external-icon">open_in_new</mat-icon>
-      </a>
-      <!-- Breakfast Menu Link -->
-      <a href="https://resources.finalsite.net/images/v1765916093/mplsk12mnus/yoikpwn0iqzrkj2geyed/2025-26JanMenus_WEB_D2-1.pdf" target="_blank" rel="noopener noreferrer" class="quick-link-card">
-        <mat-icon class="quick-link-icon">egg_alt</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">School Breakfast</h3>
-          <p class="quick-link-subtitle">PDF of January breakfast at LHS</p>
-        </div>
-        <mat-icon class="external-icon">open_in_new</mat-icon>
-      </a>
-      <!-- Lunch Menu Link -->
-      <a href="https://resources.finalsite.net/images/v1765990747/mplsk12mnus/xeocvayr29nladhgpsee/2025-26JanMenus_WEB_D3_04.pdf" target="_blank" rel="noopener noreferrer" class="quick-link-card">
-        <mat-icon class="quick-link-icon">lunch_dining</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">School Lunch</h3>
-          <p class="quick-link-subtitle">PDF of January lunch at LHS</p>
-        </div>
-        <mat-icon class="external-icon">open_in_new</mat-icon>
-      </a>
-      <!-- Recipes -->
-      <a href="recipes" class="quick-link-card">
-        <mat-icon class="quick-link-icon">chef_hat</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Recipes</h3>
-        </div>
-      </a>
-      <!-- Restaurants -->
-      <a href="restaurants" class="quick-link-card">
-        <mat-icon class="quick-link-icon">local_dining</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Restaurants and delivery</h3>
-        </div>
-      </a>
-      <!-- Quick Links -->
-      <a href="quick-links" class="quick-link-card">
-        <mat-icon class="quick-link-icon">link</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Quick Links</h3>
-        </div>
-      </a>
-      <!-- Calendar -->
-      <a href="calendar" class="quick-link-card">
-        <mat-icon class="quick-link-icon">event</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Calendar</h3>
-          <p class="quick-link-subtitle">Family events</p>
-        </div>
-      </a>
-      <!-- To-Dos -->
-      <a href="todos" class="quick-link-card">
-        <mat-icon class="quick-link-icon">checklist</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">To-Do List</h3>
-          <p class="quick-link-subtitle">Tasks & reminders</p>
-        </div>
-      </a>
-      <!-- Vehicles -->
-      <a href="vehicles" class="quick-link-card">
-        <mat-icon class="quick-link-icon">directions_car</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Vehicles</h3>
-          <p class="quick-link-subtitle">Maintenance tracking</p>
-        </div>
-      </a>
-      <!-- Remi World -->
-      <a href="remi-world" class="quick-link-card minecraft-themed">
-        <mat-icon class="quick-link-icon">deployed_code</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Remi's World</h3>
-          <p class="quick-link-subtitle">Learn & play!</p>
-        </div>
-      </a>
+      </button>
     </div>
 
     
