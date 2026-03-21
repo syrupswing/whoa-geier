@@ -276,6 +276,46 @@
   color: var(--color-text-disabled);
 }
 
+.completed-items-container {
+  position: relative;
+  transition: max-height 0.3s ease;
+  
+  &.collapsed {
+    max-height: 210px;
+    overflow: hidden;
+    
+    &::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 100px;
+      background: linear-gradient(to bottom, transparent, var(--color-surface-dark));
+      pointer-events: none;
+    }
+  }
+}
+
+.completed-items-toggle {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0 8px;
+  
+  button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.9rem;
+    
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+  }
+}
+
 .mat-mdc-card-header {
   display: flex;
   flex-wrap: wrap;

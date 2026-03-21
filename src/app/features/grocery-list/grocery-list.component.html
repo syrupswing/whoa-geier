@@ -250,93 +250,114 @@
         </div>
       </mat-card-header>
       <mat-card-content>
-        <mat-list>
-          <mat-list-item *ngFor="let item of completedItems" class="completed-item" [class.editing]="isEditing(item.id)">
-            <!-- Normal view -->
-            <div *ngIf="!isEditing(item.id)" class="item-normal-view">
-              <mat-checkbox 
-                [checked]="item.completed"
-                (change)="toggleItem(item.id)"
-                matListItemIcon>
-              </mat-checkbox>
-              <div class="item-content completed-text">
-                <span class="item-name">{{ getItemDisplayText(item) }}</span>
-                <span *ngIf="item.notes" class="item-notes">{{ item.notes }}</span>
+        <div class="completed-items-container" [class.collapsed]="!showAllCompletedItems">
+          <mat-list>
+            <mat-list-item *ngFor="let item of completedItems" class="completed-item" [class.editing]="isEditing(item.id)">
+              <!-- Normal view -->
+              <div *ngIf="!isEditing(item.id)" class="item-normal-view">
+                <mat-checkbox 
+                  [checked]="item.completed"
+                  (change)="toggleItem(item.id)"
+                  matListItemIcon>
+                </mat-checkbox>
+                <div class="item-content completed-text">
+                  <span class="item-name">{{ getItemDisplayText(item) }}</span>
+                  <span *ngIf="item.notes" class="item-notes">{{ item.notes }}</span>
+                </div>
+                <div matListItemMeta class="item-actions">
+                  <button 
+                    mat-icon-button 
+                    (click)="startEditItem(item)"
+                    matTooltip="Edit item">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button 
+                    mat-icon-button 
+                    color="warn" 
+                    (click)="deleteItem(item.id)"
+                    matTooltip="Delete item">
+                    <mat-icon>delete</mat-icon>
+                  </button>
+                </div>
               </div>
-              <div matListItemMeta class="item-actions">
-                <button 
-                  mat-icon-button 
-                  (click)="startEditItem(item)"
-                  matTooltip="Edit item">
-                  <mat-icon>edit</mat-icon>
-                </button>
-                <button 
-                  mat-icon-button 
-                  color="warn" 
-                  (click)="deleteItem(item.id)"
-                  matTooltip="Delete item">
-                  <mat-icon>delete</mat-icon>
-                </button>
+              
+              <!-- Edit view -->
+              <div *ngIf="isEditing(item.id)" class="item-edit-view">
+                <mat-form-field appearance="outline" class="edit-name-input">
+                  <mat-label>Item name</mat-label>
+                  <input 
+                    matInput 
+                    [(ngModel)]="editingItemName"
+                    (keyup.enter)="saveEdit()"
+                    (keyup.escape)="cancelEdit()">
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline" class="edit-quantity-input">
+                  <mat-label>Qty</mat-label>
+                  <input 
+                    matInput 
+                    type="number"
+                    [(ngModel)]="editingItemQuantity"
+                    min="0"
+                    step="0.1">
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline" class="edit-unit-select">
+                  <mat-label>Unit</mat-label>
+                  <mat-select [(ngModel)]="editingItemUnit">
+                    <mat-option [value]="''">None</mat-option>
+                    <mat-option *ngFor="let unit of unitOptions" [value]="unit.value">
+                      {{ unit.label }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+                
+                <mat-form-field appearance="outline" class="edit-notes-input">
+                  <mat-label>Notes</mat-label>
+                  <input 
+                    matInput 
+                    [(ngModel)]="editingItemNotes">
+                </mat-form-field>
+                
+                <div class="edit-actions">
+                  <button 
+                    mat-mini-fab 
+                    color="primary" 
+                    (click)="saveEdit()"
+                    [disabled]="!editingItemName.trim()"
+                    matTooltip="Save">
+                    <mat-icon>check</mat-icon>
+                  </button>
+                  <button 
+                    mat-mini-fab 
+                    (click)="cancelEdit()"
+                    matTooltip="Cancel">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
               </div>
-            </div>
-            
-            <!-- Edit view -->
-            <div *ngIf="isEditing(item.id)" class="item-edit-view">
-              <mat-form-field appearance="outline" class="edit-name-input">
-                <mat-label>Item name</mat-label>
-                <input 
-                  matInput 
-                  [(ngModel)]="editingItemName"
-                  (keyup.enter)="saveEdit()"
-                  (keyup.escape)="cancelEdit()">
-              </mat-form-field>
-              
-              <mat-form-field appearance="outline" class="edit-quantity-input">
-                <mat-label>Qty</mat-label>
-                <input 
-                  matInput 
-                  type="number"
-                  [(ngModel)]="editingItemQuantity"
-                  min="0"
-                  step="0.1">
-              </mat-form-field>
-              
-              <mat-form-field appearance="outline" class="edit-unit-select">
-                <mat-label>Unit</mat-label>
-                <mat-select [(ngModel)]="editingItemUnit">
-                  <mat-option [value]="''">None</mat-option>
-                  <mat-option *ngFor="let unit of unitOptions" [value]="unit.value">
-                    {{ unit.label }}
-                  </mat-option>
-                </mat-select>
-              </mat-form-field>
-              
-              <mat-form-field appearance="outline" class="edit-notes-input">
-                <mat-label>Notes</mat-label>
-                <input 
-                  matInput 
-                  [(ngModel)]="editingItemNotes">
-              </mat-form-field>
-              
-              <div class="edit-actions">
-                <button 
-                  mat-mini-fab 
-                  color="primary" 
-                  (click)="saveEdit()"
-                  [disabled]="!editingItemName.trim()"
-                  matTooltip="Save">
-                  <mat-icon>check</mat-icon>
-                </button>
-                <button 
-                  mat-mini-fab 
-                  (click)="cancelEdit()"
-                  matTooltip="Cancel">
-                  <mat-icon>close</mat-icon>
-                </button>
-              </div>
-            </div>
-          </mat-list-item>
-        </mat-list>
+            </mat-list-item>
+          </mat-list>
+        </div>
+        
+        <!-- Toggle buttons -->
+        <div class="completed-items-toggle">
+          <button 
+            *ngIf="!showAllCompletedItems"
+            mat-button 
+            color="primary"
+            (click)="toggleCompletedItemsExpansion()">
+            <mat-icon>expand_more</mat-icon>
+            Show all
+          </button>
+          <button 
+            *ngIf="showAllCompletedItems"
+            mat-button 
+            (click)="toggleCompletedItemsExpansion()">
+            <mat-icon>expand_less</mat-icon>
+            Minimize list
+          </button>
+        </div>
       </mat-card-content>
     </mat-card>
   </div>

@@ -100,71 +100,112 @@
       <button mat-button (click)="weatherService.loadWeather()">Retry</button>
     </div>
   </div>
+  <div class="grid">
 
-  <!-- Todos Widget -->
-  <div class="todos-widget" *ngIf="incompleteTodos.length > 0">
-    <div class="todos-widget-header">
-      <div class="todos-widget-title">
-        <mat-icon>checklist</mat-icon>
-        <h2>To-Do List</h2>
-        <span class="todos-count">{{ incompleteTodos.length }}</span>
-      </div>
-      <a mat-icon-button [routerLink]="'/todos'" matTooltip="Open full list">
-        <mat-icon>open_in_new</mat-icon>
-      </a>
-    </div>
-    
-    <div class="todos-list-container" [class.expanded]="todosExpanded()">
-      <div class="todos-list">
-        <div 
-          *ngFor="let item of visibleTodos" 
-          class="todo-item"
-          [class.overdue]="isOverdue(item)">
-          <mat-checkbox 
-            [checked]="item.completed"
-            (change)="toggleTodoComplete(item.id)"
-            color="primary">
-          </mat-checkbox>
-          <div class="todo-content">
-            <div class="todo-title">
-              {{ item.title }}
-              <mat-icon 
-                *ngIf="item.priority === 'high'" 
-                class="priority-indicator high"
-                matTooltip="High Priority">
-                flag
-              </mat-icon>
+    <!-- Grocery List Widget -->
+    <mat-card class="grocery-widget">
+      <a [routerLink]="'/grocery-list'" class="grocery-link">
+        <mat-card-header>
+          <mat-card-title>
+            <div class="widget-header">
+              <div class="widget-title">
+                <mat-icon>shopping_cart</mat-icon>
+                Grocery List
+                
+              </div>
             </div>
-            <div class="todo-meta">
-              <span *ngIf="item.dueDate" class="due-date">
-                <mat-icon>event</mat-icon>
-                {{ item.dueDate | date: 'MMM d' }}
-              </span>
-              <span *ngIf="item.category" class="category">
-                <mat-icon>label</mat-icon>
-                {{ item.category }}
-              </span>
+          </mat-card-title>
+          <div class="widget-actions">
+            <mat-icon 
+              class="storage-status-icon"
+              [matTooltip]="groceryService.useFirestore() ? 'Cloud synced' : 'Local only'"
+              [class.connected]="groceryService.useFirestore()"
+              [class.disconnected]="!groceryService.useFirestore()">
+              {{ groceryService.useFirestore() ? 'cloud_done' : 'cloud_off' }}
+            </mat-icon>
+          </div>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="grocery-list-scrollable" *ngIf="getActiveGroceryItems().length > 0; else noGroceryItems">
+            <ul class="grocery-list-static">
+              <li *ngFor="let item of getActiveGroceryItems()">
+                {{ item.name }}
+              </li>
+            </ul>
+          </div>
+          <ng-template #noGroceryItems>
+            <div class="no-items-small">
+              <mat-icon>shopping_cart</mat-icon>
+              <p>No items in your list</p>
+              <a mat-button [routerLink]="'/grocery-list'" color="primary">
+                Add items
+              </a>
+            </div>
+          </ng-template>
+        </mat-card-content>
+      </a>
+    </mat-card>
+
+    <!-- Todos Widget -->
+    <div class="todos-widget" *ngIf="incompleteTodos.length > 0">
+      <div class="todos-widget-header">
+        <div class="todos-widget-title">
+          <mat-icon>checklist</mat-icon>
+          <h2>To-Do List</h2>
+          <span class="todos-count">{{ incompleteTodos.length }}</span>
+        </div>
+        <a mat-icon-button [routerLink]="'/todos'" matTooltip="Open full list">
+          <mat-icon>open_in_new</mat-icon>
+        </a>
+      </div>
+      
+      <div class="todos-list-container" [class.expanded]="todosExpanded()">
+        <div class="todos-list">
+          <div 
+            *ngFor="let item of visibleTodos" 
+            class="todo-item"
+            [class.overdue]="isOverdue(item)">
+            <mat-checkbox 
+              [checked]="item.completed"
+              (change)="toggleTodoComplete(item.id)"
+              color="primary">
+            </mat-checkbox>
+            <div class="todo-content">
+              <div class="todo-title">
+                {{ item.title }}
+                <mat-icon 
+                  *ngIf="item.priority === 'high'" 
+                  class="priority-indicator high"
+                  matTooltip="High Priority">
+                  flag
+                </mat-icon>
+              </div>
+              <div class="todo-meta">
+                <span *ngIf="item.dueDate" class="due-date">
+                  <mat-icon>event</mat-icon>
+                  {{ item.dueDate | date: 'MMM d' }}
+                </span>
+                <span *ngIf="item.category" class="category">
+                  <mat-icon>label</mat-icon>
+                  {{ item.category }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
+        
+        <div class="todos-fade-overlay" *ngIf="!todosExpanded() && incompleteTodos.length > 4"></div>
       </div>
       
-      <div class="todos-fade-overlay" *ngIf="!todosExpanded() && incompleteTodos.length > 4"></div>
+      <button 
+        *ngIf="incompleteTodos.length > 4"
+        mat-button 
+        class="todos-expand-btn"
+        (click)="toggleTodosExpanded()">
+        <mat-icon>{{ todosExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        {{ todosExpanded() ? 'Show Less' : 'Show More (' + (incompleteTodos.length - 4) + ')' }}
+      </button>
     </div>
-    
-    <button 
-      *ngIf="incompleteTodos.length > 4"
-      mat-button 
-      class="todos-expand-btn"
-      (click)="toggleTodosExpanded()">
-      <mat-icon>{{ todosExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
-      {{ todosExpanded() ? 'Show Less' : 'Show More (' + (incompleteTodos.length - 4) + ')' }}
-    </button>
-  </div>
-
-  
-
-  <div class="grid">
     
     <!-- Reading Counter Widget -->
     <div class="reading-counter-widget">
@@ -338,48 +379,6 @@
       </a>
     </div>
 
-    <!-- Grocery List Widget -->
-    <mat-card class="grocery-widget">
-      <mat-card-header>
-        <mat-card-title>
-          <div class="widget-header">
-            <div class="widget-title">
-              <mat-icon>shopping_cart</mat-icon>
-              Grocery List
-              <mat-icon 
-                class="storage-status-icon"
-                [matTooltip]="groceryService.useFirestore() ? 'Cloud synced' : 'Local only'"
-                [class.connected]="groceryService.useFirestore()"
-                [class.disconnected]="!groceryService.useFirestore()">
-                {{ groceryService.useFirestore() ? 'cloud_done' : 'cloud_off' }}
-              </mat-icon>
-            </div>
-          </div>
-        </mat-card-title>
-        <div class="widget-actions">
-          <a mat-icon-button [routerLink]="'/grocery-list'" class="grocery-link">
-            <mat-icon>crop_free</mat-icon>
-          </a>
-        </div>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="grocery-list-scrollable" *ngIf="getActiveGroceryItems().length > 0; else noGroceryItems">
-          <ul class="grocery-list-static">
-            <li *ngFor="let item of getActiveGroceryItems()">
-              {{ item.name }}
-            </li>
-          </ul>
-        </div>
-        <ng-template #noGroceryItems>
-          <div class="no-items-small">
-            <mat-icon>shopping_cart</mat-icon>
-            <p>No items in your list</p>
-            <a mat-button [routerLink]="'/grocery-list'" color="primary">
-              Add items
-            </a>
-          </div>
-        </ng-template>
-      </mat-card-content>
-    </mat-card>
+    
   </div>
 </div>

@@ -70,6 +70,7 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
   editingItemQuantity?: number;
   editingItemUnit?: string;
   editingItemNotes?: string;
+  showAllCompletedItems = false;
   
   unitOptions = [
     { value: 'each', label: 'Each' },
@@ -345,6 +346,10 @@ Return ONLY a JSON object mapping each item name to its category. Example format
   
   toggleStoreSort(): void {
     this.isSortingByStore = !this.isSortingByStore;
+  }
+
+  toggleCompletedItemsExpansion(): void {
+    this.showAllCompletedItems = !this.showAllCompletedItems;
   }
 
   async clearCompleted(): Promise<void> {
