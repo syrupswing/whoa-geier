@@ -171,6 +171,7 @@
             </mat-checkbox>
             <div class="todo-content">
               <div class="todo-title">
+                <mat-icon *ngIf="item.icon" class="task-item-icon">{{ item.icon }}</mat-icon>
                 {{ item.title }}
               </div>
               <div class="todo-meta">

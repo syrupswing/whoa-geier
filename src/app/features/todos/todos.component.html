@@ -38,6 +38,22 @@
             <mat-icon matPrefix>title</mat-icon>
           </mat-form-field>
 
+          <mat-form-field appearance="outline">
+            <mat-label>Task Icon (MUI name)</mat-label>
+            <input
+              matInput
+              [(ngModel)]="newItem.icon"
+              [matAutocomplete]="newIconAuto"
+              placeholder="Type an icon name, e.g. recycling">
+            <mat-icon matPrefix>{{ newItem.icon || 'emoji_symbols' }}</mat-icon>
+            <mat-autocomplete #newIconAuto="matAutocomplete">
+              <mat-option *ngFor="let icon of getFilteredIconSuggestions(newItem.icon)" [value]="icon">
+                <mat-icon>{{ icon }}</mat-icon>
+                {{ icon }}
+              </mat-option>
+            </mat-autocomplete>
+          </mat-form-field>
+
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Description</mat-label>
             <textarea 
@@ -183,6 +199,7 @@
               </mat-checkbox>
               <div class="todo-title-section">
                 <span class="todo-title" [class.overdue]="isOverdue(item)">
+                  <mat-icon *ngIf="item.icon" class="task-item-icon">{{ item.icon }}</mat-icon>
                   {{ item.title }}
                 </span>
                 <span *ngIf="item.dueDate" class="due-date" [class.overdue]="isOverdue(item)" [class.today]="isDueToday(item)">
@@ -259,6 +276,22 @@
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Title</mat-label>
                 <input matInput [(ngModel)]="editForm.title">
+              </mat-form-field>
+
+              <mat-form-field appearance="outline" class="full-width">
+                <mat-label>Task Icon (MUI name)</mat-label>
+                <input
+                  matInput
+                  [(ngModel)]="editForm.icon"
+                  [matAutocomplete]="editIconAuto"
+                  placeholder="Type an icon name, e.g. recycling">
+                <mat-icon matPrefix>{{ editForm.icon || 'emoji_symbols' }}</mat-icon>
+                <mat-autocomplete #editIconAuto="matAutocomplete">
+                  <mat-option *ngFor="let icon of getFilteredIconSuggestions(editForm.icon)" [value]="icon">
+                    <mat-icon>{{ icon }}</mat-icon>
+                    {{ icon }}
+                  </mat-option>
+                </mat-autocomplete>
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="full-width">
@@ -381,7 +414,10 @@
                 class="todo-checkbox">
               </mat-checkbox>
               <div class="todo-title-section">
-                <span class="todo-title completed-text">{{ item.title }}</span>
+                <span class="todo-title completed-text">
+                  <mat-icon *ngIf="item.icon" class="task-item-icon">{{ item.icon }}</mat-icon>
+                  {{ item.title }}
+                </span>
                 <div class="todo-meta">
                   <mat-chip [style.background-color]="getTaskScoreColor(item)" class="task-score-chip">
                     score: {{ getTaskScoreLabel(item) }}

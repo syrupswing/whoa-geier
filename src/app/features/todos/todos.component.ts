@@ -14,6 +14,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatExpansionModule } from '@angular/material/expansion';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { TodoService, TodoItem } from '../../services/todo.service';
 
 @Component({
@@ -31,6 +32,7 @@ import { TodoService, TodoItem } from '../../services/todo.service';
     MatDatepickerModule,
     MatNativeDateModule,
     MatSelectModule,
+    MatAutocompleteModule,
     MatChipsModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
@@ -48,6 +50,7 @@ export class TodosComponent implements OnInit {
   // New item form
   newItem = {
     title: '',
+    icon: '',
     description: '',
     dueDate: null as Date | null,
     urgency: 'medium' as 'time-sensitive' | 'medium' | 'low',
@@ -65,6 +68,7 @@ export class TodosComponent implements OnInit {
   // Edit form
   editForm = {
     title: '',
+    icon: '',
     description: '',
     dueDate: null as Date | null,
     urgency: 'medium' as 'time-sensitive' | 'medium' | 'low',
@@ -107,6 +111,19 @@ export class TodosComponent implements OnInit {
     { value: 6, label: 'Saturday' }
   ];
 
+  iconSuggestions = [
+    'home', 'event', 'calendar_month', 'check_circle', 'task', 'assignment', 'shopping_cart', 'store', 'restaurant',
+    'local_dining', 'directions_car', 'build', 'cleaning_services', 'delete', 'recycling', 'school', 'work', 'payments',
+    'medical_services', 'fitness_center', 'pets', 'child_care', 'laundry', 'yard', 'park', 'flight', 'luggage', 'phone',
+    'email', 'chat', 'notifications', 'alarm', 'timer', 'bedtime', 'self_improvement', 'menu_book', 'computer', 'tv',
+    'wifi', 'bolt', 'water_drop', 'thermostat', 'local_shipping', 'inventory_2', 'construction', 'handyman', 'plumbing',
+    'grass', 'local_florist', 'celebration', 'cake', 'sports_soccer', 'sports_basketball', 'hiking', 'directions_run',
+    'wallet', 'credit_card', 'savings', 'request_quote', 'receipt_long', 'fact_check', 'grocery', 'kitchen', 'bathtub',
+    'bed', 'chair', 'weekend', 'favorite', 'star', 'lightbulb', 'priority_high', 'warning', 'shield', 'lock',
+    'health_and_safety', 'vaccines', 'medication', 'monitor_weight', 'schedule', 'today', 'update', 'history', 'repeat',
+    'sync', 'bookmark', 'flag', 'checklist', 'check_box', 'help', 'tips_and_updates', 'attach_money', 'volunteer_activism'
+  ];
+
   constructor(public todoService: TodoService) {}
 
   ngOnInit(): void {}
@@ -137,6 +154,7 @@ export class TodosComponent implements OnInit {
 
     await this.todoService.addItem({
       title: this.newItem.title.trim(),
+      icon: this.newItem.icon.trim() || undefined,
       description: this.newItem.description.trim() || undefined,
       dueDate: this.newItem.dueDate?.toISOString(),
       urgency: this.newItem.urgency,
@@ -160,6 +178,7 @@ export class TodosComponent implements OnInit {
     this.editingItemId = item.id;
     this.editForm = {
       title: item.title,
+      icon: item.icon || '',
       description: item.description || '',
       dueDate: item.dueDate ? new Date(item.dueDate) : null,
       urgency: item.urgency || 'medium',
@@ -182,6 +201,7 @@ export class TodosComponent implements OnInit {
 
     await this.todoService.updateItem(id, {
       title: this.editForm.title.trim(),
+      icon: this.editForm.icon.trim() || undefined,
       description: this.editForm.description.trim() || undefined,
       dueDate: this.editForm.dueDate?.toISOString(),
       urgency: this.editForm.urgency,
@@ -344,6 +364,16 @@ export class TodosComponent implements OnInit {
     return `Every ${item.recurrenceDayInterval || 1} day(s)`;
   }
 
+  getFilteredIconSuggestions(value: string): string[] {
+    const query = (value || '').trim().toLowerCase();
+    if (!query) {
+      return this.iconSuggestions.slice(0, 20);
+    }
+    return this.iconSuggestions
+      .filter(icon => icon.toLowerCase().includes(query))
+      .slice(0, 20);
+  }
+
   onNewRecurringChange(isRecurring: boolean): void {
     if (!isRecurring) {
       this.newItem.recurrenceType = 'weekday';
@@ -380,6 +410,7 @@ export class TodosComponent implements OnInit {
   private resetNewItemForm(): void {
     this.newItem = {
       title: '',
+      icon: '',
       description: '',
       dueDate: null,
       urgency: 'medium',

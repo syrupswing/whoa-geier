@@ -370,6 +370,12 @@
         color: var(--color-text-primary);
         margin-bottom: 6px;
         line-height: 1.4;
+
+        .task-item-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
       }
 
       .todo-meta {

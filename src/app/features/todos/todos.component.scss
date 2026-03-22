@@ -214,6 +214,9 @@
     justify-content: space-between;
 
     .todo-title {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
       font-size: 1rem;
       font-weight: 500;
       color: var(--color-text-primary);
@@ -225,6 +228,12 @@
       &.completed-text {
         text-decoration: line-through;
         color: var(--color-text-disabled);
+      }
+
+      .task-item-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
       }
     }
     .due-date {

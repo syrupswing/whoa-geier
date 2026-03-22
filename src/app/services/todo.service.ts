@@ -8,6 +8,7 @@ import { Unsubscribe } from 'firebase/firestore';
 export interface TodoItem {
   id: string;
   title: string;
+  icon?: string;
   description?: string;
   completed: boolean;
   completedAt?: string;
