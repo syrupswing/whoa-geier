@@ -577,7 +577,7 @@ Try again once you've completed these steps!`;
 
   // Todos widget methods
   get incompleteTodos(): TodoItem[] {
-    return this.todoService.items().filter(item => !item.completed);
+    return this.todoService.getSortedIncompleteItems();
   }
 
   get visibleTodos(): TodoItem[] {
@@ -594,20 +594,39 @@ Try again once you've completed these steps!`;
   }
 
   isOverdue(item: TodoItem): boolean {
-    if (!item.dueDate) return false;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const dueDate = new Date(item.dueDate);
-    dueDate.setHours(0, 0, 0, 0);
-    return dueDate < today;
+    return this.todoService.getDaysOverdue(item) > 0;
   }
 
-  getPriorityColor(priority: string): string {
-    switch (priority) {
-      case 'high': return '#F44336';
-      case 'medium': return '#FF9800';
-      case 'low': return '#4CAF50';
-      default: return '#757575';
+  getDaysOverdue(item: TodoItem): number {
+    return this.todoService.getDaysOverdue(item);
+  }
+
+  getOverdueSeverityColor(item: TodoItem): string {
+    return this.todoService.getOverdueSeverity(item).color;
+  }
+
+  getOverdueSeverityLabel(item: TodoItem): string {
+    return this.todoService.getOverdueSeverity(item).label;
+  }
+
+  getTaskScoreShortLabel(item: TodoItem): string {
+    const score = this.todoService.getTaskScore(item);
+    return `${score.label} ${score.value}`;
+  }
+
+  getTaskScoreColor(item: TodoItem): string {
+    const score = this.todoService.getTaskScore(item);
+    switch (score.label) {
+      case 'critical':
+        return '#B71C1C';
+      case 'high-focus':
+        return '#D84315';
+      case 'planned':
+        return '#2E7D32';
+      case 'routine':
+        return '#1565C0';
+      default:
+        return '#546E7A';
     }
   }
 

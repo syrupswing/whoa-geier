@@ -370,16 +370,6 @@
         color: var(--color-text-primary);
         margin-bottom: 6px;
         line-height: 1.4;
-
-        .priority-indicator {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
-
-          &.high {
-            color: #F44336;
-          }
-        }
       }
 
       .todo-meta {
@@ -401,9 +391,26 @@
           }
         }
 
+        .task-score {
+          color: white;
+          font-weight: 600;
+          border-radius: 10px;
+          padding: 2px 8px;
+          text-transform: capitalize;
+        }
+
         .due-date {
           mat-icon {
             color: #667eea;
+          }
+
+          .overdue-days {
+            color: #FFFFFF;
+            font-weight: 600;
+            margin-left: 2px;
+            border-radius: 10px;
+            padding: 2px 8px;
+            text-transform: capitalize;
           }
         }
 

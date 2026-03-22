@@ -16,7 +16,8 @@ import {
   DocumentData,
   getDoc,
   setDoc,
-  increment
+  increment,
+  deleteField
 } from 'firebase/firestore';
 import { environment } from '../../environments/environment';
 
@@ -57,6 +58,32 @@ export class FirestoreService {
       this.error.set(`Failed to initialize Firebase: ${err.message}`);
       console.error('Firebase initialization error:', err);
     }
+  }
+
+  /**
+   * Remove undefined values before setDoc, since Firestore rejects undefined.
+   */
+  private sanitizeForSet<T extends Record<string, any>>(data: T): Record<string, any> {
+    const sanitized: Record<string, any> = {};
+    Object.keys(data).forEach((key) => {
+      const value = data[key];
+      if (value !== undefined) {
+        sanitized[key] = value;
+      }
+    });
+    return sanitized;
+  }
+
+  /**
+   * Convert undefined values to field deletes for updateDoc.
+   */
+  private sanitizeForUpdate<T extends Record<string, any>>(data: T): Record<string, any> {
+    const sanitized: Record<string, any> = {};
+    Object.keys(data).forEach((key) => {
+      const value = data[key];
+      sanitized[key] = value === undefined ? deleteField() : value;
+    });
+    return sanitized;
   }
 
   /**
@@ -151,8 +178,9 @@ export class FirestoreService {
 
     try {
       const docRef = doc(this.db, collectionName, documentId);
+      const sanitizedData = this.sanitizeForSet(data as Record<string, any>);
       await setDoc(docRef, {
-        ...data,
+        ...sanitizedData,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       });
@@ -178,15 +206,10 @@ export class FirestoreService {
 
     try {
       const docRef = doc(this.db, collectionName, documentId);
-      
-      // Convert the data to a plain object to ensure proper serialization
-      const updateData: any = {};
-      for (const key in data) {
-        if (data.hasOwnProperty(key)) {
-          updateData[key] = data[key];
-        }
-      }
-      updateData.updatedAt = new Date().toISOString();
+
+      // Convert undefined updates to explicit field deletes for Firestore.
+      const updateData = this.sanitizeForUpdate(data as Record<string, any>);
+      updateData['updatedAt'] = new Date().toISOString();
       
       console.log(`Updating Firestore doc ${documentId} in ${collectionName}:`, updateData);
       await updateDoc(docRef, updateData);

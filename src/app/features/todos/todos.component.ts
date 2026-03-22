@@ -42,13 +42,23 @@ import { TodoService, TodoItem } from '../../services/todo.service';
 export class TodosComponent implements OnInit {
   showAddForm = false;
   editingItemId: string | null = null;
+  adjustingCompletionItemId: string | null = null;
+  adjustCompletionDate: Date | null = null;
 
   // New item form
   newItem = {
     title: '',
     description: '',
     dueDate: null as Date | null,
-    priority: 'medium' as 'low' | 'medium' | 'high',
+    urgency: 'medium' as 'time-sensitive' | 'medium' | 'low',
+    importance: 'medium' as 'low' | 'medium' | 'high',
+    cadence: 'standard' as 'chore' | 'standard' | 'long-term',
+    isRecurring: false,
+    recurrenceType: 'weekday' as 'weekday' | 'month-day' | 'day-interval',
+    recurrenceWeekday: 1,
+    recurrenceWeekInterval: 1,
+    recurrenceMonthDay: 1,
+    recurrenceDayInterval: 7,
     category: ''
   };
 
@@ -57,14 +67,44 @@ export class TodosComponent implements OnInit {
     title: '',
     description: '',
     dueDate: null as Date | null,
-    priority: 'medium' as 'low' | 'medium' | 'high',
+    urgency: 'medium' as 'time-sensitive' | 'medium' | 'low',
+    importance: 'medium' as 'low' | 'medium' | 'high',
+    cadence: 'standard' as 'chore' | 'standard' | 'long-term',
+    isRecurring: false,
+    recurrenceType: 'weekday' as 'weekday' | 'month-day' | 'day-interval',
+    recurrenceWeekday: 1,
+    recurrenceWeekInterval: 1,
+    recurrenceMonthDay: 1,
+    recurrenceDayInterval: 7,
     category: ''
   };
 
-  priorities = [
-    { value: 'low', label: 'Low', color: '#4CAF50' },
-    { value: 'medium', label: 'Medium', color: '#FF9800' },
-    { value: 'high', label: 'High', color: '#F44336' }
+  urgencyLevels = [
+    { value: 'time-sensitive', label: 'Time-sensitive', color: '#D32F2F' },
+    { value: 'medium', label: 'Medium', color: '#F57C00' },
+    { value: 'low', label: 'Low', color: '#388E3C' }
+  ];
+
+  importanceLevels = [
+    { value: 'low', label: 'Low', color: '#607D8B' },
+    { value: 'medium', label: 'Medium', color: '#1976D2' },
+    { value: 'high', label: 'High', color: '#C62828' }
+  ];
+
+  cadenceLevels = [
+    { value: 'chore', label: 'Chore' },
+    { value: 'standard', label: 'Standard' },
+    { value: 'long-term', label: 'Long-term' }
+  ];
+
+  weekdays = [
+    { value: 0, label: 'Sunday' },
+    { value: 1, label: 'Monday' },
+    { value: 2, label: 'Tuesday' },
+    { value: 3, label: 'Wednesday' },
+    { value: 4, label: 'Thursday' },
+    { value: 5, label: 'Friday' },
+    { value: 6, label: 'Saturday' }
   ];
 
   constructor(public todoService: TodoService) {}
@@ -72,11 +112,11 @@ export class TodosComponent implements OnInit {
   ngOnInit(): void {}
 
   get incompleteTodos(): TodoItem[] {
-    return this.todoService.items().filter(item => !item.completed);
+    return this.todoService.getSortedIncompleteItems();
   }
 
   get completedTodos(): TodoItem[] {
-    return this.todoService.items().filter(item => item.completed);
+    return this.todoService.getSortedCompletedItems();
   }
 
   get overdueTodos(): TodoItem[] {
@@ -99,7 +139,15 @@ export class TodosComponent implements OnInit {
       title: this.newItem.title.trim(),
       description: this.newItem.description.trim() || undefined,
       dueDate: this.newItem.dueDate?.toISOString(),
-      priority: this.newItem.priority,
+      urgency: this.newItem.urgency,
+      importance: this.newItem.importance,
+      cadence: this.newItem.cadence,
+      isRecurring: this.newItem.isRecurring,
+      recurrenceType: this.newItem.isRecurring ? this.newItem.recurrenceType : undefined,
+      recurrenceWeekday: this.newItem.isRecurring && this.newItem.recurrenceType === 'weekday' ? this.newItem.recurrenceWeekday : undefined,
+      recurrenceWeekInterval: this.newItem.isRecurring && this.newItem.recurrenceType === 'weekday' ? this.getPositiveInteger(this.newItem.recurrenceWeekInterval) : undefined,
+      recurrenceMonthDay: this.newItem.isRecurring && this.newItem.recurrenceType === 'month-day' ? this.newItem.recurrenceMonthDay : undefined,
+      recurrenceDayInterval: this.newItem.isRecurring && this.newItem.recurrenceType === 'day-interval' ? this.newItem.recurrenceDayInterval : undefined,
       category: this.newItem.category.trim() || undefined,
       completed: false
     });
@@ -114,7 +162,15 @@ export class TodosComponent implements OnInit {
       title: item.title,
       description: item.description || '',
       dueDate: item.dueDate ? new Date(item.dueDate) : null,
-      priority: item.priority || 'medium',
+      urgency: item.urgency || 'medium',
+      importance: item.importance || 'medium',
+      cadence: item.cadence || 'standard',
+      isRecurring: !!item.isRecurring,
+      recurrenceType: item.recurrenceType || 'weekday',
+      recurrenceWeekday: item.recurrenceWeekday ?? 1,
+      recurrenceWeekInterval: item.recurrenceWeekInterval ?? 1,
+      recurrenceMonthDay: item.recurrenceMonthDay ?? 1,
+      recurrenceDayInterval: item.recurrenceDayInterval ?? 7,
       category: item.category || ''
     };
   }
@@ -128,7 +184,20 @@ export class TodosComponent implements OnInit {
       title: this.editForm.title.trim(),
       description: this.editForm.description.trim() || undefined,
       dueDate: this.editForm.dueDate?.toISOString(),
-      priority: this.editForm.priority,
+      urgency: this.editForm.urgency,
+      importance: this.editForm.importance,
+      cadence: this.editForm.cadence,
+      isRecurring: this.editForm.isRecurring,
+      recurrenceType: this.editForm.isRecurring ? this.editForm.recurrenceType : undefined,
+      recurrenceWeekday: this.editForm.isRecurring && this.editForm.recurrenceType === 'weekday' ? this.editForm.recurrenceWeekday : undefined,
+      recurrenceWeekInterval: this.editForm.isRecurring && this.editForm.recurrenceType === 'weekday' ? this.getPositiveInteger(this.editForm.recurrenceWeekInterval) : undefined,
+      recurrenceMonthDay: this.editForm.isRecurring && this.editForm.recurrenceType === 'month-day' ? this.editForm.recurrenceMonthDay : undefined,
+      recurrenceDayInterval: this.editForm.isRecurring && this.editForm.recurrenceType === 'day-interval' ? this.editForm.recurrenceDayInterval : undefined,
+      ...(this.editForm.isRecurring ? {} : {
+        lastRecurringCompletedAt: undefined,
+        lastRecurringCompletedByUserId: undefined,
+        lastRecurringCompletedByUserName: undefined
+      }),
       category: this.editForm.category.trim() || undefined
     });
 
@@ -143,6 +212,30 @@ export class TodosComponent implements OnInit {
     await this.todoService.toggleComplete(id);
   }
 
+  startAdjustCompletion(item: TodoItem): void {
+    const existingTimestamp = item.isRecurring ? item.lastRecurringCompletedAt : item.completedAt;
+    this.adjustingCompletionItemId = item.id;
+    this.adjustCompletionDate = existingTimestamp ? new Date(existingTimestamp) : new Date();
+  }
+
+  cancelAdjustCompletion(): void {
+    this.adjustingCompletionItemId = null;
+    this.adjustCompletionDate = null;
+  }
+
+  async saveAdjustedCompletionDate(item: TodoItem): Promise<void> {
+    if (!this.adjustCompletionDate) {
+      return;
+    }
+
+    await this.todoService.setActualCompletionTime(item.id, this.adjustCompletionDate);
+    this.cancelAdjustCompletion();
+  }
+
+  isAdjustingCompletion(item: TodoItem): boolean {
+    return this.adjustingCompletionItemId === item.id;
+  }
+
   async deleteTodo(id: string): Promise<void> {
     if (confirm('Are you sure you want to delete this todo?')) {
       await this.todoService.deleteItem(id);
@@ -150,8 +243,19 @@ export class TodosComponent implements OnInit {
   }
 
   isOverdue(item: TodoItem): boolean {
-    if (!item.dueDate || item.completed) return false;
-    return new Date(item.dueDate) < new Date();
+    return this.todoService.getDaysOverdue(item) > 0;
+  }
+
+  getDaysOverdue(item: TodoItem): number {
+    return this.todoService.getDaysOverdue(item);
+  }
+
+  getOverdueSeverityColor(item: TodoItem): string {
+    return this.todoService.getOverdueSeverity(item).color;
+  }
+
+  getOverdueSeverityLabel(item: TodoItem): string {
+    return this.todoService.getOverdueSeverity(item).label;
   }
 
   isDueToday(item: TodoItem): boolean {
@@ -161,9 +265,35 @@ export class TodosComponent implements OnInit {
     return today.toDateString() === dueDate.toDateString();
   }
 
-  getPriorityColor(priority?: string): string {
-    const p = this.priorities.find(pr => pr.value === priority);
-    return p?.color || '#FF9800';
+  getUrgencyColor(urgency?: string): string {
+    const value = this.urgencyLevels.find(level => level.value === urgency);
+    return value?.color || '#F57C00';
+  }
+
+  getImportanceColor(importance?: string): string {
+    const value = this.importanceLevels.find(level => level.value === importance);
+    return value?.color || '#1976D2';
+  }
+
+  getTaskScoreLabel(item: TodoItem): string {
+    const score = this.todoService.getTaskScore(item);
+    return `${score.label} (${score.value})`;
+  }
+
+  getTaskScoreColor(item: TodoItem): string {
+    const score = this.todoService.getTaskScore(item);
+    switch (score.label) {
+      case 'critical':
+        return '#B71C1C';
+      case 'high-focus':
+        return '#D84315';
+      case 'planned':
+        return '#2E7D32';
+      case 'routine':
+        return '#1565C0';
+      default:
+        return '#546E7A';
+    }
   }
 
   formatDate(dateString?: string): string {
@@ -182,12 +312,85 @@ export class TodosComponent implements OnInit {
     }
   }
 
+  formatDateTime(dateString?: string): string {
+    if (!dateString) return '';
+    return new Date(dateString).toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit'
+    });
+  }
+
+  getRecurrenceSummary(item: TodoItem): string {
+    if (!item.isRecurring || !item.recurrenceType) {
+      return '';
+    }
+
+    if (item.recurrenceType === 'weekday') {
+      const weekInterval = this.getPositiveInteger(item.recurrenceWeekInterval);
+      const weekdayLabel = this.getWeekdayLabel(item.recurrenceWeekday);
+      if (weekInterval === 1) {
+        return `Every week on ${weekdayLabel}`;
+      }
+      return `Every ${weekInterval} weeks on ${weekdayLabel}`;
+    }
+
+    if (item.recurrenceType === 'month-day') {
+      return `Monthly on day ${item.recurrenceMonthDay || 1}`;
+    }
+
+    return `Every ${item.recurrenceDayInterval || 1} day(s)`;
+  }
+
+  onNewRecurringChange(isRecurring: boolean): void {
+    if (!isRecurring) {
+      this.newItem.recurrenceType = 'weekday';
+      this.newItem.recurrenceWeekday = 1;
+      this.newItem.recurrenceWeekInterval = 1;
+      this.newItem.recurrenceMonthDay = 1;
+      this.newItem.recurrenceDayInterval = 7;
+    }
+  }
+
+  onEditRecurringChange(isRecurring: boolean): void {
+    if (!isRecurring) {
+      this.editForm.recurrenceType = 'weekday';
+      this.editForm.recurrenceWeekday = 1;
+      this.editForm.recurrenceWeekInterval = 1;
+      this.editForm.recurrenceMonthDay = 1;
+      this.editForm.recurrenceDayInterval = 7;
+    }
+  }
+
+  private getWeekdayLabel(weekday?: number): string {
+    const day = this.weekdays.find(w => w.value === weekday);
+    return day?.label || 'Monday';
+  }
+
+  private getPositiveInteger(value: unknown): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return 1;
+    }
+    return Math.floor(parsed);
+  }
+
   private resetNewItemForm(): void {
     this.newItem = {
       title: '',
       description: '',
       dueDate: null,
-      priority: 'medium',
+      urgency: 'medium',
+      importance: 'medium',
+      cadence: 'standard',
+      isRecurring: false,
+      recurrenceType: 'weekday',
+      recurrenceWeekday: 1,
+      recurrenceWeekInterval: 1,
+      recurrenceMonthDay: 1,
+      recurrenceDayInterval: 7,
       category: ''
     };
   }

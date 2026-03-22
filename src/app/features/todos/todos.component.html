@@ -57,14 +57,75 @@
           </mat-form-field>
 
           <mat-form-field appearance="outline">
-            <mat-label>Priority</mat-label>
-            <mat-select [(ngModel)]="newItem.priority">
-              <mat-option *ngFor="let priority of priorities" [value]="priority.value">
-                <span [style.color]="priority.color">{{ priority.label }}</span>
+            <mat-label>Urgency</mat-label>
+            <mat-select [(ngModel)]="newItem.urgency">
+              <mat-option *ngFor="let urgency of urgencyLevels" [value]="urgency.value">
+                <span [style.color]="urgency.color">{{ urgency.label }}</span>
               </mat-option>
             </mat-select>
-            <mat-icon matPrefix>flag</mat-icon>
+            <mat-icon matPrefix>timer</mat-icon>
           </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Importance</mat-label>
+            <mat-select [(ngModel)]="newItem.importance">
+              <mat-option *ngFor="let importance of importanceLevels" [value]="importance.value">
+                <span [style.color]="importance.color">{{ importance.label }}</span>
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>priority_high</mat-icon>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Cadence</mat-label>
+            <mat-select [(ngModel)]="newItem.cadence">
+              <mat-option *ngFor="let cadence of cadenceLevels" [value]="cadence.value">
+                {{ cadence.label }}
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>schedule</mat-icon>
+          </mat-form-field>
+
+          <div class="full-width recurring-toggle">
+            <mat-checkbox [(ngModel)]="newItem.isRecurring" (ngModelChange)="onNewRecurringChange($event)">
+              Recurring task
+            </mat-checkbox>
+          </div>
+
+          <div class="full-width recurrence-fields" *ngIf="newItem.isRecurring">
+            <mat-form-field appearance="outline">
+              <mat-label>Recurs By</mat-label>
+              <mat-select [(ngModel)]="newItem.recurrenceType">
+                <mat-option value="weekday">Week day</mat-option>
+                <mat-option value="month-day">Month day</mat-option>
+                <mat-option value="day-interval">Day interval</mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" *ngIf="newItem.recurrenceType === 'weekday'">
+              <mat-label>Week day</mat-label>
+              <mat-select [(ngModel)]="newItem.recurrenceWeekday">
+                <mat-option *ngFor="let weekday of weekdays" [value]="weekday.value">
+                  {{ weekday.label }}
+                </mat-option>
+              </mat-select>
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" *ngIf="newItem.recurrenceType === 'weekday'">
+              <mat-label>Every N weeks</mat-label>
+              <input matInput type="number" min="1" [(ngModel)]="newItem.recurrenceWeekInterval">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" *ngIf="newItem.recurrenceType === 'month-day'">
+              <mat-label>Month day</mat-label>
+              <input matInput type="number" min="1" max="31" [(ngModel)]="newItem.recurrenceMonthDay">
+            </mat-form-field>
+
+            <mat-form-field appearance="outline" *ngIf="newItem.recurrenceType === 'day-interval'">
+              <mat-label>Every N days</mat-label>
+              <input matInput type="number" min="1" [(ngModel)]="newItem.recurrenceDayInterval">
+            </mat-form-field>
+          </div>
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Category</mat-label>
@@ -127,6 +188,12 @@
                 <span *ngIf="item.dueDate" class="due-date" [class.overdue]="isOverdue(item)" [class.today]="isDueToday(item)">
                   <mat-icon>event</mat-icon>
                   {{ formatDate(item.dueDate) }}
+                  <span
+                    *ngIf="getDaysOverdue(item) > 0"
+                    class="overdue-days"
+                    [style.background-color]="getOverdueSeverityColor(item)">
+                    {{ getDaysOverdue(item) }} day{{ getDaysOverdue(item) === 1 ? '' : 's' }} overdue - {{ getOverdueSeverityLabel(item) }}
+                  </span>
                 </span>
               </div>
             </mat-panel-title>
@@ -135,8 +202,21 @@
             <div *ngIf="editingItemId !== item.id" class="todo-details-primary">
               <div>
                 <div class="todo-meta">
-                  <mat-chip *ngIf="item.priority" [style.background-color]="getPriorityColor(item.priority)" class="priority-chip">
-                    {{ item.priority }}
+                  <mat-chip [style.background-color]="getTaskScoreColor(item)" class="task-score-chip">
+                    score: {{ getTaskScoreLabel(item) }}
+                  </mat-chip>
+                  <mat-chip *ngIf="item.urgency" [style.background-color]="getUrgencyColor(item.urgency)" class="urgency-chip">
+                    urgency: {{ item.urgency }}
+                  </mat-chip>
+                  <mat-chip *ngIf="item.importance" [style.background-color]="getImportanceColor(item.importance)" class="importance-chip">
+                    importance: {{ item.importance }}
+                  </mat-chip>
+                  <mat-chip *ngIf="item.cadence" class="cadence-chip">
+                    cadence: {{ item.cadence }}
+                  </mat-chip>
+                  <mat-chip *ngIf="item.isRecurring" class="recurring-chip">
+                    <mat-icon>repeat</mat-icon>
+                    {{ getRecurrenceSummary(item) }}
                   </mat-chip>
                   <mat-chip *ngIf="item.category" class="category-chip">
                     <mat-icon>label</mat-icon>
@@ -144,8 +224,15 @@
                   </mat-chip>
                 </div>
                 <p *ngIf="item.description" class="description">{{ item.description }}</p>
+                <p *ngIf="item.isRecurring && item.lastRecurringCompletedAt" class="recurring-meta">
+                  <mat-icon>history</mat-icon>
+                  Last completed {{ formatDateTime(item.lastRecurringCompletedAt) }} by {{ item.lastRecurringCompletedByUserName || item.lastRecurringCompletedByUserId || 'Unknown User' }}
+                </p>
               </div>
               <div class="todo-actions">
+                <button *ngIf="item.isRecurring" mat-icon-button (click)="startAdjustCompletion(item)" matTooltip="Adjust completion day">
+                  <mat-icon>schedule</mat-icon>
+                </button>
                 <button mat-icon-button (click)="startEdit(item)" matTooltip="Edit">
                   <mat-icon>edit</mat-icon>
                 </button>
@@ -153,6 +240,19 @@
                   <mat-icon>delete</mat-icon>
                 </button>
               </div>
+            </div>
+
+            <div *ngIf="isAdjustingCompletion(item)" class="adjust-completion-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Actual Completion Day</mat-label>
+                <input matInput [matDatepicker]="actualCompletionPickerActive" [(ngModel)]="adjustCompletionDate">
+                <mat-datepicker-toggle matSuffix [for]="actualCompletionPickerActive"></mat-datepicker-toggle>
+                <mat-datepicker #actualCompletionPickerActive></mat-datepicker>
+              </mat-form-field>
+              <button mat-raised-button color="primary" (click)="saveAdjustedCompletionDate(item)">
+                Save Day
+              </button>
+              <button mat-button (click)="cancelAdjustCompletion()">Cancel</button>
             </div>
 
             <div *ngIf="editingItemId === item.id" class="edit-form">
@@ -175,10 +275,28 @@
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
-                  <mat-label>Priority</mat-label>
-                  <mat-select [(ngModel)]="editForm.priority">
-                    <mat-option *ngFor="let priority of priorities" [value]="priority.value">
-                      <span [style.color]="priority.color">{{ priority.label }}</span>
+                  <mat-label>Urgency</mat-label>
+                  <mat-select [(ngModel)]="editForm.urgency">
+                    <mat-option *ngFor="let urgency of urgencyLevels" [value]="urgency.value">
+                      <span [style.color]="urgency.color">{{ urgency.label }}</span>
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Importance</mat-label>
+                  <mat-select [(ngModel)]="editForm.importance">
+                    <mat-option *ngFor="let importance of importanceLevels" [value]="importance.value">
+                      <span [style.color]="importance.color">{{ importance.label }}</span>
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline">
+                  <mat-label>Cadence</mat-label>
+                  <mat-select [(ngModel)]="editForm.cadence">
+                    <mat-option *ngFor="let cadence of cadenceLevels" [value]="cadence.value">
+                      {{ cadence.label }}
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
@@ -186,6 +304,47 @@
                 <mat-form-field appearance="outline">
                   <mat-label>Category</mat-label>
                   <input matInput [(ngModel)]="editForm.category">
+                </mat-form-field>
+              </div>
+
+              <div class="recurring-toggle">
+                <mat-checkbox [(ngModel)]="editForm.isRecurring" (ngModelChange)="onEditRecurringChange($event)">
+                  Recurring task
+                </mat-checkbox>
+              </div>
+
+              <div class="recurrence-fields" *ngIf="editForm.isRecurring">
+                <mat-form-field appearance="outline">
+                  <mat-label>Recurs By</mat-label>
+                  <mat-select [(ngModel)]="editForm.recurrenceType">
+                    <mat-option value="weekday">Week day</mat-option>
+                    <mat-option value="month-day">Month day</mat-option>
+                    <mat-option value="day-interval">Day interval</mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" *ngIf="editForm.recurrenceType === 'weekday'">
+                  <mat-label>Week day</mat-label>
+                  <mat-select [(ngModel)]="editForm.recurrenceWeekday">
+                    <mat-option *ngFor="let weekday of weekdays" [value]="weekday.value">
+                      {{ weekday.label }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" *ngIf="editForm.recurrenceType === 'weekday'">
+                  <mat-label>Every N weeks</mat-label>
+                  <input matInput type="number" min="1" [(ngModel)]="editForm.recurrenceWeekInterval">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" *ngIf="editForm.recurrenceType === 'month-day'">
+                  <mat-label>Month day</mat-label>
+                  <input matInput type="number" min="1" max="31" [(ngModel)]="editForm.recurrenceMonthDay">
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" *ngIf="editForm.recurrenceType === 'day-interval'">
+                  <mat-label>Every N days</mat-label>
+                  <input matInput type="number" min="1" [(ngModel)]="editForm.recurrenceDayInterval">
                 </mat-form-field>
               </div>
 
@@ -224,6 +383,16 @@
               <div class="todo-title-section">
                 <span class="todo-title completed-text">{{ item.title }}</span>
                 <div class="todo-meta">
+                  <mat-chip [style.background-color]="getTaskScoreColor(item)" class="task-score-chip">
+                    score: {{ getTaskScoreLabel(item) }}
+                  </mat-chip>
+                  <mat-chip *ngIf="item.cadence" class="cadence-chip">
+                    cadence: {{ item.cadence }}
+                  </mat-chip>
+                  <mat-chip *ngIf="item.isRecurring" class="recurring-chip">
+                    <mat-icon>repeat</mat-icon>
+                    {{ getRecurrenceSummary(item) }}
+                  </mat-chip>
                   <mat-chip *ngIf="item.category" class="category-chip">
                     <mat-icon>label</mat-icon>
                     {{ item.category }}
@@ -235,7 +404,30 @@
 
           <div class="todo-details">
             <p *ngIf="item.description" class="description">{{ item.description }}</p>
+            <p *ngIf="!item.isRecurring && item.completedAt" class="recurring-meta">
+              <mat-icon>history</mat-icon>
+              Completed {{ formatDateTime(item.completedAt) }} by {{ item.completedByUserName || item.completedByUserId || 'Unknown User' }}
+            </p>
+            <p *ngIf="item.isRecurring && item.lastRecurringCompletedAt" class="recurring-meta">
+              <mat-icon>history</mat-icon>
+              Last completed {{ formatDateTime(item.lastRecurringCompletedAt) }} by {{ item.lastRecurringCompletedByUserName || item.lastRecurringCompletedByUserId || 'Unknown User' }}
+            </p>
+            <div *ngIf="isAdjustingCompletion(item)" class="adjust-completion-row">
+              <mat-form-field appearance="outline">
+                <mat-label>Actual Completion Day</mat-label>
+                <input matInput [matDatepicker]="actualCompletionPickerCompleted" [(ngModel)]="adjustCompletionDate">
+                <mat-datepicker-toggle matSuffix [for]="actualCompletionPickerCompleted"></mat-datepicker-toggle>
+                <mat-datepicker #actualCompletionPickerCompleted></mat-datepicker>
+              </mat-form-field>
+              <button mat-raised-button color="primary" (click)="saveAdjustedCompletionDate(item)">
+                Save Day
+              </button>
+              <button mat-button (click)="cancelAdjustCompletion()">Cancel</button>
+            </div>
             <div class="todo-actions">
+              <button mat-icon-button (click)="startAdjustCompletion(item)" matTooltip="Adjust completion day">
+                <mat-icon>schedule</mat-icon>
+              </button>
               <button mat-icon-button color="warn" (click)="deleteTodo(item.id)" matTooltip="Delete">
                 <mat-icon>delete</mat-icon>
               </button>

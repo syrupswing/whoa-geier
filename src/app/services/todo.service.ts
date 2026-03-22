@@ -10,12 +10,38 @@ export interface TodoItem {
   title: string;
   description?: string;
   completed: boolean;
+  completedAt?: string;
+  completedByUserId?: string;
+  completedByUserName?: string;
   dueDate?: string; // ISO date string
-  priority?: 'low' | 'medium' | 'high';
+  urgency?: 'time-sensitive' | 'medium' | 'low';
+  importance?: 'low' | 'medium' | 'high';
+  cadence?: 'chore' | 'standard' | 'long-term';
+  isRecurring?: boolean;
+  recurrenceType?: 'weekday' | 'month-day' | 'day-interval';
+  recurrenceWeekday?: number; // 0-6 (Sunday-Saturday)
+  recurrenceWeekInterval?: number; // Every N weeks on selected weekday
+  recurrenceMonthDay?: number; // 1-31
+  recurrenceDayInterval?: number; // Every N days
+  lastRecurringCompletedAt?: string;
+  lastRecurringCompletedByUserId?: string;
+  lastRecurringCompletedByUserName?: string;
   category?: string;
   userId?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface TaskScore {
+  value: number;
+  label: 'critical' | 'high-focus' | 'planned' | 'routine' | 'low-touch';
+}
+
+export interface OverdueSeverity {
+  label: 'none' | 'watch' | 'elevated' | 'high' | 'critical';
+  color: string;
+  score: number;
+  daysOverdue: number;
 }
 
 @Injectable({
@@ -76,18 +102,7 @@ export class TodoService implements OnDestroy {
     this.firestoreSubscription = this.firestoreService.subscribeToCollection<TodoItem>(
       this.COLLECTION_NAME,
       (items) => {
-        this.items.set(items.sort((a, b) => {
-          // Sort by completed status (incomplete first), then by due date, then by created date
-          if (a.completed !== b.completed) {
-            return a.completed ? 1 : -1;
-          }
-          if (a.dueDate && b.dueDate) {
-            return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
-          }
-          if (a.dueDate) return -1;
-          if (b.dueDate) return 1;
-          return (b.createdAt || '').localeCompare(a.createdAt || '');
-        }));
+        this.items.set(this.sortItems(items));
         this.isLoading.set(false);
       }
     );
@@ -98,17 +113,38 @@ export class TodoService implements OnDestroy {
    */
   private loadFromLocalStorage(): void {
     const items = this.localStorageService.getItem<TodoItem[]>(this.STORAGE_KEY) || [];
-    this.items.set(items.sort((a, b) => {
+    this.items.set(this.sortItems(items));
+  }
+
+  /**
+   * Sort active tasks by due date first, then score, then creation time.
+   */
+  private sortItems(items: TodoItem[]): TodoItem[] {
+    return [...items].sort((a, b) => {
+      // Keep active tasks above completed tasks.
       if (a.completed !== b.completed) {
         return a.completed ? 1 : -1;
       }
-      if (a.dueDate && b.dueDate) {
-        return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+
+      if (!a.completed && !b.completed) {
+        if (a.dueDate && b.dueDate) {
+          const dueDateDiff = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+          if (dueDateDiff !== 0) {
+            return dueDateDiff;
+          }
+        }
+
+        if (a.dueDate && !b.dueDate) return -1;
+        if (!a.dueDate && b.dueDate) return 1;
+
+        const scoreDiff = this.getTaskScore(b).value - this.getTaskScore(a).value;
+        if (scoreDiff !== 0) {
+          return scoreDiff;
+        }
       }
-      if (a.dueDate) return -1;
-      if (b.dueDate) return 1;
+
       return (b.createdAt || '').localeCompare(a.createdAt || '');
-    }));
+    });
   }
 
   /**
@@ -161,10 +197,62 @@ export class TodoService implements OnDestroy {
   async toggleComplete(id: string): Promise<void> {
     const item = this.items().find(i => i.id === id);
     if (item) {
+      // Recurring tasks capture completion metadata and stay in active tasks.
+      if (item.isRecurring && !item.completed) {
+        const currentUser = this.authService.currentUser();
+        const nextDueDate = this.calculateNextRecurringDueDate(item, new Date());
+        await this.updateItem(id, {
+          completed: false,
+          dueDate: nextDueDate?.toISOString(),
+          lastRecurringCompletedAt: new Date().toISOString(),
+          lastRecurringCompletedByUserId: currentUser?.uid,
+          lastRecurringCompletedByUserName: currentUser?.displayName || currentUser?.email || 'Unknown User'
+        });
+        return;
+      }
+
       const newCompletedValue = !item.completed;
       console.log(`Toggling todo ${id}: completed ${item.completed} -> ${newCompletedValue}`);
-      await this.updateItem(id, { completed: newCompletedValue });
+      const currentUser = this.authService.currentUser();
+      await this.updateItem(id, {
+        completed: newCompletedValue,
+        completedAt: newCompletedValue ? new Date().toISOString() : undefined,
+        completedByUserId: newCompletedValue ? currentUser?.uid : undefined,
+        completedByUserName: newCompletedValue ? (currentUser?.displayName || currentUser?.email || 'Unknown User') : undefined
+      });
     }
+  }
+
+  /**
+   * Backfill the actual completion day when a task was done earlier/later than marked.
+   */
+  async setActualCompletionTime(id: string, completionDate: Date): Promise<void> {
+    const item = this.items().find(i => i.id === id);
+    if (!item) {
+      return;
+    }
+
+    const currentUser = this.authService.currentUser();
+    const completionDay = this.toStartOfDay(completionDate);
+    const completionIso = completionDay.toISOString();
+
+    if (item.isRecurring) {
+      const nextDueDate = this.calculateNextRecurringDueDate(item, completionDay);
+      await this.updateItem(id, {
+        dueDate: nextDueDate?.toISOString(),
+        lastRecurringCompletedAt: completionIso,
+        lastRecurringCompletedByUserId: currentUser?.uid,
+        lastRecurringCompletedByUserName: currentUser?.displayName || currentUser?.email || 'Unknown User'
+      });
+      return;
+    }
+
+    await this.updateItem(id, {
+      completed: true,
+      completedAt: completionIso,
+      completedByUserId: currentUser?.uid,
+      completedByUserName: currentUser?.displayName || currentUser?.email || 'Unknown User'
+    });
   }
 
   /**
@@ -202,11 +290,174 @@ export class TodoService implements OnDestroy {
    * Get overdue items
    */
   getOverdueItems(): TodoItem[] {
-    const now = new Date();
-    return this.items().filter(item => {
-      if (!item.dueDate || item.completed) return false;
-      return new Date(item.dueDate) < now;
-    });
+    return this.items().filter(item => this.getDaysOverdue(item) > 0 && !item.completed);
+  }
+
+  /**
+   * Quantify lateness in full calendar days for any due-date item.
+   */
+  getDaysOverdue(item: Pick<TodoItem, 'dueDate' | 'completed'>): number {
+    if (!item.dueDate || item.completed) {
+      return 0;
+    }
+
+    const dueDate = this.toStartOfDay(new Date(item.dueDate));
+    const today = this.toStartOfDay(new Date());
+    const diffMs = today.getTime() - dueDate.getTime();
+    if (diffMs <= 0) {
+      return 0;
+    }
+
+    return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  }
+
+  /**
+   * Derive overdue severity from lateness and task score (urgency + importance).
+   */
+  getOverdueSeverity(item: Pick<TodoItem, 'dueDate' | 'completed' | 'urgency' | 'importance' | 'cadence'>): OverdueSeverity {
+    const daysOverdue = this.getDaysOverdue(item);
+    if (daysOverdue <= 0) {
+      return {
+        label: 'none',
+        color: '#90A4AE',
+        score: 0,
+        daysOverdue
+      };
+    }
+
+    // Higher task score should escalate severity sooner when overdue.
+    // Cadence tuning: chores escalate sooner, long-term work escalates slower.
+    const weightedScore = daysOverdue + (this.getTaskScore(item).value - 2) + this.getCadenceOverdueAdjustment(item.cadence);
+
+    if (weightedScore >= 9) {
+      return { label: 'critical', color: '#B71C1C', score: weightedScore, daysOverdue };
+    }
+    if (weightedScore >= 6) {
+      return { label: 'high', color: '#D84315', score: weightedScore, daysOverdue };
+    }
+    if (weightedScore >= 4) {
+      return { label: 'elevated', color: '#EF6C00', score: weightedScore, daysOverdue };
+    }
+
+    return { label: 'watch', color: '#F9A825', score: weightedScore, daysOverdue };
+  }
+
+  private getCadenceOverdueAdjustment(cadence?: TodoItem['cadence']): number {
+    if (cadence === 'chore') {
+      return 1;
+    }
+    if (cadence === 'long-term') {
+      return -1;
+    }
+    return 0;
+  }
+
+  /**
+   * Get active items with score-first ordering and due-date tie-breakers.
+   */
+  getSortedIncompleteItems(): TodoItem[] {
+    return this.sortItems(this.items()).filter(item => !item.completed);
+  }
+
+  /**
+   * Get completed items ordered by completion grouping and date tie-breakers.
+   */
+  getSortedCompletedItems(): TodoItem[] {
+    return this.sortItems(this.items()).filter(item => item.completed);
+  }
+
+  /**
+   * Derive a task score from urgency and importance without persisting it.
+   */
+  getTaskScore(item: Pick<TodoItem, 'urgency' | 'importance'>): TaskScore {
+    const urgencyWeight: Record<'time-sensitive' | 'medium' | 'low', number> = {
+      'time-sensitive': 3,
+      medium: 2,
+      low: 1
+    };
+    const importanceWeight: Record<'high' | 'medium' | 'low', number> = {
+      high: 3,
+      medium: 2,
+      low: 1
+    };
+
+    const urgency = item.urgency || 'medium';
+    const importance = item.importance || 'medium';
+    const value = urgencyWeight[urgency] + importanceWeight[importance];
+
+    if (value >= 6) {
+      return { value, label: 'critical' };
+    }
+    if (value === 5) {
+      return { value, label: 'high-focus' };
+    }
+    if (value === 4) {
+      return { value, label: 'planned' };
+    }
+    if (value === 3) {
+      return { value, label: 'routine' };
+    }
+
+    return { value, label: 'low-touch' };
+  }
+
+  private calculateNextRecurringDueDate(item: TodoItem, completionDate: Date): Date | undefined {
+    const baseDate = this.toStartOfDay(completionDate);
+
+    if (item.recurrenceType === 'weekday') {
+      const weekday = item.recurrenceWeekday ?? baseDate.getDay();
+      const weekInterval = this.getPositiveInteger(item.recurrenceWeekInterval);
+
+      let daysUntil = (weekday - baseDate.getDay() + 7) % 7;
+      if (daysUntil === 0) {
+        daysUntil = 7;
+      }
+
+      const next = new Date(baseDate);
+      next.setDate(next.getDate() + daysUntil + (weekInterval - 1) * 7);
+      return next;
+    }
+
+    if (item.recurrenceType === 'month-day') {
+      const monthDay = this.getPositiveInteger(item.recurrenceMonthDay);
+      const currentMonthCandidate = this.buildMonthDayDate(baseDate.getFullYear(), baseDate.getMonth(), monthDay);
+
+      if (currentMonthCandidate.getTime() > baseDate.getTime()) {
+        return currentMonthCandidate;
+      }
+
+      const nextMonthDate = new Date(baseDate.getFullYear(), baseDate.getMonth() + 1, 1);
+      return this.buildMonthDayDate(nextMonthDate.getFullYear(), nextMonthDate.getMonth(), monthDay);
+    }
+
+    if (item.recurrenceType === 'day-interval') {
+      const dayInterval = this.getPositiveInteger(item.recurrenceDayInterval);
+      const next = new Date(baseDate);
+      next.setDate(next.getDate() + dayInterval);
+      return next;
+    }
+
+    return item.dueDate ? new Date(item.dueDate) : undefined;
+  }
+
+  private buildMonthDayDate(year: number, month: number, requestedDay: number): Date {
+    const maxDay = new Date(year, month + 1, 0).getDate();
+    const safeDay = Math.min(this.getPositiveInteger(requestedDay), maxDay);
+    return new Date(year, month, safeDay);
+  }
+
+  private toStartOfDay(date: Date): Date {
+    const copy = new Date(date);
+    copy.setHours(0, 0, 0, 0);
+    return copy;
+  }
+
+  private getPositiveInteger(value: unknown): number {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed < 1) {
+      return 1;
+    }
+    return Math.floor(parsed);
   }
 
   /**
