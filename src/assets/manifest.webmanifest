@@ -4,7 +4,11 @@
   "description": "Family command center web app",
   "start_url": "./",
   "scope": "./",
-  "display": "standalone",
+  "display": "fullscreen",
+  "display_override": [
+    "fullscreen",
+    "standalone"
+  ],
   "orientation": "portrait",
   "theme_color": "#1976d2",
   "background_color": "#ffffff",
