@@ -589,10 +589,6 @@ Try again once you've completed these steps!`;
     this.todosExpanded.set(!this.todosExpanded());
   }
 
-  async toggleTodoComplete(id: string): Promise<void> {
-    await this.todoService.toggleComplete(id);
-  }
-
   isOverdue(item: TodoItem): boolean {
     return this.todoService.getDaysOverdue(item) > 0;
   }
@@ -607,27 +603,6 @@ Try again once you've completed these steps!`;
 
   getOverdueSeverityLabel(item: TodoItem): string {
     return this.todoService.getOverdueSeverity(item).label;
-  }
-
-  getTaskScoreShortLabel(item: TodoItem): string {
-    const score = this.todoService.getTaskScore(item);
-    return `${score.label} ${score.value}`;
-  }
-
-  getTaskScoreColor(item: TodoItem): string {
-    const score = this.todoService.getTaskScore(item);
-    switch (score.label) {
-      case 'critical':
-        return '#B71C1C';
-      case 'high-focus':
-        return '#D84315';
-      case 'planned':
-        return '#2E7D32';
-      case 'routine':
-        return '#1565C0';
-      default:
-        return '#546E7A';
-    }
   }
 
   // Reading entries methods

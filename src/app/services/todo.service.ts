@@ -15,9 +15,8 @@ export interface TodoItem {
   completedByUserId?: string;
   completedByUserName?: string;
   dueDate?: string; // ISO date string
-  urgency?: 'time-sensitive' | 'medium' | 'low';
+  urgency?: 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring';
   importance?: 'low' | 'medium' | 'high';
-  cadence?: 'chore' | 'standard' | 'long-term';
   isRecurring?: boolean;
   recurrenceType?: 'weekday' | 'month-day' | 'day-interval';
   recurrenceWeekday?: number; // 0-6 (Sunday-Saturday)
@@ -44,6 +43,8 @@ export interface OverdueSeverity {
   score: number;
   daysOverdue: number;
 }
+
+type UrgencyType = NonNullable<TodoItem['urgency']>;
 
 @Injectable({
   providedIn: 'root'
@@ -198,6 +199,10 @@ export class TodoService implements OnDestroy {
   async toggleComplete(id: string): Promise<void> {
     const item = this.items().find(i => i.id === id);
     if (item) {
+      if (this.isCompletionBlocked(item)) {
+        return;
+      }
+
       // Recurring tasks capture completion metadata and stay in active tasks.
       if (item.isRecurring && !item.completed) {
         const currentUser = this.authService.currentUser();
@@ -222,6 +227,23 @@ export class TodoService implements OnDestroy {
         completedByUserName: newCompletedValue ? (currentUser?.displayName || currentUser?.email || 'Unknown User') : undefined
       });
     }
+  }
+
+  /**
+   * Start-date tasks cannot be completed before their due/start day.
+   */
+  isCompletionBlocked(item: Pick<TodoItem, 'dueDate' | 'urgency' | 'completed'>): boolean {
+    if (item.completed || !item.dueDate) {
+      return false;
+    }
+
+    if (item.urgency !== 'hard-start-date' && item.urgency !== 'soft-start-date') {
+      return false;
+    }
+
+    const dueDate = this.toStartOfDay(new Date(item.dueDate));
+    const today = this.toStartOfDay(new Date());
+    return dueDate.getTime() > today.getTime();
   }
 
   /**
@@ -313,9 +335,71 @@ export class TodoService implements OnDestroy {
   }
 
   /**
+   * Return urgency-aware due-date wording based on future/today/overdue status.
+   */
+  getDueDateStatusText(item: Pick<TodoItem, 'dueDate' | 'urgency'>): string {
+    if (!item.dueDate) {
+      return '';
+    }
+
+    const dueDate = this.toStartOfDay(new Date(item.dueDate));
+    const today = this.toStartOfDay(new Date());
+    const dayDelta = Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const urgency: UrgencyType = item.urgency || 'soft-deadline';
+
+    if (dayDelta > 0) {
+      switch (urgency) {
+        case 'hard-deadline':
+        case 'soft-deadline':
+          return `${dayDelta} day${dayDelta === 1 ? '' : 's'} left`;
+        case 'hard-start-date':
+        case 'soft-start-date':
+          return `${dayDelta} day${dayDelta === 1 ? '' : 's'} until`;
+        case 'hard-recurring':
+          return `complete within ${dayDelta} day${dayDelta === 1 ? '' : 's'}`;
+        case 'soft-recurring':
+          return `not needed for ${dayDelta} day${dayDelta === 1 ? '' : 's'}`;
+      }
+    }
+
+    if (dayDelta === 0) {
+      switch (urgency) {
+        case 'hard-deadline':
+          return 'complete today';
+        case 'soft-deadline':
+          return 'should complete today';
+        case 'hard-start-date':
+          return 'necessary today';
+        case 'soft-start-date':
+          return 'can complete starting today';
+        case 'hard-recurring':
+          return 'complete again ASAP';
+        case 'soft-recurring':
+          return 'complete again soon';
+      }
+    }
+
+    const daysOverdue = Math.abs(dayDelta);
+    switch (urgency) {
+      case 'hard-deadline':
+        return `overdue by ${daysOverdue} day${daysOverdue === 1 ? '' : 's'}!`;
+      case 'soft-deadline':
+        return `should have done ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} ago`;
+      case 'hard-start-date':
+        return `too late by ${daysOverdue} day${daysOverdue === 1 ? '' : 's'}`;
+      case 'soft-start-date':
+        return `could do ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} ago`;
+      case 'hard-recurring':
+        return `overdue by ${daysOverdue} day${daysOverdue === 1 ? '' : 's'}, do ASAP`;
+      case 'soft-recurring':
+        return `suggested to re-do ${daysOverdue} day${daysOverdue === 1 ? '' : 's'} ago`;
+    }
+  }
+
+  /**
    * Derive overdue severity from lateness and task score (urgency + importance).
    */
-  getOverdueSeverity(item: Pick<TodoItem, 'dueDate' | 'completed' | 'urgency' | 'importance' | 'cadence'>): OverdueSeverity {
+  getOverdueSeverity(item: Pick<TodoItem, 'dueDate' | 'completed' | 'urgency' | 'importance'>): OverdueSeverity {
     const daysOverdue = this.getDaysOverdue(item);
     if (daysOverdue <= 0) {
       return {
@@ -327,8 +411,7 @@ export class TodoService implements OnDestroy {
     }
 
     // Higher task score should escalate severity sooner when overdue.
-    // Cadence tuning: chores escalate sooner, long-term work escalates slower.
-    const weightedScore = daysOverdue + (this.getTaskScore(item).value - 2) + this.getCadenceOverdueAdjustment(item.cadence);
+    const weightedScore = daysOverdue + (this.getTaskScore(item).value - 2);
 
     if (weightedScore >= 9) {
       return { label: 'critical', color: '#B71C1C', score: weightedScore, daysOverdue };
@@ -343,15 +426,7 @@ export class TodoService implements OnDestroy {
     return { label: 'watch', color: '#F9A825', score: weightedScore, daysOverdue };
   }
 
-  private getCadenceOverdueAdjustment(cadence?: TodoItem['cadence']): number {
-    if (cadence === 'chore') {
-      return 1;
-    }
-    if (cadence === 'long-term') {
-      return -1;
-    }
-    return 0;
-  }
+
 
   /**
    * Get active items with score-first ordering and due-date tie-breakers.
@@ -371,10 +446,13 @@ export class TodoService implements OnDestroy {
    * Derive a task score from urgency and importance without persisting it.
    */
   getTaskScore(item: Pick<TodoItem, 'urgency' | 'importance'>): TaskScore {
-    const urgencyWeight: Record<'time-sensitive' | 'medium' | 'low', number> = {
-      'time-sensitive': 3,
-      medium: 2,
-      low: 1
+    const urgencyWeight: Record<'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring', number> = {
+      'hard-deadline': 3,
+      'soft-deadline': 2,
+      'hard-start-date': 3,
+      'soft-start-date': 2,
+      'hard-recurring': 3,
+      'soft-recurring': 2
     };
     const importanceWeight: Record<'high' | 'medium' | 'low', number> = {
       high: 3,
@@ -382,7 +460,7 @@ export class TodoService implements OnDestroy {
       low: 1
     };
 
-    const urgency = item.urgency || 'medium';
+    const urgency = item.urgency || 'soft-deadline';
     const importance = item.importance || 'medium';
     const value = urgencyWeight[urgency] + importanceWeight[importance];
 

@@ -166,8 +166,9 @@
             [class.overdue]="isOverdue(item)">
             <mat-checkbox 
               [checked]="item.completed"
-              (change)="toggleTodoComplete(item.id)"
-              color="primary">
+              [disabled]="true"
+              color="primary"
+              matTooltip="Mark complete on the full to-do list page">
             </mat-checkbox>
             <div class="todo-content">
               <div class="todo-title">
@@ -175,22 +176,15 @@
                 {{ item.title }}
               </div>
               <div class="todo-meta">
-                <span class="task-score" [style.background-color]="getTaskScoreColor(item)">
-                  {{ getTaskScoreShortLabel(item) }}
-                </span>
                 <span *ngIf="item.dueDate" class="due-date">
-                  <mat-icon>event</mat-icon>
-                  {{ item.dueDate | date: 'MMM d' }}
-                  <span
-                    *ngIf="getDaysOverdue(item) > 0"
-                    class="overdue-days"
-                    [style.background-color]="getOverdueSeverityColor(item)">
-                    {{ getDaysOverdue(item) }}d overdue - {{ getOverdueSeverityLabel(item) }}
-                  </span>
-                </span>
-                <span *ngIf="item.category" class="category">
-                  <mat-icon>label</mat-icon>
-                  {{ item.category }}
+                  <mat-icon
+                    tabindex="0"
+                    [matTooltip]="(item.dueDate | date:'fullDate') || ''"
+                    matTooltipPosition="above"
+                    aria-label="Due date details">
+                    event
+                  </mat-icon>
+                  {{ todoService.getDueDateStatusText(item) }}
                 </span>
               </div>
             </div>

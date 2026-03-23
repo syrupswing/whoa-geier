@@ -92,16 +92,6 @@
             <mat-icon matPrefix>priority_high</mat-icon>
           </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Cadence</mat-label>
-            <mat-select [(ngModel)]="newItem.cadence">
-              <mat-option *ngFor="let cadence of cadenceLevels" [value]="cadence.value">
-                {{ cadence.label }}
-              </mat-option>
-            </mat-select>
-            <mat-icon matPrefix>schedule</mat-icon>
-          </mat-form-field>
-
           <div class="full-width recurring-toggle">
             <mat-checkbox [(ngModel)]="newItem.isRecurring" (ngModelChange)="onNewRecurringChange($event)">
               Recurring task
@@ -193,6 +183,7 @@
             <mat-panel-title>
               <mat-checkbox
                 [checked]="item.completed"
+                [disabled]="!canToggleComplete(item)"
                 (change)="toggleComplete(item.id)"
                 (click)="$event.stopPropagation()"
                 class="todo-checkbox">
@@ -203,14 +194,14 @@
                   {{ item.title }}
                 </span>
                 <span *ngIf="item.dueDate" class="due-date" [class.overdue]="isOverdue(item)" [class.today]="isDueToday(item)">
-                  <mat-icon>event</mat-icon>
-                  {{ formatDate(item.dueDate) }}
-                  <span
-                    *ngIf="getDaysOverdue(item) > 0"
-                    class="overdue-days"
-                    [style.background-color]="getOverdueSeverityColor(item)">
-                    {{ getDaysOverdue(item) }} day{{ getDaysOverdue(item) === 1 ? '' : 's' }} overdue - {{ getOverdueSeverityLabel(item) }}
-                  </span>
+                  <mat-icon
+                    tabindex="0"
+                    [matTooltip]="(item.dueDate | date:'fullDate') || ''"
+                    matTooltipPosition="above"
+                    aria-label="Due date details">
+                    event
+                  </mat-icon>
+                  {{ todoService.getDueDateStatusText(item) }}
                 </span>
               </div>
             </mat-panel-title>
@@ -228,9 +219,6 @@
                   <mat-chip *ngIf="item.importance" [style.background-color]="getImportanceColor(item.importance)" class="importance-chip">
                     importance: {{ item.importance }}
                   </mat-chip>
-                  <mat-chip *ngIf="item.cadence" class="cadence-chip">
-                    cadence: {{ item.cadence }}
-                  </mat-chip>
                   <mat-chip *ngIf="item.isRecurring" class="recurring-chip">
                     <mat-icon>repeat</mat-icon>
                     {{ getRecurrenceSummary(item) }}
@@ -242,8 +230,16 @@
                 </div>
                 <p *ngIf="item.description" class="description">{{ item.description }}</p>
                 <p *ngIf="item.isRecurring && item.lastRecurringCompletedAt" class="recurring-meta">
-                  <mat-icon>history</mat-icon>
-                  Last completed {{ formatDateTime(item.lastRecurringCompletedAt) }} by {{ item.lastRecurringCompletedByUserName || item.lastRecurringCompletedByUserId || 'Unknown User' }}
+                  <mat-icon>check</mat-icon>
+                  Completed {{ getCompletionDaysAgoText(item.lastRecurringCompletedAt) }}
+                  <mat-icon
+                    tabindex="0"
+                    [matTooltip]="getExactDateTooltip(item.lastRecurringCompletedAt)"
+                    matTooltipPosition="above"
+                    aria-label="Completion date details">
+                    event
+                  </mat-icon>
+                  by {{ getCompletionUserFirstName(item.lastRecurringCompletedByUserName, item.lastRecurringCompletedByUserId) }}
                 </p>
               </div>
               <div class="todo-actions">
@@ -326,15 +322,6 @@
                 </mat-form-field>
 
                 <mat-form-field appearance="outline">
-                  <mat-label>Cadence</mat-label>
-                  <mat-select [(ngModel)]="editForm.cadence">
-                    <mat-option *ngFor="let cadence of cadenceLevels" [value]="cadence.value">
-                      {{ cadence.label }}
-                    </mat-option>
-                  </mat-select>
-                </mat-form-field>
-
-                <mat-form-field appearance="outline">
                   <mat-label>Category</mat-label>
                   <input matInput [(ngModel)]="editForm.category">
                 </mat-form-field>
@@ -409,6 +396,7 @@
             <mat-panel-title>
               <mat-checkbox
                 [checked]="item.completed"
+                [disabled]="!canToggleComplete(item)"
                 (change)="toggleComplete(item.id)"
                 (click)="$event.stopPropagation()"
                 class="todo-checkbox">
@@ -421,9 +409,6 @@
                 <div class="todo-meta">
                   <mat-chip [style.background-color]="getTaskScoreColor(item)" class="task-score-chip">
                     score: {{ getTaskScoreLabel(item) }}
-                  </mat-chip>
-                  <mat-chip *ngIf="item.cadence" class="cadence-chip">
-                    cadence: {{ item.cadence }}
                   </mat-chip>
                   <mat-chip *ngIf="item.isRecurring" class="recurring-chip">
                     <mat-icon>repeat</mat-icon>
@@ -442,11 +427,27 @@
             <p *ngIf="item.description" class="description">{{ item.description }}</p>
             <p *ngIf="!item.isRecurring && item.completedAt" class="recurring-meta">
               <mat-icon>history</mat-icon>
-              Completed {{ formatDateTime(item.completedAt) }} by {{ item.completedByUserName || item.completedByUserId || 'Unknown User' }}
+              Completed {{ getCompletionDaysAgoText(item.completedAt) }}
+              <mat-icon
+                tabindex="0"
+                [matTooltip]="getExactDateTooltip(item.completedAt)"
+                matTooltipPosition="above"
+                aria-label="Completion date details">
+                event
+              </mat-icon>
+              by {{ getCompletionUserFirstName(item.completedByUserName, item.completedByUserId) }}
             </p>
             <p *ngIf="item.isRecurring && item.lastRecurringCompletedAt" class="recurring-meta">
               <mat-icon>history</mat-icon>
-              Last completed {{ formatDateTime(item.lastRecurringCompletedAt) }} by {{ item.lastRecurringCompletedByUserName || item.lastRecurringCompletedByUserId || 'Unknown User' }}
+              Completed {{ getCompletionDaysAgoText(item.lastRecurringCompletedAt) }}
+              <mat-icon
+                tabindex="0"
+                [matTooltip]="getExactDateTooltip(item.lastRecurringCompletedAt)"
+                matTooltipPosition="above"
+                aria-label="Completion date details">
+                event
+              </mat-icon>
+              by {{ getCompletionUserFirstName(item.lastRecurringCompletedByUserName, item.lastRecurringCompletedByUserId) }}
             </p>
             <div *ngIf="isAdjustingCompletion(item)" class="adjust-completion-row">
               <mat-form-field appearance="outline">

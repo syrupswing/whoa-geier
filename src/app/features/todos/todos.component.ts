@@ -17,6 +17,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { TodoService, TodoItem } from '../../services/todo.service';
 
+type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring';
+
 @Component({
   selector: 'app-todos',
   standalone: true,
@@ -53,9 +55,8 @@ export class TodosComponent implements OnInit {
     icon: '',
     description: '',
     dueDate: null as Date | null,
-    urgency: 'medium' as 'time-sensitive' | 'medium' | 'low',
+    urgency: 'soft-deadline' as 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring',
     importance: 'medium' as 'low' | 'medium' | 'high',
-    cadence: 'standard' as 'chore' | 'standard' | 'long-term',
     isRecurring: false,
     recurrenceType: 'weekday' as 'weekday' | 'month-day' | 'day-interval',
     recurrenceWeekday: 1,
@@ -71,9 +72,8 @@ export class TodosComponent implements OnInit {
     icon: '',
     description: '',
     dueDate: null as Date | null,
-    urgency: 'medium' as 'time-sensitive' | 'medium' | 'low',
+    urgency: 'soft-deadline' as 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring',
     importance: 'medium' as 'low' | 'medium' | 'high',
-    cadence: 'standard' as 'chore' | 'standard' | 'long-term',
     isRecurring: false,
     recurrenceType: 'weekday' as 'weekday' | 'month-day' | 'day-interval',
     recurrenceWeekday: 1,
@@ -84,21 +84,18 @@ export class TodosComponent implements OnInit {
   };
 
   urgencyLevels = [
-    { value: 'time-sensitive', label: 'Time-sensitive', color: '#D32F2F' },
-    { value: 'medium', label: 'Medium', color: '#F57C00' },
-    { value: 'low', label: 'Low', color: '#388E3C' }
+    { value: 'hard-deadline', label: 'Hard deadline', color: '#D32F2F' },
+    { value: 'soft-deadline', label: 'Soft deadline', color: '#F57C00' },
+    { value: 'hard-start-date', label: 'Hard start date', color: '#C62828' },
+    { value: 'soft-start-date', label: 'Soft start date', color: '#E65100' },
+    { value: 'hard-recurring', label: 'Hard recurring', color: '#6A1B9A' },
+    { value: 'soft-recurring', label: 'Soft recurring', color: '#AB47BC' }
   ];
 
   importanceLevels = [
     { value: 'low', label: 'Low', color: '#607D8B' },
     { value: 'medium', label: 'Medium', color: '#1976D2' },
     { value: 'high', label: 'High', color: '#C62828' }
-  ];
-
-  cadenceLevels = [
-    { value: 'chore', label: 'Chore' },
-    { value: 'standard', label: 'Standard' },
-    { value: 'long-term', label: 'Long-term' }
   ];
 
   weekdays = [
@@ -157,9 +154,8 @@ export class TodosComponent implements OnInit {
       icon: this.newItem.icon.trim() || undefined,
       description: this.newItem.description.trim() || undefined,
       dueDate: this.newItem.dueDate?.toISOString(),
-      urgency: this.newItem.urgency,
+      urgency: this.newItem.urgency as UrgencyType,
       importance: this.newItem.importance,
-      cadence: this.newItem.cadence,
       isRecurring: this.newItem.isRecurring,
       recurrenceType: this.newItem.isRecurring ? this.newItem.recurrenceType : undefined,
       recurrenceWeekday: this.newItem.isRecurring && this.newItem.recurrenceType === 'weekday' ? this.newItem.recurrenceWeekday : undefined,
@@ -181,9 +177,8 @@ export class TodosComponent implements OnInit {
       icon: item.icon || '',
       description: item.description || '',
       dueDate: item.dueDate ? new Date(item.dueDate) : null,
-      urgency: item.urgency || 'medium',
+      urgency: item.urgency || 'soft-deadline',
       importance: item.importance || 'medium',
-      cadence: item.cadence || 'standard',
       isRecurring: !!item.isRecurring,
       recurrenceType: item.recurrenceType || 'weekday',
       recurrenceWeekday: item.recurrenceWeekday ?? 1,
@@ -204,9 +199,8 @@ export class TodosComponent implements OnInit {
       icon: this.editForm.icon.trim() || undefined,
       description: this.editForm.description.trim() || undefined,
       dueDate: this.editForm.dueDate?.toISOString(),
-      urgency: this.editForm.urgency,
+      urgency: this.editForm.urgency as UrgencyType,
       importance: this.editForm.importance,
-      cadence: this.editForm.cadence,
       isRecurring: this.editForm.isRecurring,
       recurrenceType: this.editForm.isRecurring ? this.editForm.recurrenceType : undefined,
       recurrenceWeekday: this.editForm.isRecurring && this.editForm.recurrenceType === 'weekday' ? this.editForm.recurrenceWeekday : undefined,
@@ -230,6 +224,10 @@ export class TodosComponent implements OnInit {
 
   async toggleComplete(id: string): Promise<void> {
     await this.todoService.toggleComplete(id);
+  }
+
+  canToggleComplete(item: TodoItem): boolean {
+    return !this.todoService.isCompletionBlocked(item);
   }
 
   startAdjustCompletion(item: TodoItem): void {
@@ -332,15 +330,76 @@ export class TodosComponent implements OnInit {
     }
   }
 
-  formatDateTime(dateString?: string): string {
-    if (!dateString) return '';
-    return new Date(dateString).toLocaleString('en-US', {
-      month: 'short',
+  getCompletionDaysAgoText(dateString?: string): string {
+    const daysAgo = this.getDaysAgo(dateString);
+    if (daysAgo === null) {
+      return 'recently';
+    }
+
+    return `${daysAgo} day${daysAgo === 1 ? '' : 's'} ago`;
+  }
+
+  getCompletionUserFirstName(userName?: string, userId?: string): string {
+    return this.getFirstName(userName || userId);
+  }
+
+  getExactDateTooltip(dateString?: string): string {
+    if (!dateString) {
+      return '';
+    }
+
+    const date = new Date(dateString);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'long',
+      month: 'long',
       day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit'
+      year: 'numeric'
     });
+  }
+
+  private getDaysAgo(dateString?: string): number | null {
+    if (!dateString) {
+      return null;
+    }
+
+    const completed = new Date(dateString);
+    if (Number.isNaN(completed.getTime())) {
+      return null;
+    }
+
+    const completedDay = new Date(completed);
+    completedDay.setHours(0, 0, 0, 0);
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const diffMs = today.getTime() - completedDay.getTime();
+    return Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+  }
+
+  private getFirstName(identity?: string): string {
+    if (!identity) {
+      return 'Unknown';
+    }
+
+    const trimmed = identity.trim();
+    if (!trimmed) {
+      return 'Unknown';
+    }
+
+    const base = trimmed.includes('@') ? trimmed.split('@')[0] : trimmed;
+    const normalized = base.replace(/[._-]+/g, ' ').trim();
+    const first = normalized.split(/\s+/)[0];
+
+    if (!first) {
+      return 'Unknown';
+    }
+
+    return first.charAt(0).toUpperCase() + first.slice(1);
   }
 
   getRecurrenceSummary(item: TodoItem): string {
@@ -413,9 +472,8 @@ export class TodosComponent implements OnInit {
       icon: '',
       description: '',
       dueDate: null,
-      urgency: 'medium',
+      urgency: 'soft-deadline',
       importance: 'medium',
-      cadence: 'standard',
       isRecurring: false,
       recurrenceType: 'weekday',
       recurrenceWeekday: 1,
