@@ -2,8 +2,10 @@
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  min-height: 100dvh;
+  height: 100dvh;
   width: 100%;
+  --app-toolbar-base-height: 48px;
 }
 
 // Weather Widget Overlay
@@ -240,7 +242,8 @@
   z-index: 12;
   background-color: #933ea7;
   gap: 12px;
-  height: 48px;
+  padding-top: env(safe-area-inset-top, 0px);
+  height: calc(var(--app-toolbar-base-height) + env(safe-area-inset-top, 0px));
   
   .home-link {
     display: flex;
@@ -277,16 +280,98 @@
 
 .content {
   padding: 24px;
-  min-height: calc(100vh - 64px);
+  min-height: calc(100dvh - (var(--app-toolbar-base-height) + env(safe-area-inset-top, 0px)));
   flex: 1;
   overflow-y: auto;
   background-color: #303030;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 /* Mobile adjustments */
 @media (max-width: 767px) {
   .content {
     padding: 16px;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 430px) {
+  .app-container {
+    --app-toolbar-base-height: 44px;
+  }
+
+  .mat-toolbar.mat-primary {
+    gap: 8px;
+
+    .home-link {
+      gap: 8px;
+
+      img {
+        height: 34px;
+      }
+
+      span {
+        font-size: 26px;
+      }
+    }
+  }
+
+  .monitoring-bar {
+    padding: 6px 10px;
+
+    .monitoring-content {
+      gap: 10px;
+      justify-content: space-between;
+    }
+
+    .status-item {
+      gap: 6px;
+      font-size: 11px;
+
+      mat-icon,
+      .custom-icon {
+        width: 16px;
+        height: 16px;
+        font-size: 16px;
+      }
+
+      .status-value {
+        padding: 1px 6px;
+        font-size: 11px;
+      }
+    }
+  }
+
+  .content {
+    padding: 12px;
+    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+  }
+}
+
+@media (max-width: 390px) {
+  .mat-toolbar.mat-primary {
+    .home-link {
+      span {
+        font-size: 22px;
+      }
+    }
+
+    button[mat-icon-button],
+    .mat-mdc-icon-button {
+      width: 44px;
+      height: 44px;
+      padding: 10px;
+
+      .mat-icon {
+        width: 20px;
+        height: 20px;
+        font-size: 20px;
+      }
+    }
+  }
+
+  .user-menu {
+    margin-right: 2px;
   }
 }
 
@@ -432,7 +517,7 @@
 // Floating AI Chat
 .floating-chat {
   position: fixed;
-  bottom: 90px;
+  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
   right: 24px;
   width: 380px;
   max-height: 600px;
@@ -447,7 +532,7 @@
   
   @media (max-width: 768px) {
     width: calc(100vw - 48px);
-    max-height: calc(100vh - 140px);
+    max-height: calc(100dvh - 140px - env(safe-area-inset-bottom, 0px));
     right: 24px;
   }
   
@@ -621,7 +706,7 @@
 // Chat Toggle Button
 .chat-toggle-btn {
   position: fixed;
-  bottom: 24px;
+  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
   right: 24px;
   z-index: 999;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
