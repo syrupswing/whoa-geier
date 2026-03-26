@@ -10,12 +10,10 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pages: write
-  id-token: write
+  contents: read
 
 jobs:
-  build-and-deploy:
+  build:
     runs-on: ubuntu-latest
 
     steps:
@@ -23,7 +21,8 @@ jobs:
       
       - uses: actions/setup-node@v4
         with:
-          node-version: '22.x'
+          node-version: '20.19.0'
+          cache: 'npm'
           
       - name: Install dependencies
         run: npm ci
@@ -80,11 +79,25 @@ jobs:
         run: |
           cp dist/family-command-center/browser/index.html dist/family-command-center/browser/404.html
           echo "✅ Copied index.html to 404.html for client-side routing"
-        
-      - name: Deploy to GitHub Pages
-        if: github.ref == 'refs/heads/main'
-        uses: peaceiris/actions-gh-pages@v3
+
+      - name: Upload Pages artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./dist/family-command-center/browser
-          cname: false
+          path: ./dist/family-command-center/browser
+
+  deploy:
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
