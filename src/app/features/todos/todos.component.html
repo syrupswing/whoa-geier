@@ -34,7 +34,7 @@
         <div class="form-grid">
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Title</mat-label>
-            <input matInput [(ngModel)]="newItem.title" placeholder="What needs to be done?" required>
+            <input matInput [(ngModel)]="newItem.title" placeholder="What needs to be done?" required autocomplete="new-password">
             <mat-icon matPrefix>title</mat-icon>
           </mat-form-field>
 
@@ -44,7 +44,8 @@
               matInput
               [(ngModel)]="newItem.icon"
               [matAutocomplete]="newIconAuto"
-              placeholder="Type an icon name, e.g. recycling">
+              placeholder="Type an icon name, e.g. recycling"
+              autocomplete="off">
             <mat-icon matPrefix>{{ newItem.icon || 'emoji_symbols' }}</mat-icon>
             <mat-autocomplete #newIconAuto="matAutocomplete">
               <mat-option *ngFor="let icon of getFilteredIconSuggestions(newItem.icon)" [value]="icon">
@@ -60,7 +61,8 @@
               matInput 
               [(ngModel)]="newItem.description" 
               placeholder="Add details (optional)"
-              rows="3"></textarea>
+              rows="3"
+              autocomplete="new-password"></textarea>
             <mat-icon matPrefix>description</mat-icon>
           </mat-form-field>
 
@@ -135,7 +137,7 @@
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Category</mat-label>
-            <input matInput [(ngModel)]="newItem.category" placeholder="e.g., Work, Personal, Shopping">
+            <input matInput [(ngModel)]="newItem.category" placeholder="e.g., Work, Personal, Shopping" autocomplete="new-password">
             <mat-icon matPrefix>label</mat-icon>
           </mat-form-field>
         </div>
@@ -271,7 +273,7 @@
             <div *ngIf="editingItemId === item.id" class="edit-form">
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Title</mat-label>
-                <input matInput [(ngModel)]="editForm.title">
+                <input matInput [(ngModel)]="editForm.title" autocomplete="new-password">
               </mat-form-field>
 
               <mat-form-field appearance="outline" class="full-width">
@@ -280,7 +282,8 @@
                   matInput
                   [(ngModel)]="editForm.icon"
                   [matAutocomplete]="editIconAuto"
-                  placeholder="Type an icon name, e.g. recycling">
+                  placeholder="Type an icon name, e.g. recycling"
+                  autocomplete="off">
                 <mat-icon matPrefix>{{ editForm.icon || 'emoji_symbols' }}</mat-icon>
                 <mat-autocomplete #editIconAuto="matAutocomplete">
                   <mat-option *ngFor="let icon of getFilteredIconSuggestions(editForm.icon)" [value]="icon">
@@ -292,7 +295,7 @@
 
               <mat-form-field appearance="outline" class="full-width">
                 <mat-label>Description</mat-label>
-                <textarea matInput [(ngModel)]="editForm.description" rows="3"></textarea>
+                <textarea matInput [(ngModel)]="editForm.description" rows="3" autocomplete="new-password"></textarea>
               </mat-form-field>
 
               <div class="edit-row">
@@ -323,7 +326,7 @@
 
                 <mat-form-field appearance="outline">
                   <mat-label>Category</mat-label>
-                  <input matInput [(ngModel)]="editForm.category">
+                  <input matInput [(ngModel)]="editForm.category" autocomplete="new-password">
                 </mat-form-field>
               </div>
 

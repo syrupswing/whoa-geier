@@ -16,6 +16,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { TodoService, TodoItem } from '../../services/todo.service';
+import { MATERIAL_ICONS } from '../../shared/material-icons';
 
 type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring';
 
@@ -108,18 +109,7 @@ export class TodosComponent implements OnInit {
     { value: 6, label: 'Saturday' }
   ];
 
-  iconSuggestions = [
-    'home', 'event', 'calendar_month', 'check_circle', 'task', 'assignment', 'shopping_cart', 'store', 'restaurant',
-    'local_dining', 'directions_car', 'build', 'cleaning_services', 'delete', 'recycling', 'school', 'work', 'payments',
-    'medical_services', 'fitness_center', 'pets', 'child_care', 'laundry', 'yard', 'park', 'flight', 'luggage', 'phone',
-    'email', 'chat', 'notifications', 'alarm', 'timer', 'bedtime', 'self_improvement', 'menu_book', 'computer', 'tv',
-    'wifi', 'bolt', 'water_drop', 'thermostat', 'local_shipping', 'inventory_2', 'construction', 'handyman', 'plumbing',
-    'grass', 'local_florist', 'celebration', 'cake', 'sports_soccer', 'sports_basketball', 'hiking', 'directions_run',
-    'wallet', 'credit_card', 'savings', 'request_quote', 'receipt_long', 'fact_check', 'grocery', 'kitchen', 'bathtub',
-    'bed', 'chair', 'weekend', 'favorite', 'star', 'lightbulb', 'priority_high', 'warning', 'shield', 'lock',
-    'health_and_safety', 'vaccines', 'medication', 'monitor_weight', 'schedule', 'today', 'update', 'history', 'repeat',
-    'sync', 'bookmark', 'flag', 'checklist', 'check_box', 'help', 'tips_and_updates', 'attach_money', 'volunteer_activism'
-  ];
+  iconSuggestions = MATERIAL_ICONS;
 
   constructor(public todoService: TodoService) {}
 
@@ -426,11 +416,10 @@ export class TodosComponent implements OnInit {
   getFilteredIconSuggestions(value: string): string[] {
     const query = (value || '').trim().toLowerCase();
     if (!query) {
-      return this.iconSuggestions.slice(0, 20);
+      return this.iconSuggestions;
     }
     return this.iconSuggestions
-      .filter(icon => icon.toLowerCase().includes(query))
-      .slice(0, 20);
+      .filter(icon => icon.toLowerCase().includes(query));
   }
 
   onNewRecurringChange(isRecurring: boolean): void {
