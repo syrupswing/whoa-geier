@@ -280,8 +280,9 @@
   }
   .home-logo-link {
     background-color: var(--color-slate-smoke);
-    padding: 4px 8px 8px;
-    border-radius: 0 0 12px 12px;
+    padding: 12px;
+    border-radius: 12px;
+    margin-top: -6px;
     display: flex;
     align-self: flex-start;
     box-shadow: 1px 2px 6px 0px rgba(0, 0, 0, 0.5);
