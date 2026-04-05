@@ -63,6 +63,7 @@
     background-color: #fef8e3;
     color: #787878;
     border: none;
+    gap: 0;
     position: relative;
     overflow: hidden;
 
@@ -74,13 +75,16 @@
       width: 2px;
       height: 100%;
       background: #e85d75;
-      margin-left: 56px;
+      margin-left: 46px;
     }
 
     mat-card-title,
     mat-card-header {
       color: #787878;
-      margin-left: 26px;
+    }
+
+    .mat-mdc-card-content {
+      padding: 0;
     }
 
     .item-name {
@@ -106,23 +110,27 @@
     border: 1px solid #ee88ff;
   }
 
+  ::ng-deep .mat-mdc-card-header-text {
+    width: 100%;
+  }
+
   mat-card-title {
     display: flex;
     align-items: center;
+    font-family: "Nanum Brush Script", cursive;
+    font-size: 32px;
     gap: 12px;
 
     .count-badge {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      min-width: 24px;
-      height: 24px;
       padding: 0 8px;
-      background: #2196F3;
-      color: white;
-      border-radius: 12px;
-      font-size: 0.875rem;
+      color: #787878;
+      border-radius: 2rem ;
+      font-size: 24px;
       font-weight: 500;
+      border: 2px solid #787878;
+      min-width: 36px;
+      display: flex;
+      justify-content: center;
 
       &.completed {
         background: #4CAF50;
@@ -137,7 +145,7 @@
   mat-list-item {
     height: auto;
     min-height: 48px;
-    padding: 8px 0;
+    padding: 4px 0 4px 4px;
     border-bottom: 1px solid #d4c5a9;
 
     &:last-child {
@@ -212,12 +220,13 @@
 }
 
 .inline-add-item {
-  margin-bottom: 16px;
-  padding-bottom: 16px;
-  border-bottom: 2px solid #d4c5a9;
+  align-items: center;
+  padding-bottom: 12px;
+  display: flex;
+  width: 100%;
 
-  .add-button {
-    margin-left: 52px;
+  > .add-button {
+    height: 36px;
   }
 
   .inline-add-form {
@@ -347,7 +356,11 @@
 
 .mat-mdc-card-header {
   display: flex;
+  border-bottom: 2px solid #d4c5a9;
   flex-wrap: wrap;
+  gap: 0;
+  padding: 16px 16px 0 56px;
+  flex-direction: column;
 }
 
 .actions {

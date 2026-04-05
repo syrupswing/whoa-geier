@@ -315,7 +315,7 @@
 /* Mobile adjustments */
 @media (max-width: 767px) {
   .content {
-    padding: 16px;
+    padding: 24px 16px;
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 }
@@ -360,7 +360,7 @@
   }
 
   .content {
-    padding: 12px;
+    padding: 24px 12px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }

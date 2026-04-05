@@ -22,23 +22,10 @@
           Remaining items
           <span class="count-badge" *ngIf="activeItems.length > 0">{{ activeItems.length }}</span>
         </mat-card-title>
-        <div class="actions" *ngIf="activeItems.length > 0">
-          <button 
-            mat-stroked-button
-            [color]="isSortingByStore ? 'accent' : 'primary'"
-            (click)="isSortingByStore ? toggleStoreSort() : sortByStoreLayout()"
-            [disabled]="isSorting"
-            matTooltip="{{ isSortingByStore ? 'Revert to original order' : 'Sort by store layout order' }}">
-            <mat-spinner *ngIf="isSorting" diameter="16"></mat-spinner>
-            <mat-icon *ngIf="!isSorting">{{ isSortingByStore ? 'undo' : 'network_intelligence_update' }}</mat-icon>
-            {{ isSortingByStore ? 'Unsort' : 'Smart sort' }}
-          </button>
-        </div>
-      </mat-card-header>
-      <mat-card-content>
         <!-- Add Item Button/Form -->
         <div class="inline-add-item">
           <button 
+            mat-mdc-card-content
             *ngIf="!showAddItemForm"
             mat-fab 
             extended 
@@ -48,7 +35,20 @@
             <mat-icon>add</mat-icon>
             Add item
           </button>
-          
+          <div class="actions" *ngIf="activeItems.length > 0">
+            <button 
+              *ngIf="!showAddItemForm"
+              mat-icon-button
+              matTooltipPosition="below"
+              matTooltipTouchGestures="on"
+              [color]="isSortingByStore ? 'accent' : 'primary'"
+              (click)="isSortingByStore ? toggleStoreSort() : sortByStoreLayout()"
+              [disabled]="isSorting"
+              matTooltip="{{ isSortingByStore ? 'Revert to chronological' : 'Smart sort' }}">
+              <mat-spinner *ngIf="isSorting" diameter="16"></mat-spinner>
+              <mat-icon *ngIf="!isSorting">{{ isSortingByStore ? 'undo' : 'network_intelligence_update' }}</mat-icon>
+            </button>
+          </div>
           <div *ngIf="showAddItemForm" class="inline-add-form">
             <mat-form-field appearance="outline" class="inline-input">
               <mat-label>Item name</mat-label>
@@ -119,7 +119,8 @@
             </button>
           </div>
         </div>
-        
+      </mat-card-header>
+      <mat-card-content>
         <mat-list *ngIf="activeItems.length > 0; else noItems">
           <mat-list-item *ngFor="let item of activeItems" [class.editing]="isEditing(item.id)">
             <!-- Normal view -->
