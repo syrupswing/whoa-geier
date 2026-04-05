@@ -60,9 +60,44 @@
   }
 
   &.open-items {
-    background-color: #797967;
-    color: var(--color-text-primary);
-    border: 2px solid #ee88ff;
+    background-color: #fef8e3;
+    color: #787878;
+    border: none;
+    position: relative;
+    overflow: hidden;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 2px;
+      height: 100%;
+      background: #e85d75;
+      margin-left: 56px;
+    }
+
+    mat-card-title,
+    mat-card-header {
+      color: #787878;
+      margin-left: 26px;
+    }
+
+    .item-name {
+      font-family: 'Nanum Brush Script', cursive;
+      font-size: 24px;
+      line-height: 32px;
+      font-weight: 400;
+      letter-spacing: 0.3px;
+      color: #787878;
+      text-shadow: 0.5px 0.5px 0px rgba(0, 0, 0, 0.1);
+    }
+
+    .item-notes {
+      font-family: 'Nanum Brush Script', cursive;
+      font-size: 18px;
+      color: #9a9a9a;
+    }
   }
 
   &.crossed-off-items {
@@ -103,7 +138,7 @@
     height: auto;
     min-height: 48px;
     padding: 8px 0;
-    border-bottom: 1px solid #98799d;
+    border-bottom: 1px solid #d4c5a9;
 
     &:last-child {
       border-bottom: none;
@@ -127,15 +162,9 @@
     gap: 4px;
     margin-top: 8px;
 
-    .item-name {
-      font-size: 1rem;
-      font-weight: 500;
-    }
-
     .item-notes {
-      font-size: 0.875rem;
+      font-size: 1.3rem;
       color: var(--color-text-secondary);
-      font-style: italic;
     }
   }
 }
@@ -185,10 +214,10 @@
 .inline-add-item {
   margin-bottom: 16px;
   padding-bottom: 16px;
-  border-bottom: 2px solid #98799d;
+  border-bottom: 2px solid #d4c5a9;
 
-  .add-item-button {
-    width: 100%;
+  .add-button {
+    margin-left: 52px;
   }
 
   .inline-add-form {
@@ -244,14 +273,14 @@
 }
 
 .location-button {
-  color: #ebdb30;
+  color: #A8B4E8;
   
   &:disabled {
     opacity: 0.6;
   }
 
   &.found {
-    color: #2196F3;
+    color: #3B62C2;
   }
 
   mat-spinner {
@@ -388,5 +417,5 @@
 }
 .mat-mdc-outlined-button:not(:disabled) {
   color: var(--color-text-primary);
-  border: 1px solid #ee88ff;
+  border: 1px solid #C97BAC;
 }

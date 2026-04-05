@@ -125,7 +125,7 @@
           </div>
         </mat-card-header>
         <mat-card-content>
-          <div class="grocery-list-scrollable" *ngIf="getActiveGroceryItems().length > 0; else noGroceryItems">
+          <div class="grocery-list-scrollable" [class.grocery-list-collapsed]="!groceryExpanded()" *ngIf="getActiveGroceryItems().length > 0; else noGroceryItems">
             <ul class="grocery-list-static">
               <li *ngFor="let item of getActiveGroceryItems()">
                 {{ item.name }}
@@ -143,6 +143,14 @@
           </ng-template>
         </mat-card-content>
       </a>
+      <button
+        *ngIf="getActiveGroceryItems().length > 0"
+        class="grocery-expand-btn"
+        (click)="$event.preventDefault(); $event.stopPropagation(); groceryExpanded.set(!groceryExpanded())"
+        [attr.aria-expanded]="groceryExpanded()">
+        <mat-icon>{{ groceryExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
+        {{ groceryExpanded() ? 'Show less' : 'Show all' }}
+      </button>
     </mat-card>
 
     <!-- Todos Widget -->
@@ -161,7 +169,7 @@
       <div class="todos-list-container" [class.expanded]="todosExpanded()">
         <div class="todos-list">
           <div 
-            *ngFor="let item of visibleTodos" 
+            *ngFor="let item of incompleteTodos" 
             class="todo-item"
             [class.overdue]="isOverdue(item)">
             <mat-checkbox 
@@ -200,7 +208,7 @@
         class="todos-expand-btn"
         (click)="toggleTodosExpanded()">
         <mat-icon>{{ todosExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
-        {{ todosExpanded() ? 'Show Less' : 'Show More (' + (incompleteTodos.length - 4) + ')' }}
+        {{ todosExpanded() ? 'Show Less' : 'Show All (' + incompleteTodos.length + ')' }}
       </button>
     </div>
     

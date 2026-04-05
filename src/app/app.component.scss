@@ -14,7 +14,7 @@
   top: 80px;
   right: 20px;
   width: 280px;
-  background: rgba(66, 66, 66, 0.95);
+  background: rgba(237, 233, 245, 0.95);
   backdrop-filter: blur(10px);
   border-radius: 20px;
   padding: 20px;
@@ -238,9 +238,11 @@
 
 .mat-toolbar.mat-primary {
   position: sticky;
+  display: flex;
   top: 0;
   z-index: 12;
-  background-color: #933ea7;
+  background-color: var(--color-slate-smoke);
+  box-shadow: 1px 1px 4px 0px rgba(0, 0, 0, 0.5);
   gap: 12px;
   padding-top: env(safe-area-inset-top, 0px);
   height: calc(var(--app-toolbar-base-height) + env(safe-area-inset-top, 0px));
@@ -266,16 +268,31 @@
     }
     
     span {
-      font-family: 'Still Time', Roboto, "Helvetica Neue", sans-serif;
-      font-size: 54px;
-      font-weight: 400;
+      font-family: 'Puritan', Roboto, "Helvetica Neue", sans-serif;
+      font-size: 28px;
+      font-weight: 700;
       text-shadow: 2px 2px 0px #000;
 
       @media screen and (max-width: 600px) {
-        font-size: 32px;
+        font-size: 20px;
       }
     }
   }
+  .home-logo-link {
+    background-color: var(--color-slate-smoke);
+    padding: 4px 8px 8px;
+    border-radius: 0 0 12px 12px;
+    display: flex;
+    align-self: flex-start;
+    box-shadow: 1px 2px 6px 0px rgba(0, 0, 0, 0.5);
+  }
+}
+
+.toolbar-actions {
+  display: flex;
+  align-items: center;
+  margin-left: auto;
+  gap: 8px;
 }
 
 .content {
@@ -283,7 +300,7 @@
   min-height: calc(100dvh - (var(--app-toolbar-base-height) + env(safe-area-inset-top, 0px)));
   flex: 1;
   overflow-y: auto;
-  background-color: #303030;
+  background-color: var(--color-background);
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
@@ -300,19 +317,11 @@
     --app-toolbar-base-height: 44px;
   }
 
-  .mat-toolbar.mat-primary {
+  .mat-toolbar.mat-primary.home-link {
     gap: 8px;
 
-    .home-link {
-      gap: 8px;
-
-      img {
-        height: 34px;
-      }
-
-      span {
-        font-size: 26px;
-      }
+    img {
+      height: 34px;
     }
   }
 
@@ -352,7 +361,7 @@
   .mat-toolbar.mat-primary {
     .home-link {
       span {
-        font-size: 22px;
+        font-size: 16px;
       }
     }
 

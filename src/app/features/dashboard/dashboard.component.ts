@@ -66,6 +66,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private hasUserInteracted = false;
   private sharedAudioContext: AudioContext | null = null;
   
+  // Grocery widget
+  groceryExpanded = signal<boolean>(false);
+
   // Todos widget
   todosExpanded = signal<boolean>(false);
   

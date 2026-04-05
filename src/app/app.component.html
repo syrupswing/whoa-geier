@@ -11,40 +11,44 @@
 <!-- Show main app when authenticated and not loading -->
 <div class="app-container" *ngIf="authService.isAuthenticated() && !authService.isLoading()">
   <mat-toolbar color="primary">
+    <a routerLink="/" class="home-logo-link">
+      <img src="assets/WG-no-bg-sage.svg" alt="App Logo" height="40" />
+    </a>
     <a routerLink="/" class="home-link">
-      <img src="assets/Whoa-Geier.svg" alt="App Logo" height="40" />
       <span>{{ title }}</span>
     </a>
-    <span class="spacer"></span>
-    
-    <!-- Monitoring Dashboard Toggle -->
-    <button 
-      mat-icon-button 
-      (click)="toggleMonitoringBar()"
-      [class.active]="showMonitoringBar()"
-      matTooltip="System Status"
-      *ngIf="authService.isAuthenticated()">
-      <mat-icon>speed</mat-icon>
-    </button>
-    
-    <!-- User Menu -->
-    <div class="user-menu" *ngIf="authService.isAuthenticated()">
-      <button mat-icon-button [matMenuTriggerFor]="userMenu">
-        <mat-icon>account_circle</mat-icon>
+
+    <div class="toolbar-actions">
+      <!-- Monitoring Dashboard Toggle -->
+      <button 
+        mat-icon-button 
+        (click)="toggleMonitoringBar()"
+        [class.active]="showMonitoringBar()"
+        matTooltip="System Status"
+        *ngIf="authService.isAuthenticated()">
+        <mat-icon>speed</mat-icon>
       </button>
-      <mat-menu #userMenu="matMenu">
-        <div class="user-info">
-          <mat-icon>person</mat-icon>
-          <span>{{ authService.currentUser()?.email }}</span>
-        </div>
-        <mat-divider></mat-divider>
-        <button mat-menu-item (click)="signOut()">
-          <mat-icon>logout</mat-icon>
-          <span>Sign Out</span>
+      
+      <!-- User Menu -->
+      <div class="user-menu" *ngIf="authService.isAuthenticated()">
+        <button mat-icon-button [matMenuTriggerFor]="userMenu">
+          <mat-icon>account_circle</mat-icon>
         </button>
-      </mat-menu>
+        <mat-menu #userMenu="matMenu">
+          <div class="user-info">
+            <mat-icon>person</mat-icon>
+            <span>{{ authService.currentUser()?.email }}</span>
+          </div>
+          <mat-divider></mat-divider>
+          <button mat-menu-item (click)="signOut()">
+            <mat-icon>logout</mat-icon>
+            <span>Sign Out</span>
+          </button>
+        </mat-menu>
+      </div>
     </div>
   </mat-toolbar>
+
   
   <!-- Monitoring Status Bar -->
   <div class="monitoring-bar" *ngIf="showMonitoringBar() && authService.isAuthenticated()">

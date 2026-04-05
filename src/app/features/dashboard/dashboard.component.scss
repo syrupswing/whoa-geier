@@ -241,8 +241,6 @@
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   min-height: 200px;
-  max-height: 360px;
-  overflow: auto;
 
   .todos-widget-header {
     display: flex;
@@ -286,30 +284,15 @@
   .todos-list-container {
     position: relative;
     overflow: hidden;
-    transition: max-height 0.3s ease;
+    max-height: 340px;
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    transition: max-height 0.35s ease;
 
     &.expanded {
-      max-height: 600px;
-      overflow-y: auto;
-      overflow-x: hidden;
-
-      &::-webkit-scrollbar {
-        width: 8px;
-      }
-
-      &::-webkit-scrollbar-track {
-        background: rgba(255, 255, 255, 0.05);
-        border-radius: 4px;
-      }
-
-      &::-webkit-scrollbar-thumb {
-        background: rgba(255, 255, 255, 0.2);
-        border-radius: 4px;
-
-        &:hover {
-          background: rgba(255, 255, 255, 0.3);
-        }
-      }
+      max-height: 9999px;
+      mask-image: none;
+      -webkit-mask-image: none;
     }
 
     .todos-list {
@@ -319,13 +302,7 @@
     }
 
     .todos-fade-overlay {
-      position: absolute;
-      bottom: 0;
-      left: 0;
-      right: 0;
-      height: 80px;
-      background: linear-gradient(to bottom, transparent, var(--color-surface));
-      pointer-events: none;
+      display: none;
     }
   }
 
@@ -784,10 +761,10 @@
       transparent 32px
     );
   background-position: 0 0, 0 0, 0 0;
-  max-height: 360px;
   min-height: 210px;
   border: none;
   position: relative;
+  overflow: hidden;
   
   &::before {
     content: '';
@@ -1062,8 +1039,6 @@
 
   mat-card-content {
     padding: 0 16px;
-    max-height: 280px;
-    overflow: auto;
   }
 }
 
@@ -1094,6 +1069,14 @@
 }
 
 .grocery-list-scrollable {
+  overflow: hidden;
+  
+  &.grocery-list-collapsed {
+    max-height: 260px;
+    overflow: hidden;
+    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
+  }
   
   &::-webkit-scrollbar {
     width: 6px;
@@ -2052,5 +2035,32 @@
         font-size: 12px;
       }
     }
+  }
+}
+
+.grocery-expand-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 6px 16px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  color: #787878;
+  opacity: 0.7;
+  font-family: 'Nanum Brush Script', cursive;
+  font-size: 18px;
+  transition: opacity 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+  }
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
   }
 }
