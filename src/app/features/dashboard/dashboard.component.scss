@@ -164,12 +164,12 @@
   }
   
   &.add-link-card {
-    border: 2px dashed rgba(255, 255, 255, 0.3);
-    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    background: transparent;
+    box-shadow: none;
     
     .add-icon {
       color: #667eea;
-      opacity: 0.8;
     }
     
     &:hover {
@@ -238,6 +238,7 @@
   background: var(--color-surface);
   border: 2px solid rgba(255, 255, 255, 0.12);
   border-radius: 12px;
+  position: relative;
   padding: 20px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   min-height: 200px;
@@ -403,21 +404,6 @@
           }
         }
       }
-    }
-  }
-
-  .todos-expand-btn {
-    width: 100%;
-    margin-top: 12px;
-    color: #667eea;
-    font-weight: 500;
-
-    mat-icon {
-      margin-right: 4px;
-    }
-
-    &:hover {
-      background: rgba(102, 126, 234, 0.1);
     }
   }
 }
@@ -764,7 +750,6 @@
   min-height: 210px;
   border: none;
   position: relative;
-  overflow: hidden;
   
   &::before {
     content: '';
@@ -2035,32 +2020,5 @@
         font-size: 12px;
       }
     }
-  }
-}
-
-.grocery-expand-btn {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  width: 100%;
-  padding: 6px 16px 10px;
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  color: #787878;
-  opacity: 0.7;
-  font-family: 'Nanum Brush Script', cursive;
-  font-size: 18px;
-  transition: opacity 0.2s ease;
-
-  &:hover {
-    opacity: 1;
-  }
-
-  mat-icon {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
   }
 }

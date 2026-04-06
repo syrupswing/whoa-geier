@@ -19,7 +19,7 @@
     <mat-card class="items-card open-items">
       <mat-card-header>
         <mat-card-title>
-          Remaining items
+          Current list
           <span class="count-badge" *ngIf="activeItems.length > 0">{{ activeItems.length }}</span>
         </mat-card-title>
         <!-- Add Item Button/Form -->
@@ -239,16 +239,16 @@
         <mat-card-title>
           Crossed off
           <span class="count-badge completed">{{ completedItems.length }}</span>
+          <div class="actions">
+            <button 
+              *ngIf="completedItems.length > 0"
+              mat-stroked-button 
+              (click)="clearCompleted()">
+              <mat-icon>delete_sweep</mat-icon>
+              Delete all
+            </button>
+          </div>
         </mat-card-title>
-        <div class="actions">
-          <button 
-            *ngIf="completedItems.length > 0"
-            mat-stroked-button 
-            (click)="clearCompleted()">
-            <mat-icon>delete_sweep</mat-icon>
-            Delete all
-          </button>
-        </div>
       </mat-card-header>
       <mat-card-content>
         <div class="completed-items-container" [class.collapsed]="!showAllCompletedItems">
@@ -341,24 +341,14 @@
           </mat-list>
         </div>
         
-        <!-- Toggle buttons -->
-        <div class="completed-items-toggle">
-          <button 
-            *ngIf="!showAllCompletedItems"
-            mat-button 
-            color="primary"
-            (click)="toggleCompletedItemsExpansion()">
-            <mat-icon>expand_more</mat-icon>
-            Show all
-          </button>
-          <button 
-            *ngIf="showAllCompletedItems"
-            mat-button 
-            (click)="toggleCompletedItemsExpansion()">
-            <mat-icon>expand_less</mat-icon>
-            Minimize list
-          </button>
-        </div>
+        <!-- Toggle button -->
+        <button
+          mat-icon-button
+          class="card-expand-btn"
+          (click)="toggleCompletedItemsExpansion()"
+          [attr.aria-label]="showAllCompletedItems ? 'Minimize list' : 'Show all'">
+          <mat-icon>{{ showAllCompletedItems ? 'expand_less' : 'expand_more' }}</mat-icon>
+        </button>
       </mat-card-content>
     </mat-card>
   </div>

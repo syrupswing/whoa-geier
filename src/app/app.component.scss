@@ -8,6 +8,18 @@
   --app-toolbar-base-height: 48px;
 }
 
+
+
+::ng-deep button.card-expand-btn.mat-mdc-icon-button {
+  box-shadow: 1px 1px 4px 0px rgba(0, 0, 0, 0.5);
+  width: 40px;
+  height: 40px;
+  position: absolute;
+  bottom: -8px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
 // Weather Widget Overlay
 .weather-widget {
   position: fixed;

@@ -369,3 +369,17 @@ mat-card-actions.mdc-card__actions {
   align-items: center;
   gap: 4px;
 }
+
+/* Shared card expand/collapse icon button */
+button.card-expand-btn.mat-mdc-icon-button {
+  background-color: var(--color-bone-mist);
+  color: var(--color-slate-smoke);
+
+  .mat-icon {
+    color: var(--color-slate-smoke);
+  }
+
+  &:hover {
+    background-color: var(--color-background-dark);
+  }
+}

@@ -145,11 +145,12 @@
       </a>
       <button
         *ngIf="getActiveGroceryItems().length > 0"
-        class="grocery-expand-btn"
+        mat-icon-button
+        class="card-expand-btn grocery-expand-btn"
         (click)="$event.preventDefault(); $event.stopPropagation(); groceryExpanded.set(!groceryExpanded())"
-        [attr.aria-expanded]="groceryExpanded()">
+        [attr.aria-expanded]="groceryExpanded()"
+        [attr.aria-label]="groceryExpanded() ? 'Show less' : 'Show all'">
         <mat-icon>{{ groceryExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
-        {{ groceryExpanded() ? 'Show less' : 'Show all' }}
       </button>
     </mat-card>
 
@@ -202,13 +203,13 @@
         <div class="todos-fade-overlay" *ngIf="!todosExpanded() && incompleteTodos.length > 4"></div>
       </div>
       
-      <button 
+      <button
         *ngIf="incompleteTodos.length > 4"
-        mat-button 
-        class="todos-expand-btn"
-        (click)="toggleTodosExpanded()">
+        mat-icon-button
+        class="card-expand-btn todos-expand-btn"
+        (click)="toggleTodosExpanded()"
+        [attr.aria-label]="todosExpanded() ? 'Show Less' : 'Show All'">
         <mat-icon>{{ todosExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
-        {{ todosExpanded() ? 'Show Less' : 'Show All (' + incompleteTodos.length + ')' }}
       </button>
     </div>
     
