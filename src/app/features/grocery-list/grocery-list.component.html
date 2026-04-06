@@ -18,9 +18,12 @@
   <div *ngIf="!groceryService.isLoading()">
     <mat-card class="items-card open-items">
       <mat-card-header>
-        <mat-card-title>
+        <mat-card-title *ngIf="!showAddItemForm">
           Current list
           <span class="count-badge" *ngIf="activeItems.length > 0">{{ activeItems.length }}</span>
+        </mat-card-title>
+        <mat-card-title *ngIf="showAddItemForm">
+          Add new item
         </mat-card-title>
         <!-- Add Item Button/Form -->
         <div class="inline-add-item">
@@ -100,23 +103,24 @@
                 [(ngModel)]="newItemNotes"
                 placeholder="Optional">
             </mat-form-field>
-            
-            <button 
-              mat-mini-fab 
-              color="primary" 
-              (click)="addItem()"
-              [disabled]="!itemControl.value?.trim()"
-              class="add-button"
-              matTooltip="Add item">
-              <mat-icon>check</mat-icon>
-            </button>
-            <button 
-              mat-mini-fab 
-              (click)="showAddItemForm = false; itemControl.setValue(''); newItemQuantity = undefined; newItemUnit = undefined; newItemNotes = undefined"
-              class="cancel-button"
-              matTooltip="Cancel">
-              <mat-icon>close</mat-icon>
-            </button>
+            <div class="add-item-actions">
+              <button 
+                mat-mini-fab 
+                color="primary" 
+                (click)="addItem()"
+                [disabled]="!itemControl.value?.trim()"
+                class="add-button"
+                matTooltip="Add item">
+                <mat-icon>check</mat-icon>
+              </button>
+              <button 
+                mat-mini-fab 
+                (click)="showAddItemForm = false; itemControl.setValue(''); newItemQuantity = undefined; newItemUnit = undefined; newItemNotes = undefined"
+                class="cancel-button"
+                matTooltip="Cancel">
+                <mat-icon>close</mat-icon>
+              </button>
+            </div>
           </div>
         </div>
       </mat-card-header>
