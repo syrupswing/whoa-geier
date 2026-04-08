@@ -1059,8 +1059,6 @@
   &.grocery-list-collapsed {
     max-height: 260px;
     overflow: hidden;
-    mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 60%, transparent 100%);
   }
   
   &::-webkit-scrollbar {
