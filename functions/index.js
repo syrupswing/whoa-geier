@@ -1,5 +1,9 @@
 const {onCall} = require('firebase-functions/v2/https');
+const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {defineString} = require('firebase-functions/params');
+const admin = require('firebase-admin');
+
+admin.initializeApp();
 
 // Define environment variable parameter
 const githubToken = defineString('GITHUB_TOKEN');
@@ -65,4 +69,93 @@ exports.aiProxy = onCall(async (request) => {
       error.message || 'Unknown error occurred'
     );
   }
+});
+
+/**
+ * Daily push notification for overdue or due-today todos.
+ * Runs every morning at 8:00 AM Central Time.
+ */
+exports.dailyTodoReminder = onSchedule('every day 08:00', async () => {
+  const db = admin.firestore();
+  const messaging = admin.messaging();
+
+  // Get all FCM tokens
+  const tokensSnap = await db.collection('fcm-tokens').get();
+  if (tokensSnap.empty) {
+    console.log('No FCM tokens registered — skipping notification.');
+    return;
+  }
+  const tokens = tokensSnap.docs.map(doc => doc.data().token).filter(Boolean);
+
+  // Get all incomplete todos
+  const todosSnap = await db.collection('todos').where('completed', '==', false).get();
+  if (todosSnap.empty) {
+    console.log('No incomplete todos — skipping notification.');
+    return;
+  }
+
+  const now = new Date();
+  const todayStr = now.toISOString().split('T')[0]; // YYYY-MM-DD
+
+  const overdue = [];
+  const dueToday = [];
+
+  todosSnap.docs.forEach(doc => {
+    const todo = doc.data();
+    if (!todo.dueDate) return;
+    const due = todo.dueDate.split('T')[0];
+    if (due < todayStr) overdue.push(todo.title);
+    else if (due === todayStr) dueToday.push(todo.title);
+  });
+
+  if (overdue.length === 0 && dueToday.length === 0) {
+    console.log('No overdue or due-today todos — skipping notification.');
+    return;
+  }
+
+  // Build notification content
+  let title, body;
+  if (overdue.length > 0 && dueToday.length > 0) {
+    title = `${overdue.length + dueToday.length} tasks need attention`;
+    body = `${overdue.length} overdue, ${dueToday.length} due today`;
+  } else if (overdue.length > 0) {
+    title = overdue.length === 1 ? '1 overdue task' : `${overdue.length} overdue tasks`;
+    body = overdue.length === 1 ? overdue[0] : `${overdue[0]} and ${overdue.length - 1} more`;
+  } else {
+    title = dueToday.length === 1 ? '1 task due today' : `${dueToday.length} tasks due today`;
+    body = dueToday.length === 1 ? dueToday[0] : `${dueToday[0]} and ${dueToday.length - 1} more`;
+  }
+
+  const badgeCount = String(overdue.length + dueToday.length);
+
+  // Send to all tokens, ignoring stale ones
+  const results = await Promise.allSettled(
+    tokens.map(token =>
+      messaging.send({
+        token,
+        data: { title, body, badge: badgeCount }
+      })
+    )
+  );
+
+  // Clean up any tokens that are no longer valid
+  const staleTokens = [];
+  results.forEach((result, i) => {
+    if (result.status === 'rejected') {
+      const code = result.reason?.errorInfo?.code ?? '';
+      if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
+        staleTokens.push(tokens[i]);
+      }
+    }
+  });
+
+  if (staleTokens.length > 0) {
+    console.log(`Removing ${staleTokens.length} stale token(s).`);
+    await Promise.all(
+      staleTokens.map(token => db.collection('fcm-tokens').doc(token).delete())
+    );
+  }
+
+  const sent = results.filter(r => r.status === 'fulfilled').length;
+  console.log(`Sent ${sent}/${tokens.length} notifications. Title: "${title}"`);
 });
