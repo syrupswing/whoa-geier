@@ -75,7 +75,9 @@ exports.aiProxy = onCall(async (request) => {
  * Daily push notification for overdue or due-today todos.
  * Runs every morning at 8:00 AM Central Time.
  */
-exports.dailyTodoReminder = onSchedule('every day 08:00', async () => {
+exports.dailyTodoReminder = onSchedule(
+  { schedule: '0 8 * * *', timeZone: 'America/Chicago' },
+  async () => {
   const db = admin.firestore();
   const messaging = admin.messaging();
 
