@@ -102,6 +102,14 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
     // Initialize push notifications (no-op on unsupported browsers)
     this.pushNotificationService.initialize();
+
+    // Clear the app icon badge whenever the user opens/returns to the app
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        this.pushNotificationService.clearBadge();
+      }
+    });
+    this.pushNotificationService.clearBadge();
     
     // Subscribe to Firestore for API counter if initialized
     if (this.firestoreService.isInitialized()) {

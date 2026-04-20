@@ -22,10 +22,17 @@ messaging.onBackgroundMessage((payload) => {
   // by the OS/browser via APNs on iOS. Calling showNotification here would create a duplicate.
   // Only manually show a notification for data-only messages.
   if (payload.notification) {
+    // Still update the app icon badge count if provided
+    const badgeCount = parseInt(payload.data?.badge ?? '0', 10);
+    if (badgeCount > 0 && 'setAppBadge' in self.navigator) {
+      self.navigator.setAppBadge(badgeCount);
+    }
     return;
   }
 
   const title = payload.data?.title ?? 'Whoa Geier';
+  const badgeCount = parseInt(payload.data?.badge ?? '0', 10);
+
   const options = {
     body: payload.data?.body ?? '',
     icon: '/assets/icons/icon-192x192.png',
@@ -33,4 +40,9 @@ messaging.onBackgroundMessage((payload) => {
     data: payload.data ?? {}
   };
   self.registration.showNotification(title, options);
+
+  // Update the app icon badge count
+  if (badgeCount > 0 && 'setAppBadge' in self.navigator) {
+    self.navigator.setAppBadge(badgeCount);
+  }
 });

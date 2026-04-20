@@ -141,4 +141,11 @@ export class PushNotificationService {
       createdAt: new Date().toISOString()
     });
   }
+
+  /** Clear the app icon badge count. Call when the user opens the app. */
+  clearBadge(): void {
+    if ('clearAppBadge' in navigator) {
+      navigator.clearAppBadge().catch(() => {});
+    }
+  }
 }
