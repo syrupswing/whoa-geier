@@ -86,6 +86,17 @@ export class PushNotificationService {
       // Derive the SW path relative to the app's base href so it works
       // on both localhost and sub-path deployments like /whoa-geier/
       const swPath = new URL('firebase-messaging-sw.js', document.baseURI).pathname;
+
+      // Unregister any stale firebase-messaging-sw registrations at a different path
+      // (e.g. from a previous deploy that registered at the root /firebase-messaging-sw.js)
+      const existingRegistrations = await navigator.serviceWorker.getRegistrations();
+      for (const reg of existingRegistrations) {
+        const scriptURL = reg.active?.scriptURL ?? reg.installing?.scriptURL ?? '';
+        if (scriptURL.includes('firebase-messaging-sw') && !scriptURL.endsWith(swPath)) {
+          await reg.unregister();
+        }
+      }
+
       const swRegistration = await navigator.serviceWorker.register(swPath);
 
       const token = await getToken(this.messaging, {
