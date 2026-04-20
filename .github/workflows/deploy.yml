@@ -74,6 +74,7 @@ jobs:
           # Firebase Console > Project Settings > Cloud Messaging > Web Push certificates > Generate key pair
           sed -i "s|VAPID_KEY_PLACEHOLDER|BHgLEQUbIaFEfrWxyoPfk0juf5YbxZ69R1rpFEec35TvgKXDkuXIGKsiH3Q9u1kHpAsCx9V-R46GIJsjT7XWi6Y|g" src/environments/environment.prod.ts
           sed -i "s|VAPID_KEY_PLACEHOLDER|BHgLEQUbIaFEfrWxyoPfk0juf5YbxZ69R1rpFEec35TvgKXDkuXIGKsiH3Q9u1kHpAsCx9V-R46GIJsjT7XWi6Y|g" src/firebase-messaging-sw.js
+          sed -i "s|FIREBASE_API_KEY_PLACEHOLDER|$FIREBASE_KEY|g" src/firebase-messaging-sw.js
           echo "✅ Production environment file created with secrets"
           echo "Verifying environment file (first 30 lines, secrets masked):"
           head -30 src/environments/environment.prod.ts | sed 's/AIza[A-Za-z0-9_-]*/AIza***MASKED***/g' | sed 's/github_pat_[A-Za-z0-9_-]*/github_pat_***MASKED***/g' | sed 's/ghp_[A-Za-z0-9_-]*/ghp_***MASKED***/g'

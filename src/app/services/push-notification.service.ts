@@ -77,9 +77,10 @@ export class PushNotificationService {
       const app = getApp(); // Reuse the already-initialized Firebase app
       this.messaging = getMessaging(app);
 
-      const swRegistration = await navigator.serviceWorker.register(
-        '/firebase-messaging-sw.js'
-      );
+      // Derive the SW path relative to the app's base href so it works
+      // on both localhost and sub-path deployments like /whoa-geier/
+      const swPath = new URL('firebase-messaging-sw.js', document.baseURI).pathname;
+      const swRegistration = await navigator.serviceWorker.register(swPath);
 
       const token = await getToken(this.messaging, {
         vapidKey: environment.firebase.vapidKey,
