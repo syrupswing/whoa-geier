@@ -18,9 +18,16 @@ firebase.initializeApp({
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title ?? 'Whoa Geier';
+  // Notification messages (with a `notification` field) are automatically displayed
+  // by the OS/browser via APNs on iOS. Calling showNotification here would create a duplicate.
+  // Only manually show a notification for data-only messages.
+  if (payload.notification) {
+    return;
+  }
+
+  const title = payload.data?.title ?? 'Whoa Geier';
   const options = {
-    body: payload.notification?.body ?? '',
+    body: payload.data?.body ?? '',
     icon: '/assets/icons/icon-192x192.png',
     badge: '/assets/icons/icon-192x192.png',
     data: payload.data ?? {}
