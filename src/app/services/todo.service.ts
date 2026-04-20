@@ -30,6 +30,7 @@ export interface TodoItem {
   userId?: string;
   createdAt?: string;
   updatedAt?: string;
+  snoozedUntil?: string; // ISO date string — hide from sort/notifications until this time
 }
 
 export interface TaskScore {
@@ -120,8 +121,10 @@ export class TodoService implements OnDestroy {
 
   /**
    * Sort active tasks by due date first, then score, then creation time.
+   * Snoozed tasks sort below all non-snoozed active tasks.
    */
   private sortItems(items: TodoItem[]): TodoItem[] {
+    const now = new Date();
     return [...items].sort((a, b) => {
       // Keep active tasks above completed tasks.
       if (a.completed !== b.completed) {
@@ -129,6 +132,12 @@ export class TodoService implements OnDestroy {
       }
 
       if (!a.completed && !b.completed) {
+        const aIsSnoozed = !!a.snoozedUntil && new Date(a.snoozedUntil) > now;
+        const bIsSnoozed = !!b.snoozedUntil && new Date(b.snoozedUntil) > now;
+
+        // Snoozed tasks sink below non-snoozed tasks
+        if (aIsSnoozed !== bIsSnoozed) return aIsSnoozed ? 1 : -1;
+
         if (a.dueDate && b.dueDate) {
           const dueDateDiff = new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
           if (dueDateDiff !== 0) {
@@ -289,6 +298,26 @@ export class TodoService implements OnDestroy {
       this.items.set(currentItems.filter(item => item.id !== id));
       this.saveToLocalStorage();
     }
+  }
+
+  /** Returns true if the item is currently snoozed. */
+  isSnoozed(item: TodoItem): boolean {
+    return !!item.snoozedUntil && new Date(item.snoozedUntil) > new Date();
+  }
+
+  /**
+   * Snooze a todo for the given number of hours (or days if >= 24).
+   * Sets snoozedUntil and re-sorts the list.
+   */
+  async snoozeTodo(id: string, hours: number): Promise<void> {
+    const until = new Date();
+    until.setHours(until.getHours() + hours);
+    await this.updateItem(id, { snoozedUntil: until.toISOString() });
+  }
+
+  /** Remove an active snooze. */
+  async unsnoozeTodo(id: string): Promise<void> {
+    await this.updateItem(id, { snoozedUntil: undefined });
   }
 
   /**

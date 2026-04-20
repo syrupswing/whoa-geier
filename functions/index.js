@@ -105,6 +105,8 @@ exports.dailyTodoReminder = onSchedule(
   todosSnap.docs.forEach(doc => {
     const todo = doc.data();
     if (!todo.dueDate) return;
+    // Skip todos that are currently snoozed
+    if (todo.snoozedUntil && new Date(todo.snoozedUntil) > now) return;
     const due = todo.dueDate.split('T')[0];
     if (due < todayStr) overdue.push(todo.title);
     else if (due === todayStr) dueToday.push(todo.title);

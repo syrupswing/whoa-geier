@@ -248,6 +248,22 @@
                 <button *ngIf="item.isRecurring" mat-icon-button (click)="startAdjustCompletion(item)" matTooltip="Adjust completion day">
                   <mat-icon>schedule</mat-icon>
                 </button>
+                <!-- Snooze button / unsnooze -->
+                <button *ngIf="isSnoozed(item)" mat-icon-button color="accent"
+                        (click)="unsnoozeTodo(item.id)"
+                        [matTooltip]="'Wake up: ' + getSnoozedUntilLabel(item)">
+                  <mat-icon>alarm_off</mat-icon>
+                </button>
+                <button *ngIf="!isSnoozed(item)" mat-icon-button
+                        [matMenuTriggerFor]="snoozeMenu"
+                        matTooltip="Snooze">
+                  <mat-icon>snooze</mat-icon>
+                </button>
+                <mat-menu #snoozeMenu="matMenu">
+                  <button mat-menu-item *ngFor="let d of snoozeDurations" (click)="snoozeTodo(item.id, d.hours)">
+                    <mat-icon>alarm</mat-icon>{{ d.label }}
+                  </button>
+                </mat-menu>
                 <button mat-icon-button (click)="startEdit(item)" matTooltip="Edit">
                   <mat-icon>edit</mat-icon>
                 </button>

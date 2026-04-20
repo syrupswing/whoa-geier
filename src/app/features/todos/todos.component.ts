@@ -15,6 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatMenuModule } from '@angular/material/menu';
 import { TodoService, TodoItem } from '../../services/todo.service';
 import { MATERIAL_ICONS } from '../../shared/material-icons';
 
@@ -39,7 +40,8 @@ type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft
     MatChipsModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    MatExpansionModule
+    MatExpansionModule,
+    MatMenuModule
   ],
   templateUrl: './todos.component.html',
   styleUrls: ['./todos.component.scss']
@@ -48,6 +50,31 @@ export class TodosComponent implements OnInit {
   showAddForm = false;
   editingItemId: string | null = null;
   adjustingCompletionItemId: string | null = null;
+
+  snoozeDurations = [
+    { label: '1 hour',    hours: 1 },
+    { label: '3 hours',   hours: 3 },
+    { label: 'Tonight',   hours: this.hoursUntilHour(21) },
+    { label: 'Tomorrow',  hours: this.hoursUntilTomorrow() },
+    { label: '3 days',    hours: 72 },
+    { label: '1 week',    hours: 168 }
+  ];
+
+  private hoursUntilHour(targetHour: number): number {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(targetHour, 0, 0, 0);
+    if (target <= now) target.setDate(target.getDate() + 1);
+    return Math.max(1, Math.round((target.getTime() - now.getTime()) / 3600000));
+  }
+
+  private hoursUntilTomorrow(): number {
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(8, 0, 0, 0);
+    return Math.max(1, Math.round((tomorrow.getTime() - now.getTime()) / 3600000));
+  }
   adjustCompletionDate: Date | null = null;
 
   // New item form
@@ -248,6 +275,29 @@ export class TodosComponent implements OnInit {
     if (confirm('Are you sure you want to delete this todo?')) {
       await this.todoService.deleteItem(id);
     }
+  }
+
+  async snoozeTodo(id: string, hours: number): Promise<void> {
+    await this.todoService.snoozeTodo(id, hours);
+  }
+
+  async unsnoozeTodo(id: string): Promise<void> {
+    await this.todoService.unsnoozeTodo(id);
+  }
+
+  isSnoozed(item: TodoItem): boolean {
+    return this.todoService.isSnoozed(item);
+  }
+
+  getSnoozedUntilLabel(item: TodoItem): string {
+    if (!item.snoozedUntil) return '';
+    const until = new Date(item.snoozedUntil);
+    const now = new Date();
+    const diffH = Math.round((until.getTime() - now.getTime()) / 3600000);
+    if (diffH < 1) return 'Snoozed briefly';
+    if (diffH < 24) return `Snoozed ${diffH}h`;
+    const diffD = Math.round(diffH / 24);
+    return `Snoozed ${diffD}d`;
   }
 
   isOverdue(item: TodoItem): boolean {
