@@ -16,6 +16,7 @@ export class PushNotificationService {
   fcmToken = signal<string | null>(null);
 
   private messaging: Messaging | null = null;
+  private messagingSetUp = false;
 
   constructor(private firestoreService: FirestoreService) {}
 
@@ -68,6 +69,11 @@ export class PushNotificationService {
   }
 
   private async setupMessaging(): Promise<void> {
+    if (this.messagingSetUp) {
+      return;
+    }
+    this.messagingSetUp = true;
+
     if (!environment.firebase.vapidKey) {
       console.warn('PushNotificationService: vapidKey is not configured in environment.');
       return;
@@ -94,6 +100,11 @@ export class PushNotificationService {
 
       // Handle messages while the app is in the foreground
       onMessage(this.messaging, (payload) => {
+        // Only show a manual notification when the page is visible;
+        // when backgrounded the service worker handles it automatically.
+        if (document.visibilityState !== 'visible') {
+          return;
+        }
         const title = payload.notification?.title ?? 'Whoa Geier';
         const body = payload.notification?.body ?? '';
         if (Notification.permission === 'granted') {
