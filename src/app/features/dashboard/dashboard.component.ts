@@ -22,6 +22,7 @@ import { TodoService, TodoItem } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { QuickLinkService, QuickLink } from '../../services/quick-link.service';
 import { QuickLinkDialogComponent } from '../../components/quick-link-dialog/quick-link-dialog.component';
+import { PushNotificationService } from '../../services/push-notification.service';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -91,6 +92,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public todoService: TodoService,
     public firestoreService: FirestoreService,
     public quickLinkService: QuickLinkService,
+    public pushNotificationService: PushNotificationService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
@@ -145,6 +147,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
     if (this.readingUnsubscribe) {
       this.readingUnsubscribe();
+    }
+  }
+
+  async enableNotifications(): Promise<void> {
+    const granted = await this.pushNotificationService.requestPermission();
+    if (granted) {
+      this.snackBar.open('Notifications enabled!', 'Dismiss', { duration: 3000 });
+    } else {
+      this.snackBar.open('Notifications blocked — you can enable them in browser settings.', 'Dismiss', { duration: 5000 });
     }
   }
 

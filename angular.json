@@ -28,7 +28,12 @@
             "assets": [
               "src/favicon.ico",
               "src/assets",
-              "src/404.html"
+              "src/404.html",
+              {
+                "glob": "firebase-messaging-sw.js",
+                "input": "src",
+                "output": "/"
+              }
             ],
             "styles": [
               "@angular/material/prebuilt-themes/indigo-pink.css",

@@ -99,6 +99,15 @@
       <button mat-button (click)="weatherService.loadWeather()">Retry</button>
     </div>
   </div>
+
+  <!-- Push Notification Prompt (shown only when permission not yet decided) -->
+  <div class="notification-prompt"
+       *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'default'">
+    <mat-icon>notifications_none</mat-icon>
+    <span>Enable push notifications to get family reminders on this device.</span>
+    <button mat-stroked-button color="primary" (click)="enableNotifications()">Enable</button>
+  </div>
+
   <div class="grid">
 
     <!-- Grocery List Widget -->

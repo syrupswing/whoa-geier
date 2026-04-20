@@ -17,6 +17,26 @@
   }
 }
 
+.notification-prompt {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
+  font-size: 0.9rem;
+
+  mat-icon {
+    color: var(--mat-sys-primary);
+    flex-shrink: 0;
+  }
+
+  span {
+    flex: 1;
+  }
+}
+
 .widget-header {
     display: flex;
     align-items: center;

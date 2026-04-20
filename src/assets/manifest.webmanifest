@@ -7,6 +7,7 @@
   "scope": "/whoa-geier/",
   "display": "standalone",
   "orientation": "portrait",
+  "prefer_related_applications": false,
   "theme_color": "#3D3550",
   "background_color": "#3D3550",
   "icons": [

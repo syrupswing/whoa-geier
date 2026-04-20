@@ -22,7 +22,9 @@ export const environment = {
     storageBucket: "whoa-geier.firebasestorage.app",
     messagingSenderId: "457123034868",
     appId: "1:457123034868:web:4dac03baaae1786da390a1",
-    measurementId: "G-YEFTQYSHBR"
+    measurementId: "G-YEFTQYSHBR",
+    // Get from Firebase Console > Project Settings > Cloud Messaging > Web Push certificates
+    vapidKey: 'VAPID_KEY_PLACEHOLDER'
   },
   useFirebaseProxy: false, // Use Firebase Functions to proxy GitHub API calls (more secure for production)
   useFirestore: true, // Use Firestore for data storage (recipes, grocery lists, etc.)

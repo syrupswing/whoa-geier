@@ -16,6 +16,7 @@ import { WeatherService } from './services/weather.service';
 import { AuthService } from './services/auth.service';
 import { GithubAiService } from './services/github-ai.service';
 import { FirestoreService } from './services/firestore.service';
+import { PushNotificationService } from './services/push-notification.service';
 
 interface ChatMessage {
   text: string;
@@ -84,7 +85,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
     public weatherService: WeatherService,
     public authService: AuthService,
     public githubAiService: GithubAiService,
-    public firestoreService: FirestoreService
+    public firestoreService: FirestoreService,
+    public pushNotificationService: PushNotificationService
   ) {
     // Redirect to dashboard if authenticated and on login page
     effect(() => {
@@ -97,6 +99,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
   ngOnInit(): void {
     // Check AI connection status
     this.isAIConnected.set(this.githubAiService.isConfigured());
+
+    // Initialize push notifications (no-op on unsupported browsers)
+    this.pushNotificationService.initialize();
     
     // Subscribe to Firestore for API counter if initialized
     if (this.firestoreService.isInitialized()) {
