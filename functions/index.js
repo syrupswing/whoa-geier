@@ -1,4 +1,4 @@
-const {onCall} = require('firebase-functions/v2/https');
+const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
 const {defineString} = require('firebase-functions/params');
 const admin = require('firebase-admin');
@@ -64,7 +64,7 @@ exports.aiProxy = onCall(async (request) => {
 
   } catch (error) {
     console.error('GitHub Models API error:', error);
-    throw new functions.https.HttpsError(
+    throw new HttpsError(
       'internal',
       error.message || 'Unknown error occurred'
     );
