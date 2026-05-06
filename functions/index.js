@@ -1,18 +1,18 @@
 const {onCall, HttpsError} = require('firebase-functions/v2/https');
 const {onSchedule} = require('firebase-functions/v2/scheduler');
-const {defineString} = require('firebase-functions/params');
+const {defineSecret} = require('firebase-functions/params');
 const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-// Define environment variable parameter
-const githubToken = defineString('GITHUB_TOKEN');
+// Define secret parameter (reads from Google Cloud Secret Manager)
+const githubToken = defineSecret('GITHUB_TOKEN');
 
 /**
  * Proxy requests to GitHub Models API
  * Keeps the GitHub PAT secure on the backend
  */
-exports.aiProxy = onCall(async (request) => {
+exports.aiProxy = onCall({ secrets: ['GITHUB_TOKEN'] }, async (request) => {
   // Get the GitHub PAT from environment variable
   const token = githubToken.value();
   
