@@ -7,7 +7,6 @@ admin.initializeApp();
 
 // Define secret parameter (reads from Google Cloud Secret Manager)
 const githubToken = defineSecret('GITHUB_TOKEN');
-
 /**
  * Proxy requests to GitHub Models API
  * Keeps the GitHub PAT secure on the backend
