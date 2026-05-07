@@ -1,6 +1,6 @@
 # Firebase Cloud Functions Setup for Secure AI Proxy
 
-This guide helps you set up Firebase Cloud Functions to securely proxy AI requests without exposing your GitHub PAT in the frontend.
+This guide helps you set up Firebase Cloud Functions to securely proxy AI requests without exposing your GitHub PAT in the frontend. 
 
 ## Prerequisites
 
