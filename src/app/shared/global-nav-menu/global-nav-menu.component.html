@@ -1,0 +1,51 @@
+<button
+  mat-icon-button
+  class="global-nav-btn"
+  matTooltip="Open menu"
+  [matMenuTriggerFor]="globalNavMenu"
+  aria-label="Open navigation menu">
+  <mat-icon>menu</mat-icon>
+</button>
+
+<mat-menu #globalNavMenu="matMenu">
+  <button mat-menu-item [routerLink]="'/'">
+    <mat-icon>dashboard</mat-icon>
+    <span>Dashboard</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/grocery-list'">
+    <mat-icon>shopping_cart</mat-icon>
+    <span>Shopping list</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/todos'">
+    <mat-icon>checklist</mat-icon>
+    <span>To-do list</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/quick-links'">
+    <mat-icon>link</mat-icon>
+    <span>Quick links</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/recipes'">
+    <mat-icon>menu_book</mat-icon>
+    <span>Food: recipes</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/restaurants'">
+    <mat-icon>restaurant</mat-icon>
+    <span>Food: restaurants</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/calendar'">
+    <mat-icon>calendar_month</mat-icon>
+    <span>Calendar</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/vehicles'">
+    <mat-icon>directions_car</mat-icon>
+    <span>Vehicles</span>
+  </button>
+  <button mat-menu-item [routerLink]="'/remi-world'">
+    <mat-icon>sports_esports</mat-icon>
+    <span>Remi world</span>
+  </button>
+  <button mat-menu-item (click)="signOut()">
+    <mat-icon>logout</mat-icon>
+    <span>Sign out</span>
+  </button>
+</mat-menu>

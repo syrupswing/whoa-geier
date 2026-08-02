@@ -18,6 +18,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatMenuModule } from '@angular/material/menu';
 import { TodoService, TodoItem } from '../../services/todo.service';
 import { MATERIAL_ICONS } from '../../shared/material-icons';
+import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring';
 
@@ -41,7 +42,8 @@ type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft
     MatProgressSpinnerModule,
     MatTooltipModule,
     MatExpansionModule,
-    MatMenuModule
+    MatMenuModule,
+    GlobalNavMenuComponent
   ],
   templateUrl: './todos.component.html',
   styleUrls: ['./todos.component.scss']

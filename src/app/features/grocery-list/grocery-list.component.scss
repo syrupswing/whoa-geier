@@ -505,13 +505,19 @@
   max-width: 880px;
 
   .header {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 
     h1 {
       font-size: 2rem;
-      margin-bottom: 8px;
+      margin: 0;
       color: var(--color-slate-smoke);
       font-weight: 700;
+    }
+
+    app-global-nav-menu {
+      margin-left: auto;
     }
 
     .subtitle {
@@ -611,6 +617,7 @@
 }
 
 .quick-add-section {
+  margin-bottom: 12px;
 
   &.expanded {
     .quick-add-primary-btn {
@@ -730,6 +737,7 @@
       grid-template-columns: minmax(90px, 110px) minmax(120px, 140px) minmax(150px, 190px) minmax(180px, 1fr);
       column-gap: 6px;
       row-gap: 6px;
+      margin-bottom: 16px;
       align-items: flex-start;
     }
 
@@ -955,14 +963,12 @@
   }
 
   .quick-add-section {
-    margin-bottom: 12px;
 
     .inline-add-form {
       .add-details-grid {
         grid-template-columns: 1fr 1fr;
         column-gap: 6px;
         row-gap: 6px;
-        margin-bottom: 16px;
       }
 
       .notes-input {

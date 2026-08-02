@@ -16,6 +16,7 @@ import { WeatherService } from '../../services/weather.service';
 import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
+import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -33,7 +34,7 @@ interface ChatMessage {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, RouterLink],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })

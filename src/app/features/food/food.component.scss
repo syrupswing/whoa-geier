@@ -3,6 +3,9 @@
   margin: 0 auto;
 
   .header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
     margin-bottom: 12px;
 
     h1 {
@@ -55,6 +58,8 @@
 @media (max-width: 767px) {
   .food-container {
     .header {
+      gap: 8px;
+
       h1 {
         font-size: 1.5rem;
       }

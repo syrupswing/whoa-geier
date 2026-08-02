@@ -1,0 +1,22 @@
+:host {
+  display: inline-flex;
+  margin-left: auto;
+}
+
+.global-nav-btn {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--mat-sys-primary) 45%, transparent);
+  background: transparent;
+  color: var(--color-void-indigo);
+  box-shadow: none;
+
+  &:hover {
+    transform: translateY(-1px);
+  }
+
+  mat-icon {
+    color: var(--color-void-indigo);
+  }
+}

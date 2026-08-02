@@ -5,6 +5,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { GroceryListComponent } from '../grocery-list/grocery-list.component';
 import { RecipesComponent } from '../recipes/recipes.component';
 import { RestaurantsComponent } from '../restaurants/restaurants.component';
+import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 @Component({
   selector: 'app-food',
@@ -13,6 +14,7 @@ import { RestaurantsComponent } from '../restaurants/restaurants.component';
     CommonModule,
     MatTabsModule,
     MatIconModule,
+    GlobalNavMenuComponent,
     GroceryListComponent,
     RecipesComponent,
     RestaurantsComponent

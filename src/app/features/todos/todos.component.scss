@@ -6,7 +6,7 @@
   .header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-start;
+    align-items: center;
     margin-bottom: 24px;
     flex-wrap: wrap;
     gap: 16px;
@@ -25,10 +25,55 @@
       color: var(--color-text-secondary);
     }
 
-    .add-button {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+  }
+}
+
+.quick-add-section {
+  margin-bottom: 12px;
+
+  .quick-add-toolbar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 48px;
+
+    &.form-open {
+      margin-bottom: 8px;
+    }
+  }
+
+  .quick-add-primary-btn {
+    width: 48px;
+    height: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    flex: 0 0 48px;
+    aspect-ratio: 1;
+    padding: 0;
+    box-sizing: border-box;
+    border-radius: 50%;
+    border: 1px solid transparent;
+    background: var(--color-aura-sage);
+    color: #ffffff;
+    display: grid;
+    place-items: center;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(26, 10, 46, 0.12);
+    transition: transform 0.32s ease,
+      background-color 0.32s ease,
+      color 0.32s ease,
+      border-color 0.32s ease;
+
+    &:hover {
+      background: color-mix(in srgb, var(--color-aura-sage) 88%, white);
+    }
+
+    mat-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
     }
   }
 }

@@ -1,8 +1,7 @@
 import { Component, OnInit, signal, effect, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
-import { RouterOutlet, Router, RouterLink } from '@angular/router';
+import { RouterOutlet, Router } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -26,10 +25,8 @@ interface ChatMessage {
   imports: [
     CommonModule,
     RouterOutlet,
-    RouterLink,
     MatButtonModule,
     MatIconModule,
-    MatMenuModule,
     MatTooltipModule,
     MatProgressSpinnerModule,
     MatFormFieldModule,
@@ -85,6 +82,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
       }
     });
     this.pushNotificationService.clearBadge();
+
   }
   
   ngAfterViewChecked(): void {
@@ -92,15 +90,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
       this.scrollChatToBottom();
       this.shouldScrollChat = false;
     }
-  }
 
-  async signOutFromShell(): Promise<void> {
-    try {
-      await this.authService.signOut();
-      this.router.navigate(['/login']);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
   }
   
   toggleChat(): void {
@@ -176,4 +166,5 @@ export class AppComponent implements OnInit, AfterViewChecked {
       }
     }
   }
+
 }

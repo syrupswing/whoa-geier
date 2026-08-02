@@ -10,6 +10,7 @@ import { MatRadioModule } from '@angular/material/radio';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GithubAiService } from '../../services/github-ai.service';
+import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 interface QuizQuestion {
   id: string;
@@ -39,7 +40,8 @@ interface QuizResult {
     MatInputModule,
     MatRadioModule,
     MatChipsModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    GlobalNavMenuComponent
   ],
   templateUrl: './remi-world.component.html',
   styleUrl: './remi-world.component.scss'

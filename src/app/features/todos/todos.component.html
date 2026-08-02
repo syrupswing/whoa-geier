@@ -4,15 +4,7 @@
       <h1>To-do list</h1>
       <p class="subtitle">Stay organized and productive</p>
     </div>
-    <button
-      mat-fab
-      extended
-      color="primary" 
-      (click)="toggleAddForm()"
-      class="add-button">
-      <mat-icon>{{ showAddForm ? 'close' : 'add' }}</mat-icon>
-      {{ showAddForm ? 'Cancel' : 'Add To-Do' }}
-    </button>
+    <app-global-nav-menu></app-global-nav-menu>
   </div>
 
   <!-- Loading State -->
@@ -22,6 +14,18 @@
   </div>
 
   <div *ngIf="!todoService.isLoading()">
+    <div class="quick-add-section">
+      <div class="quick-add-toolbar" [class.form-open]="showAddForm">
+        <button
+          type="button"
+          class="quick-add-primary-btn"
+          (click)="toggleAddForm()"
+          [attr.aria-label]="showAddForm ? 'Close add to-do form' : 'Open add to-do form'">
+          <mat-icon>{{ showAddForm ? 'close' : 'add' }}</mat-icon>
+        </button>
+      </div>
+    </div>
+
     <!-- Add Todo Form -->
     <mat-card *ngIf="showAddForm" class="add-form-card">
       <mat-card-header>

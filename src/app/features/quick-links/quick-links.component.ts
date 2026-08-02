@@ -9,6 +9,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { QuickLink, QuickLinkService } from '../../services/quick-link.service';
 import { QuickLinkDialogComponent } from '../../components/quick-link-dialog/quick-link-dialog.component';
+import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 @Component({
   selector: 'app-quick-links',
@@ -20,7 +21,8 @@ import { QuickLinkDialogComponent } from '../../components/quick-link-dialog/qui
     MatMenuModule,
     MatTooltipModule,
     MatSnackBarModule,
-    RouterLink
+    RouterLink,
+    GlobalNavMenuComponent
   ],
   templateUrl: './quick-links.component.html',
   styleUrls: ['./quick-links.component.scss']

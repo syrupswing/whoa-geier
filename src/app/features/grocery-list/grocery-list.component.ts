@@ -20,6 +20,7 @@ import { Observable } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
+import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 interface AutocompleteItem {
   name: string;
@@ -46,7 +47,8 @@ interface AutocompleteItem {
     MatSnackBarModule,
     MatAutocompleteModule,
     MatMenuModule,
-    MatSelectModule
+    MatSelectModule,
+    GlobalNavMenuComponent
   ],
   templateUrl: './grocery-list.component.html',
   styleUrls: ['./grocery-list.component.scss'],
