@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewChecked, inject, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, AfterViewChecked, inject, ViewChild, ElementRef, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -112,6 +112,7 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
   
   private githubAi = inject(GithubAiService);
   private snackBar = inject(MatSnackBar);
+  private cdr = inject(ChangeDetectorRef);
   // Typical grocery store section order
   private storeSectionOrder = [
     'Produce',
@@ -147,9 +148,19 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
   showAddForm(): void {
     this.showAddItemForm = true;
     this.showAddItemDetails = false;
-    this.shouldFocusInput = true;
+    this.shouldFocusInput = false;
     this.newItemCategory = 'Grocery';
     this.newItemCategoryManuallySet = false;
+  }
+
+  onQuickAddPrimaryAction(): void {
+    if (this.showAddItemForm) {
+      void this.addItem();
+      return;
+    }
+
+    this.showAddForm();
+    this.focusItemInputFromTap();
   }
 
   closeAddForm(): void {
@@ -175,15 +186,23 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
   ngAfterViewChecked(): void {
     if (this.shouldFocusInput && this.itemInput?.nativeElement) {
       this.shouldFocusInput = false;
-      // Use requestAnimationFrame to ensure DOM is ready
-      requestAnimationFrame(() => {
-        if (this.itemInput?.nativeElement) {
-          this.itemInput.nativeElement.focus();
-          // Trigger click for mobile keyboard
-          this.itemInput.nativeElement.click();
-        }
-      });
+      this.itemInput.nativeElement.focus();
+      this.itemInput.nativeElement.click();
     }
+  }
+
+  private focusItemInputFromTap(): void {
+    // Force immediate render so focus stays tied to the same tap gesture on mobile.
+    this.cdr.detectChanges();
+
+    if (this.itemInput?.nativeElement) {
+      this.itemInput.nativeElement.focus({ preventScroll: true });
+      this.itemInput.nativeElement.click();
+      return;
+    }
+
+    // Fallback for edge timing cases where ViewChild is not ready yet.
+    this.shouldFocusInput = true;
   }
 
   async preloadLocations(): Promise<void> {

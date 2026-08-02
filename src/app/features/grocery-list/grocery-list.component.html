@@ -38,7 +38,7 @@
         <button
           type="button"
           class="quick-add-primary-btn"
-          (click)="showAddItemForm ? addItem() : showAddForm()"
+          (click)="onQuickAddPrimaryAction()"
           [disabled]="showAddItemForm && !itemControl.value?.trim()"
           [attr.aria-label]="showAddItemForm ? 'Add item' : 'Start adding item'">
           <mat-icon>{{ showAddItemForm ? 'check' : 'add' }}</mat-icon>

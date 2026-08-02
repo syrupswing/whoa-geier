@@ -351,11 +351,11 @@
 @media (max-width: 767px) {
   .app-container {
     --app-content-inline-padding: 16px;
-    --app-mobile-top-inset: calc(env(safe-area-inset-top, 0px) + 8px);
+    --app-mobile-top-inset: calc(env(safe-area-inset-top, 0px) + 2px);
   }
 
   .content {
-    padding: calc(24px + var(--app-mobile-top-inset)) 16px 24px;
+    padding: calc(10px + var(--app-mobile-top-inset)) 16px 24px;
     padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
   }
 }
@@ -364,7 +364,7 @@
   .app-container {
     --app-toolbar-base-height: 44px;
     --app-content-inline-padding: 12px;
-    --app-mobile-top-inset: calc(env(safe-area-inset-top, 0px) + 10px);
+    --app-mobile-top-inset: calc(env(safe-area-inset-top, 0px) + 2px);
   }
 
   .mat-toolbar.mat-primary.home-link {
@@ -402,7 +402,7 @@
   }
 
   .content {
-    padding: calc(24px + var(--app-mobile-top-inset)) 12px 24px;
+    padding: calc(8px + var(--app-mobile-top-inset)) 12px 24px;
     padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
   }
 }
