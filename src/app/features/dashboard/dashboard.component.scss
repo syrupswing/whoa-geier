@@ -6,7 +6,6 @@
 
   h1 {
     font-size: 2rem;
-    margin-bottom: 16px;
     color: var(--mat-sidenav-content-text-color);
   }
 
@@ -17,64 +16,9 @@
   }
 }
 
-.notification-prompt {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 10px 16px;
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--mat-sys-primary) 10%, transparent);
-  border: 1px solid color-mix(in srgb, var(--mat-sys-primary) 30%, transparent);
-  font-size: 0.9rem;
-
-  mat-icon {
-    color: var(--mat-sys-primary);
-    flex-shrink: 0;
-  }
-
-  span {
-    flex: 1;
-  }
-}
-
-.widget-header {
-    display: flex;
-    align-items: center;
-    gap: 20px;
-    width: 100%;
-    flex-wrap: wrap;
-}
-
-.mat-mdc-card-header-text {
-    display: flex;
-    flex-direction: column;
-    flex: 1 1 auto;
-}
-
-.widget-title {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  
-  .custom-icon {
-    width: 24px;
-    height: 24px;
-    display: inline-block;
-    vertical-align: middle;
-  }
-  
-  .sparkle-icon {
-    color: #667eea;
-    filter: drop-shadow(0 0 2px rgba(102, 126, 234, 0.3));
-  }
-}
-
-.storage-status-icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  margin-left: 4px;
-  
+.dashboard-hero {
+  display: grid;
+  gap: 14px;
   &.connected {
     color: #4a8a50;
   }
@@ -84,173 +28,91 @@
   }
 }
 
+.dashboard-greeting-row {
+  margin-bottom: 8px;
+}
+
+.dashboard-greeting {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.2;
+  color: var(--color-text-primary);
+  font-weight: 700;
+}
+
+.dashboard-summary-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.summary-card {
+  background: var(--color-surface);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 22px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 6px;
+  box-shadow: 0 5px 16px rgba(0, 0, 0, 0.08);
+}
+
+.summary-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.summary-card-wide {
+  grid-column: 1 / -1;
+}
+
+.summary-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: #fff;
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    color: #fff;
+  }
+
+  &.event {
+    background: var(--color-aura-sage);
+  }
+
+  &.todo {
+    background: var(--color-dusk-rose);
+  }
+
+  &.notification {
+    background: var(--color-electric-cobalt);
+  }
+}
+
+.summary-kicker {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.summary-main {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-weight: 700;
+  font-size: clamp(1.2rem, 1.9vw, 1.8rem);
+  line-height: 1.15;
+}
+
 .widget-actions {
   display: flex;
   align-items: center;
   gap: 12px;
   margin-left: auto;
-}
-
-// Quick Link Cards
-.quick-links-section {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-  gap: 12px;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-    gap: 8px;
-  }
-}
-
-.quick-link-card {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  padding: 12px;
-  background: var(--color-surface);
-  border-radius: 8px;
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
-  text-decoration: none;
-  color: var(--color-text-primary);
-  transition: all 0.3s ease;
-  position: relative;
-  cursor: pointer;
-  gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
-    
-    .quick-link-icon {
-      transform: scale(1.1);
-    }
-  }
-  
-  .quick-link-icon {
-    font-size: 28px;
-    width: 28px;
-    height: 28px;
-    color: #667eea;
-    transition: all 0.3s ease;
-  }
-  
-  .quick-link-content {
-    text-align: center;
-    flex: 1;
-  }
-  
-  .quick-link-title {
-    font-size: 13px;
-    font-weight: 600;
-    line-height: 20px;
-    margin: 0 0 2px 0;
-    color: var(--color-text-primary);
-  }
-  
-  .quick-link-subtitle {
-    font-size: 10px;
-    margin: 0;
-    color: var(--color-text-secondary);
-    line-height: 1.3;
-  }
-  
-  .external-icon {
-    position: absolute;
-    top: 8px;
-    right: 8px;
-    font-size: 14px;
-    width: 14px;
-    height: 14px;
-    color: var(--color-text-secondary);
-    transition: opacity 0.3s ease;
-  }
-  
-  .edit-link-btn {
-    position: absolute;
-    bottom: 4px;
-    right: 4px;
-    width: 28px;
-    height: 28px;
-    background: rgba(0, 0, 0, 0.5);
-    
-    mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      color: white;
-    }
-  }
-  
-  &.add-link-card {
-    border: none;
-    background: transparent;
-    box-shadow: none;
-    
-    .add-icon {
-      color: #667eea;
-    }
-    
-    &:hover {
-      border-color: #667eea;
-      background: rgba(102, 126, 234, 0.1);
-      
-      .add-icon {
-        opacity: 1;
-        color: #933ea7;
-      }
-    }
-  }
-  
-  // Minecraft-themed card styling
-  &.minecraft-themed {
-    background: linear-gradient(180deg, 
-      #5C8A3E 0%, 
-      #5C8A3E 25%, 
-      #8B6F47 25%, 
-      #8B6F47 100%
-    );
-    border: 3px solid #000;
-    box-shadow: 
-      0 4px 0 #000,
-      4px 4px 0 rgba(0,0,0,0.4);
-    
-    &:hover {
-      transform: translate(-1px, -3px);
-      box-shadow: 
-        0 6px 0 #000,
-        6px 6px 0 rgba(0,0,0,0.4);
-      
-      .minecraft-emoji {
-        transform: scale(1.15);
-      }
-    }
-
-    .quick-link-icon {
-      color: #FFF;
-      text-shadow: 2px 2px 0px #000;
-    }
-    
-    .quick-link-title,
-    .quick-link-subtitle {
-      font-family: 'MinecraftRegular', 'Courier New', monospace;
-    }
-    
-    .quick-link-title {
-      color: #FFF;
-      text-shadow: 2px 2px 0px #000;
-      font-weight: bold;
-      font-size: 14px;
-      letter-spacing: 0.5px;
-    }
-    
-    .quick-link-subtitle {
-      color: #FFF;
-      text-shadow: 1px 1px 0px rgba(0,0,0,0.6);
-      font-weight: 600;
-    }
-  }
 }
 
 // Todos Widget
@@ -1957,6 +1819,27 @@
 
 // Mobile optimizations
 @media (max-width: 767px) {
+  .dashboard-hero {
+    gap: 12px;
+  }
+
+  .dashboard-greeting {
+    font-size: 2rem;
+  }
+
+  .dashboard-summary-grid {
+    gap: 10px;
+  }
+
+  .summary-card {
+    border-radius: 18px;
+    padding: 12px;
+  }
+
+  .summary-main {
+    font-size: 1.05rem;
+  }
+
   .dashboard-container {
     h1 {
       font-size: 1.5rem;

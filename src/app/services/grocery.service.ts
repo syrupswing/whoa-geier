@@ -9,6 +9,7 @@ export interface GroceryItem {
   id: string;
   name: string;
   completed: boolean;
+  category?: string;
   quantity?: number;
   unit?: string; // 'each', 'oz', 'lbs', 'kg', 'g', 'ml', 'l', 'dozen', etc.
   notes?: string;
@@ -69,20 +70,59 @@ export class GroceryService implements OnDestroy {
    * Subscribe to Firestore real-time updates
    */
   private subscribeToFirestore(): void {
+    if (this.firestoreSubscription) {
+      this.firestoreSubscription();
+      this.firestoreSubscription = null;
+    }
+
     console.log('Setting up Firestore subscription for groceryItems...');
     this.firestoreSubscription = this.firestoreService.subscribeToCollection<GroceryItem>(
       this.COLLECTION_NAME,
       (items) => {
-        console.log('Firestore update received:', items.length, 'items');
+        const currentItems = this.items();
+        const changed = this.haveItemsChanged(currentItems, items);
+
+        console.log('Firestore update received:', items.length, 'items', {
+          changed
+        });
+
+        if (!changed) {
+          return;
+        }
+
         this.items.set(items);
       }
     );
   }
 
+  private haveItemsChanged(currentItems: GroceryItem[], nextItems: GroceryItem[]): boolean {
+    if (currentItems.length !== nextItems.length) {
+      return true;
+    }
+
+    const normalize = (items: GroceryItem[]) =>
+      [...items]
+        .sort((a, b) => a.id.localeCompare(b.id))
+        .map(item => ({
+          id: item.id,
+          name: item.name,
+          completed: item.completed,
+          category: item.category ?? null,
+          quantity: item.quantity ?? null,
+          unit: item.unit ?? null,
+          notes: item.notes ?? null,
+          userId: item.userId ?? null,
+          createdAt: item.createdAt ?? null,
+          updatedAt: item.updatedAt ?? null
+        }));
+
+    return JSON.stringify(normalize(currentItems)) !== JSON.stringify(normalize(nextItems));
+  }
+
   /**
    * Add a new grocery item
    */
-  async addItem(name: string, quantity?: number, unit?: string, notes?: string): Promise<void> {
+  async addItem(name: string, quantity?: number, unit?: string, notes?: string, category?: string): Promise<void> {
     if (!name.trim()) return;
 
     const trimmedName = name.trim();
@@ -114,6 +154,7 @@ export class GroceryService implements OnDestroy {
       id: Date.now().toString(),
       name: trimmedName,
       completed: false,
+      category,
       quantity,
       unit,
       notes,
@@ -133,6 +174,7 @@ export class GroceryService implements OnDestroy {
       };
       
       // Only add optional fields if they have values
+      if (category !== undefined) firestoreData.category = category;
       if (quantity !== undefined) firestoreData.quantity = quantity;
       if (unit !== undefined) firestoreData.unit = unit;
       if (notes !== undefined) firestoreData.notes = notes;

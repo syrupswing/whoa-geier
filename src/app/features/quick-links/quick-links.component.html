@@ -1,48 +1,85 @@
 <div class="quick-links-container">
-  <h1>Quick Links</h1>
-  <p class="subtitle">Fast access to school sites and important resources</p>
+  <h1>Quick links</h1>
+  <p class="subtitle">Fast access to family resources and favorite destinations</p>
 
-  <div class="category-filter">
-    <mat-chip-listbox 
-      aria-label="Category selection"
-      [(ngModel)]="selectedCategory">
-      <mat-chip-option 
-        *ngFor="let category of categories" 
-        [value]="category"
-        [selected]="selectedCategory === category">
-        {{ category }}
-      </mat-chip-option>
-    </mat-chip-listbox>
-  </div>
+  <div class="quick-links-section">
+    <ng-container *ngFor="let link of quickLinkService.allLinks()">
+      <a
+        *ngIf="link.isExternal"
+        [href]="link.url"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="quick-link-card"
+        [class.minecraft-themed]="link.id === 'remi-world'">
+        <mat-icon class="quick-link-icon">{{ link.icon }}</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">{{ link.title }}</h3>
+          <p class="quick-link-subtitle" *ngIf="link.subtitle">{{ link.subtitle }}</p>
+        </div>
+        <mat-icon class="external-icon">open_in_new</mat-icon>
 
-  <div class="links-grid">
-    <mat-card 
-      *ngFor="let link of getFilteredLinks()" 
-      class="link-card"
-      (click)="openLink(link.url)">
-      <div class="link-icon" [style.background-color]="link.color">
-        <mat-icon>{{ link.icon }}</mat-icon>
-      </div>
-      <mat-card-content>
-        <h3>{{ link.title }}</h3>
-        <p class="category-badge">{{ link.category }}</p>
-      </mat-card-content>
-      <mat-card-actions>
-        <button mat-button color="primary">
-          <mat-icon>open_in_new</mat-icon>
-          Visit
+        <button
+          *ngIf="link.isEditable"
+          mat-icon-button
+          class="edit-link-btn"
+          [matMenuTriggerFor]="linkMenu"
+          (click)="$event.preventDefault(); $event.stopPropagation()"
+          matTooltip="Edit or delete">
+          <mat-icon>more_vert</mat-icon>
         </button>
-      </mat-card-actions>
-    </mat-card>
-  </div>
+        <mat-menu #linkMenu="matMenu">
+          <button mat-menu-item (click)="openEditQuickLinkDialog(link)">
+            <mat-icon>edit</mat-icon>
+            <span>Edit Link</span>
+          </button>
+          <button mat-menu-item (click)="deleteQuickLink(link)">
+            <mat-icon>delete</mat-icon>
+            <span>Delete Link</span>
+          </button>
+        </mat-menu>
+      </a>
 
-  <div *ngIf="getFilteredLinks().length === 0" class="no-links">
-    <mat-icon>link_off</mat-icon>
-    <p>No links found in this category</p>
-  </div>
+      <a
+        *ngIf="!link.isExternal"
+        [routerLink]="link.url"
+        class="quick-link-card"
+        [class.minecraft-themed]="link.id === 'remi-world'">
+        <mat-icon class="quick-link-icon">{{ link.icon }}</mat-icon>
+        <div class="quick-link-content">
+          <h3 class="quick-link-title">{{ link.title }}</h3>
+          <p class="quick-link-subtitle" *ngIf="link.subtitle">{{ link.subtitle }}</p>
+        </div>
 
-  <div class="add-link-info">
-    <mat-icon>info</mat-icon>
-    <p>Want to add more links? This feature is coming soon!</p>
+        <button
+          *ngIf="link.isEditable"
+          mat-icon-button
+          class="edit-link-btn"
+          [matMenuTriggerFor]="linkMenu2"
+          (click)="$event.preventDefault(); $event.stopPropagation()"
+          matTooltip="Edit or delete">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #linkMenu2="matMenu">
+          <button mat-menu-item (click)="openEditQuickLinkDialog(link)">
+            <mat-icon>edit</mat-icon>
+            <span>Edit Link</span>
+          </button>
+          <button mat-menu-item (click)="deleteQuickLink(link)">
+            <mat-icon>delete</mat-icon>
+            <span>Delete Link</span>
+          </button>
+        </mat-menu>
+      </a>
+    </ng-container>
+
+    <button
+      class="quick-link-card add-link-card"
+      (click)="openAddQuickLinkDialog()">
+      <mat-icon class="quick-link-icon add-icon">add_circle</mat-icon>
+      <div class="quick-link-content">
+        <h3 class="quick-link-title">Add Quick Link</h3>
+        <p class="quick-link-subtitle">Create custom link</p>
+      </div>
+    </button>
   </div>
 </div>

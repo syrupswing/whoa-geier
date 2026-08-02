@@ -1,8 +1,42 @@
 <div class="dashboard-container">
 
+  <section class="dashboard-hero">
+    <div class="dashboard-greeting-row">
+      <div>
+        <h1 class="dashboard-greeting">{{ getGreetingMessage() }}</h1>
+      </div>
+    </div>
+
+    <div class="dashboard-summary-grid">
+      <a class="summary-card summary-link" [routerLink]="'/grocery-list'" aria-label="Open shopping list">
+        <div class="summary-icon event">
+          <mat-icon>shopping_cart</mat-icon>
+        </div>
+        <p class="summary-kicker">Shopping list</p>
+        <p class="summary-main">{{ getTotalActiveCount() }} {{ getTotalActiveCount() === 1 ? 'item' : 'items' }}</p>
+      </a>
+
+      <a class="summary-card summary-link" [routerLink]="'/todos'" aria-label="Open to-do list">
+        <div class="summary-icon todo">
+          <mat-icon>auto_awesome</mat-icon>
+        </div>
+        <p class="summary-kicker">To-do list</p>
+        <p class="summary-main">View to-do list</p>
+      </a>
+
+      <article class="summary-card summary-card-wide">
+        <div class="summary-icon notification">
+          <mat-icon>notifications</mat-icon>
+        </div>
+        <p class="summary-kicker">You have</p>
+        <p class="summary-main">{{ getNotificationCount() }} notifications</p>
+      </article>
+    </div>
+  </section>
+
   <!-- Weather Bar -->
   <div class="weather-bar" 
-       *ngIf="weatherService.weather() || weatherService.isLoading() || weatherService.error()" 
+       *ngIf="showWeatherWidget && (weatherService.weather() || weatherService.isLoading() || weatherService.error())" 
        [class]="weatherService.getWeatherConditionClass()"
        [class.night]="isNightTime()"
        [attr.data-time]="getTimeOfDay()"
@@ -110,118 +144,6 @@
 
   <div class="grid">
 
-    <!-- Grocery List Widget -->
-    <mat-card class="grocery-widget">
-      <a [routerLink]="'/grocery-list'" class="grocery-link">
-        <mat-card-header>
-          <mat-card-title>
-            <div class="widget-header">
-              <div class="widget-title">
-                <mat-icon>shopping_cart</mat-icon>
-                Grocery List
-                
-              </div>
-            </div>
-          </mat-card-title>
-          <div class="widget-actions">
-            <mat-icon 
-              class="storage-status-icon"
-              [matTooltip]="groceryService.useFirestore() ? 'Cloud synced' : 'Local only'"
-              [class.connected]="groceryService.useFirestore()"
-              [class.disconnected]="!groceryService.useFirestore()">
-              {{ groceryService.useFirestore() ? 'cloud_done' : 'cloud_off' }}
-            </mat-icon>
-          </div>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="grocery-list-scrollable" [class.grocery-list-collapsed]="!groceryExpanded()" *ngIf="getActiveGroceryItems().length > 0; else noGroceryItems">
-            <ul class="grocery-list-static">
-              <li *ngFor="let item of getActiveGroceryItems()">
-                {{ item.name }}
-              </li>
-            </ul>
-          </div>
-          <ng-template #noGroceryItems>
-            <div class="no-items-small">
-              <mat-icon>shopping_cart</mat-icon>
-              <p>No items in your list</p>
-              <a mat-button [routerLink]="'/grocery-list'" color="primary">
-                Add items
-              </a>
-            </div>
-          </ng-template>
-        </mat-card-content>
-      </a>
-      <button
-        *ngIf="getActiveGroceryItems().length > 0"
-        mat-icon-button
-        class="card-expand-btn grocery-expand-btn"
-        (click)="$event.preventDefault(); $event.stopPropagation(); groceryExpanded.set(!groceryExpanded())"
-        [attr.aria-expanded]="groceryExpanded()"
-        [attr.aria-label]="groceryExpanded() ? 'Show less' : 'Show all'">
-        <mat-icon>{{ groceryExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
-      </button>
-    </mat-card>
-
-    <!-- Todos Widget -->
-    <div class="todos-widget" *ngIf="incompleteTodos.length > 0">
-      <div class="todos-widget-header">
-        <div class="todos-widget-title">
-          <mat-icon>checklist</mat-icon>
-          <h2>To-Do List</h2>
-          <span class="todos-count">{{ incompleteTodos.length }}</span>
-        </div>
-        <a mat-icon-button [routerLink]="'/todos'" matTooltip="Open full list">
-          <mat-icon>open_in_new</mat-icon>
-        </a>
-      </div>
-      
-      <div class="todos-list-container" [class.expanded]="todosExpanded()">
-        <div class="todos-list">
-          <div 
-            *ngFor="let item of incompleteTodos" 
-            class="todo-item"
-            [class.overdue]="isOverdue(item)">
-            <mat-checkbox 
-              [checked]="item.completed"
-              [disabled]="true"
-              color="primary"
-              matTooltip="Mark complete on the full to-do list page">
-            </mat-checkbox>
-            <div class="todo-content">
-              <div class="todo-title">
-                <mat-icon *ngIf="item.icon" class="task-item-icon">{{ item.icon }}</mat-icon>
-                {{ item.title }}
-              </div>
-              <div class="todo-meta">
-                <span *ngIf="item.dueDate" class="due-date">
-                  <mat-icon
-                    tabindex="0"
-                    [matTooltip]="(item.dueDate | date:'fullDate') || ''"
-                    matTooltipPosition="above"
-                    aria-label="Due date details">
-                    event
-                  </mat-icon>
-                  {{ todoService.getDueDateStatusText(item) }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        <div class="todos-fade-overlay" *ngIf="!todosExpanded() && incompleteTodos.length > 4"></div>
-      </div>
-      
-      <button
-        *ngIf="incompleteTodos.length > 4"
-        mat-icon-button
-        class="card-expand-btn todos-expand-btn"
-        (click)="toggleTodosExpanded()"
-        [attr.aria-label]="todosExpanded() ? 'Show Less' : 'Show All'">
-        <mat-icon>{{ todosExpanded() ? 'expand_less' : 'expand_more' }}</mat-icon>
-      </button>
-    </div>
-    
     <!-- Reading Counter Widget
     <div class="reading-counter-widget">
       <div class="reading-counter-header">
@@ -301,94 +223,6 @@
       </button>
     </div> -->
 
-    <!-- Quick Link Widgets -->
-    <div class="quick-links-section">
-      <!-- Display all links from service -->
-      <ng-container *ngFor="let link of quickLinkService.allLinks()">
-        <!-- External links -->
-        <a 
-          *ngIf="link.isExternal"
-          [href]="link.url"
-          target="_blank"
-          rel="noopener noreferrer"
-          class="quick-link-card"
-          [class.minecraft-themed]="link.id === 'remi-world'">
-          <mat-icon class="quick-link-icon">{{ link.icon }}</mat-icon>
-          <div class="quick-link-content">
-            <h3 class="quick-link-title">{{ link.title }}</h3>
-            <p class="quick-link-subtitle" *ngIf="link.subtitle">{{ link.subtitle }}</p>
-          </div>
-          <mat-icon class="external-icon">open_in_new</mat-icon>
-          
-          <!-- Edit menu for user-generated links -->
-          <button 
-            *ngIf="link.isEditable"
-            mat-icon-button 
-            class="edit-link-btn"
-            [matMenuTriggerFor]="linkMenu"
-            (click)="$event.preventDefault(); $event.stopPropagation()"
-            matTooltip="Edit or delete">
-            <mat-icon>more_vert</mat-icon>
-          </button>
-          <mat-menu #linkMenu="matMenu">
-            <button mat-menu-item (click)="openEditQuickLinkDialog(link)">
-              <mat-icon>edit</mat-icon>
-              <span>Edit Link</span>
-            </button>
-            <button mat-menu-item (click)="deleteQuickLink(link)">
-              <mat-icon>delete</mat-icon>
-              <span>Delete Link</span>
-            </button>
-          </mat-menu>
-        </a>
-        
-        <!-- Internal links -->
-        <a 
-          *ngIf="!link.isExternal"
-          [routerLink]="link.url"
-          class="quick-link-card"
-          [class.minecraft-themed]="link.id === 'remi-world'">
-          <mat-icon class="quick-link-icon">{{ link.icon }}</mat-icon>
-          <div class="quick-link-content">
-            <h3 class="quick-link-title">{{ link.title }}</h3>
-            <p class="quick-link-subtitle" *ngIf="link.subtitle">{{ link.subtitle }}</p>
-          </div>
-          
-          <!-- Edit menu for user-generated links -->
-          <button 
-            *ngIf="link.isEditable"
-            mat-icon-button 
-            class="edit-link-btn"
-            [matMenuTriggerFor]="linkMenu2"
-            (click)="$event.preventDefault(); $event.stopPropagation()"
-            matTooltip="Edit or delete">
-            <mat-icon>more_vert</mat-icon>
-          </button>
-          <mat-menu #linkMenu2="matMenu">
-            <button mat-menu-item (click)="openEditQuickLinkDialog(link)">
-              <mat-icon>edit</mat-icon>
-              <span>Edit Link</span>
-            </button>
-            <button mat-menu-item (click)="deleteQuickLink(link)">
-              <mat-icon>delete</mat-icon>
-              <span>Delete Link</span>
-            </button>
-          </mat-menu>
-        </a>
-      </ng-container>
-      
-      <!-- Add New Link Button -->
-      <button 
-        class="quick-link-card add-link-card"
-        (click)="openAddQuickLinkDialog()">
-        <mat-icon class="quick-link-icon add-icon">add_circle</mat-icon>
-        <div class="quick-link-content">
-          <h3 class="quick-link-title">Add Quick Link</h3>
-          <p class="quick-link-subtitle">Create custom link</p>
-        </div>
-      </button>
-    </div>
 
-    
   </div>
 </div>

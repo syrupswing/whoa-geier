@@ -1,97 +1,84 @@
 import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatInputModule } from '@angular/material/input';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatChipsModule } from '@angular/material/chips';
-
-export interface QuickLink {
-  id: number;
-  title: string;
-  url: string;
-  icon: string;
-  category: string;
-  color: string;
-}
+import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
+import { RouterLink } from '@angular/router';
+import { QuickLink, QuickLinkService } from '../../services/quick-link.service';
+import { QuickLinkDialogComponent } from '../../components/quick-link-dialog/quick-link-dialog.component';
 
 @Component({
   selector: 'app-quick-links',
   standalone: true,
   imports: [
     CommonModule,
-    FormsModule,
-    MatCardModule,
     MatIconModule,
     MatButtonModule,
-    MatInputModule,
-    MatFormFieldModule,
-    MatChipsModule
+    MatMenuModule,
+    MatTooltipModule,
+    MatSnackBarModule,
+    RouterLink
   ],
   templateUrl: './quick-links.component.html',
   styleUrls: ['./quick-links.component.scss']
 })
 export class QuickLinksComponent {
-  links: QuickLink[] = [
-    {
-      id: 1,
-      title: 'School Portal',
-      url: 'https://school.example.com',
-      icon: 'school',
-      category: 'School',
-      color: '#2196F3'
-    },
-    {
-      id: 2,
-      title: 'Lunch Menu',
-      url: 'https://school.example.com/lunch',
-      icon: 'restaurant',
-      category: 'School',
-      color: '#4CAF50'
-    },
-    {
-      id: 3,
-      title: 'Library Resources',
-      url: 'https://library.example.com',
-      icon: 'local_library',
-      category: 'Education',
-      color: '#9C27B0'
-    },
-    {
-      id: 4,
-      title: 'Sports Schedule',
-      url: 'https://sports.example.com',
-      icon: 'sports_soccer',
-      category: 'Activities',
-      color: '#FF5722'
-    },
-    {
-      id: 5,
-      title: 'Music Lessons',
-      url: 'https://music.example.com',
-      icon: 'music_note',
-      category: 'Activities',
-      color: '#FF9800'
-    }
-  ];
+  constructor(
+    public quickLinkService: QuickLinkService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
+  ) {}
 
-  categories: string[] = ['All', 'School', 'Education', 'Activities'];
-  selectedCategory = 'All';
+  openAddQuickLinkDialog(): void {
+    const dialogRef = this.dialog.open(QuickLinkDialogComponent, {
+      width: '500px',
+      data: { mode: 'add' }
+    });
 
-  getFilteredLinks(): QuickLink[] {
-    if (this.selectedCategory === 'All') {
-      return this.links;
-    }
-    return this.links.filter(link => link.category === this.selectedCategory);
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        try {
+          await this.quickLinkService.addLink(result);
+          this.snackBar.open('Quick link added successfully', 'Close', { duration: 3000 });
+        } catch (error) {
+          console.error('Error adding quick link:', error);
+          this.snackBar.open('Failed to add quick link', 'Close', { duration: 3000 });
+        }
+      }
+    });
   }
 
-  selectCategory(category: string): void {
-    this.selectedCategory = category;
+  openEditQuickLinkDialog(link: QuickLink): void {
+    const dialogRef = this.dialog.open(QuickLinkDialogComponent, {
+      width: '500px',
+      data: { mode: 'edit', link }
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (result) {
+        try {
+          await this.quickLinkService.updateLink(link.id, result);
+          this.snackBar.open('Quick link updated successfully', 'Close', { duration: 3000 });
+        } catch (error) {
+          console.error('Error updating quick link:', error);
+          this.snackBar.open('Failed to update quick link', 'Close', { duration: 3000 });
+        }
+      }
+    });
   }
 
-  openLink(url: string): void {
-    window.open(url, '_blank');
+  async deleteQuickLink(link: QuickLink): Promise<void> {
+    if (confirm(`Are you sure you want to delete "${link.title}"?`)) {
+      try {
+        await this.quickLinkService.deleteLink(link.id);
+        this.snackBar.open('Quick link deleted successfully', 'Close', { duration: 3000 });
+      } catch (error) {
+        console.error('Error deleting quick link:', error);
+        this.snackBar.open('Failed to delete quick link', 'Close', { duration: 3000 });
+      }
+    }
   }
 }

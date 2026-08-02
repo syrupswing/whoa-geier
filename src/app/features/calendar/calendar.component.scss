@@ -14,7 +14,10 @@
 
   h1 {
     font-size: 2rem;
-    margin-bottom: 8px;
+    margin: 0;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+    font-weight: 700;
   }
 
   .subtitle {

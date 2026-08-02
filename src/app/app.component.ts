@@ -1,21 +1,17 @@
 import { Component, OnInit, signal, effect, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
-import { MatToolbarModule } from '@angular/material/toolbar';
+import { RouterOutlet, Router, RouterLink } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDividerModule } from '@angular/material/divider';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
-import { WeatherService } from './services/weather.service';
 import { AuthService } from './services/auth.service';
 import { GithubAiService } from './services/github-ai.service';
-import { FirestoreService } from './services/firestore.service';
 import { PushNotificationService } from './services/push-notification.service';
 
 interface ChatMessage {
@@ -31,13 +27,10 @@ interface ChatMessage {
     CommonModule,
     RouterOutlet,
     RouterLink,
-    RouterLinkActive,
-    MatToolbarModule,
     MatButtonModule,
     MatIconModule,
-    MatTooltipModule,
-    MatDividerModule,
     MatMenuModule,
+    MatTooltipModule,
     MatProgressSpinnerModule,
     MatFormFieldModule,
     MatInputModule,
@@ -60,19 +53,6 @@ interface ChatMessage {
 export class AppComponent implements OnInit, AfterViewChecked {
   @ViewChild('floatingChatContainer') private chatContainer!: ElementRef<HTMLDivElement>;
   private shouldScrollChat = false;
-  private statsUnsubscribe: (() => void) | null = null;
-  
-  title = 'Whoa Geier App';
-  
-  // API call counter
-  githubApiCalls = signal<number>(0);
-  
-  // AI connection status
-  isAIConnected = signal<boolean>(false);
-  showAISetupPrompt = signal<boolean>(false);
-  
-  // Monitoring dashboard
-  showMonitoringBar = signal<boolean>(false);
   
   // Floating chat
   showChat = signal<boolean>(false);
@@ -82,10 +62,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
 
   constructor(
     private router: Router,
-    public weatherService: WeatherService,
     public authService: AuthService,
     public githubAiService: GithubAiService,
-    public firestoreService: FirestoreService,
     public pushNotificationService: PushNotificationService
   ) {
     // Redirect to dashboard if authenticated and on login page
@@ -97,9 +75,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
   
   ngOnInit(): void {
-    // Check AI connection status
-    this.isAIConnected.set(this.githubAiService.isConfigured());
-
     // Initialize push notifications (no-op on unsupported browsers)
     this.pushNotificationService.initialize();
 
@@ -110,68 +85,21 @@ export class AppComponent implements OnInit, AfterViewChecked {
       }
     });
     this.pushNotificationService.clearBadge();
-    
-    // Subscribe to Firestore for API counter if initialized
-    if (this.firestoreService.isInitialized()) {
-      this.statsUnsubscribe = this.firestoreService.subscribeToAppStats((count) => {
-        this.githubApiCalls.set(count);
-      });
-    } else {
-      // Fallback to localStorage if Firestore not available
-      const githubCount = localStorage.getItem('githubApiCallCount');
-      if (githubCount) {
-        this.githubApiCalls.set(parseInt(githubCount, 10));
-      }
-      // Listen for storage changes to update counter in real-time
-      window.addEventListener('storage', this.handleStorageChange.bind(this));
-    }
-  }
-  
-  handleStorageChange(event: StorageEvent): void {
-    if (event.key === 'githubApiCallCount' && event.newValue) {
-      this.githubApiCalls.set(parseInt(event.newValue, 10));
-    }
-  }
-
-  async signOut(): Promise<void> {
-    try {
-      await this.authService.signOut();
-      // Explicitly navigate to login page
-      this.router.navigate(['/login']);
-    } catch (error) {
-      console.error('Error signing out:', error);
-    }
-  }
-  
-  toggleAISetupPrompt(): void {
-    this.showAISetupPrompt.update(v => !v);
-  }
-  
-  navigateToAISetup(): void {
-    this.showAISetupPrompt.set(false);
-    // Token must be configured in src/environments/environment.local.ts
-    alert('To configure GitHub AI:\n\n1. Get a token from: https://github.com/settings/tokens\n2. Add it to: src/environments/environment.local.ts\n3. Restart the dev server');
-  }
-  
-  async resetApiCounter(): Promise<void> {
-    this.githubApiCalls.set(0);
-    
-    if (this.firestoreService.isInitialized()) {
-      await this.firestoreService.resetApiCounter();
-    } else {
-      // Fallback to localStorage
-      localStorage.setItem('githubApiCallCount', '0');
-    }
-  }
-  
-  toggleMonitoringBar(): void {
-    this.showMonitoringBar.update(v => !v);
   }
   
   ngAfterViewChecked(): void {
     if (this.shouldScrollChat) {
       this.scrollChatToBottom();
       this.shouldScrollChat = false;
+    }
+  }
+
+  async signOutFromShell(): Promise<void> {
+    try {
+      await this.authService.signOut();
+      this.router.navigate(['/login']);
+    } catch (error) {
+      console.error('Error signing out:', error);
     }
   }
   

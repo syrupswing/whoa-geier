@@ -1,10 +1,13 @@
 .quick-links-container {
-  max-width: 1200px;
+  max-width: 1100px;
   margin: 0 auto;
 
   h1 {
     font-size: 2rem;
-    margin-bottom: 8px;
+    margin: 0;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+    font-weight: 700;
   }
 
   .subtitle {
@@ -14,140 +17,163 @@
   }
 }
 
-.category-filter {
-  margin-bottom: 24px;
+/* Dashboard-style quick link widget layout */
+.quick-links-section {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 12px;
 
-  mat-chip-listbox {
-    display: flex;
-    flex-wrap: wrap;
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
     gap: 8px;
   }
 }
 
-.links-grid {
-  display: grid;
-  gap: 20px;
-  grid-template-columns: 1fr;
-  margin-bottom: 24px;
-
-  @media (min-width: 600px) {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  @media (min-width: 900px) {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
-  @media (min-width: 1200px) {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-.link-card {
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+.quick-link-card {
   display: flex;
   flex-direction: column;
   align-items: center;
-  text-align: center;
+  padding: 12px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  text-decoration: none;
+  color: var(--color-text-primary);
+  transition: all 0.3s ease;
+  position: relative;
+  cursor: pointer;
+  gap: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
 
   &:hover {
-    transform: translateY(-4px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+
+    .quick-link-icon {
+      transform: scale(1.1);
+    }
   }
 
-  .link-icon {
-    width: 80px;
-    height: 80px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin: 16px 0;
+  .quick-link-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    color: #667eea;
+    transition: all 0.3s ease;
+  }
+
+  .quick-link-content {
+    text-align: center;
+    flex: 1;
+  }
+
+  .quick-link-title {
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 20px;
+    margin: 0 0 2px 0;
+    color: var(--color-text-primary);
+  }
+
+  .quick-link-subtitle {
+    font-size: 10px;
+    margin: 0;
+    color: var(--color-text-secondary);
+    line-height: 1.3;
+  }
+
+  .external-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    font-size: 14px;
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-secondary);
+    transition: opacity 0.3s ease;
+  }
+
+  .edit-link-btn {
+    position: absolute;
+    bottom: 4px;
+    right: 4px;
+    width: 28px;
+    height: 28px;
+    background: rgba(0, 0, 0, 0.5);
 
     mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
       color: white;
-      font-size: 40px;
-      width: 40px;
-      height: 40px;
     }
   }
 
-  mat-card-content {
-    flex: 1;
-    padding: 0 16px;
+  &.add-link-card {
+    border: none;
+    background: transparent;
+    box-shadow: none;
 
-    h3 {
-      margin: 0 0 8px 0;
-      font-size: 1.2rem;
-      color: var(--color-text-primary);
+    .add-icon {
+      color: #667eea;
     }
 
-    .category-badge {
-      display: inline-block;
-      padding: 4px 12px;
-      background-color: var(--color-surface-light);
-      border-radius: 12px;
-      font-size: 0.85rem;
-      margin: 0;
-      color: var(--color-text-secondary);
-      border: 1px solid rgba(255, 255, 255, 0.12);
+    &:hover {
+      border-color: #667eea;
+      background: rgba(102, 126, 234, 0.1);
+
+      .add-icon {
+        opacity: 1;
+        color: #933ea7;
+      }
     }
   }
 
-  mat-card-actions {
-    width: 100%;
-    margin: 0;
-    padding: 8px;
-    border-top: 1px solid rgba(255, 255, 255, 0.12);
+  &.minecraft-themed {
+    background: linear-gradient(180deg,
+      #5C8A3E 0%,
+      #5C8A3E 25%,
+      #8B6F47 25%,
+      #8B6F47 100%
+    );
+    border: 3px solid #000;
+    box-shadow:
+      0 4px 0 #000,
+      4px 4px 0 rgba(0,0,0,0.4);
 
-    button {
-      width: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
+    &:hover {
+      transform: translate(-1px, -3px);
+      box-shadow:
+        0 6px 0 #000,
+        6px 6px 0 rgba(0,0,0,0.4);
+    }
+
+    .quick-link-icon {
+      color: #FFF;
+      text-shadow: 2px 2px 0 #000;
+    }
+
+    .quick-link-title,
+    .quick-link-subtitle {
+      font-family: 'MinecraftRegular', 'Courier New', monospace;
+    }
+
+    .quick-link-title {
+      color: #FFF;
+      text-shadow: 2px 2px 0 #000;
+      font-weight: 700;
+      font-size: 14px;
+      letter-spacing: 0.5px;
+    }
+
+    .quick-link-subtitle {
+      color: #FFF;
+      text-shadow: 1px 1px 0 rgba(0,0,0,0.6);
+      font-weight: 600;
     }
   }
 }
 
-.no-links {
-  text-align: center;
-  padding: 48px 0;
-  color: #999;
-
-  mat-icon {
-    font-size: 64px;
-    width: 64px;
-    height: 64px;
-    margin-bottom: 16px;
-  }
-
-  p {
-    font-size: 1.1rem;
-  }
-}
-
-.add-link-info {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background-color: #FFF3E0;
-  border-radius: 8px;
-  margin-top: 24px;
-
-  mat-icon {
-    color: #FF9800;
-  }
-
-  p {
-    margin: 0;
-    color: #E65100;
-  }
-}
-
-/* Mobile optimizations */
 @media (max-width: 767px) {
   .quick-links-container {
     h1 {
@@ -159,16 +185,13 @@
     }
   }
 
-  .link-card {
-    .link-icon {
-      width: 60px;
-      height: 60px;
+  .quick-link-card {
+    padding: 8px;
 
-      mat-icon {
-        font-size: 32px;
-        width: 32px;
-        height: 32px;
-      }
+    .quick-link-icon {
+      font-size: 24px;
+      width: 24px;
+      height: 24px;
     }
   }
 }

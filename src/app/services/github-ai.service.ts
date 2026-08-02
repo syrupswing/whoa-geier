@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { FirestoreService } from './firestore.service';
@@ -28,12 +28,17 @@ export interface MealPlanSuggestion {
   snacks?: string[];
 }
 
+export type ConnectionStatus = 'unknown' | 'active' | 'error';
+
 @Injectable({
   providedIn: 'root'
 })
 export class GithubAiService {
   private useFirebaseProxy = environment.production || environment.useFirebaseProxy;
   private firestoreService = inject(FirestoreService);
+
+  /** Reflects the result of the last actual API call, not just configuration. */
+  readonly connectionStatus = signal<ConnectionStatus>('unknown');
   
   constructor() {}
 
@@ -195,11 +200,24 @@ Provide brief descriptions and what makes each one special. Format as a simple t
         const functions = getFunctions();
         const aiProxy = httpsCallable(functions, 'aiProxy');
         const result = await aiProxy({ prompt });
-        
-        // Increment API call counter
-        this.incrementApiCounter();
-        
-        return result.data as GithubAiResponse;
+        const data = result.data as GithubAiResponse;
+
+        if (data.success) {
+          this.connectionStatus.set('active');
+          this.incrementApiCounter();
+        } else {
+          // Treat auth/token errors as connection errors, other errors leave status unchanged
+          const isAuthError = data.error?.toLowerCase().includes('401') ||
+                              data.error?.toLowerCase().includes('403') ||
+                              data.error?.toLowerCase().includes('unauthorized') ||
+                              data.error?.toLowerCase().includes('token') ||
+                              data.error?.toLowerCase().includes('expired');
+          if (isAuthError) {
+            this.connectionStatus.set('error');
+          }
+        }
+
+        return data;
       }
 
       // Use direct API call in local development
@@ -241,6 +259,7 @@ Provide brief descriptions and what makes each one special. Format as a simple t
       const resultText = data.choices[0].message.content;
 
       // Increment API call counter
+      this.connectionStatus.set('active');
       this.incrementApiCounter();
 
       return {
@@ -249,10 +268,18 @@ Provide brief descriptions and what makes each one special. Format as a simple t
       };
     } catch (error: any) {
       console.error('AI API error:', error);
+      const msg: string = error.message || '';
+      const isAuthError = msg.includes('401') || msg.includes('403') ||
+                          msg.toLowerCase().includes('unauthorized') ||
+                          msg.toLowerCase().includes('token') ||
+                          msg.toLowerCase().includes('expired');
+      if (isAuthError) {
+        this.connectionStatus.set('error');
+      }
       return {
         success: false,
         text: '',
-        error: error.message || 'Unknown error occurred'
+        error: msg || 'Unknown error occurred'
       };
     }
   }

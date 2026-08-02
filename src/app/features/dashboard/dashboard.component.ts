@@ -1,27 +1,20 @@
 import { Component, OnInit, AfterViewInit, signal, ViewChild, ElementRef, inject, effect } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { MatListModule } from '@angular/material/list';
-import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
-import { GroceryService, GroceryItem } from '../../services/grocery.service';
+import { GroceryService } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
 import { WeatherService } from '../../services/weather.service';
-import { TodoService, TodoItem } from '../../services/todo.service';
+import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
-import { QuickLinkService, QuickLink } from '../../services/quick-link.service';
-import { QuickLinkDialogComponent } from '../../components/quick-link-dialog/quick-link-dialog.component';
 import { PushNotificationService } from '../../services/push-notification.service';
 
 interface TimelineEvent extends CalendarEvent {
@@ -40,7 +33,7 @@ interface ChatMessage {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatCardModule, MatIconModule, MatButtonModule, MatListModule, MatCheckboxModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatDialogModule, MatMenuModule, MatSnackBarModule, RouterLink],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, RouterLink],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss']
 })
@@ -49,6 +42,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   hours = Array.from({ length: 24 }, (_, i) => i);
   private timeInterval?: number;
   newItemName = '';
+  showWeatherWidget = false;
   
   // AI Chat properties
   chatMessages = signal<ChatMessage[]>([]);
@@ -66,12 +60,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   isLoadingClothing = signal(false);
   private hasUserInteracted = false;
   private sharedAudioContext: AudioContext | null = null;
-  
-  // Grocery widget
-  groceryExpanded = signal<boolean>(false);
-
-  // Todos widget
-  todosExpanded = signal<boolean>(false);
   
   // Reading entries widget
   readingEntries = signal<any[]>([]);
@@ -91,9 +79,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public weatherService: WeatherService,
     public todoService: TodoService,
     public firestoreService: FirestoreService,
-    public quickLinkService: QuickLinkService,
     public pushNotificationService: PushNotificationService,
-    private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
@@ -279,6 +265,27 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${hour - 12} PM`;
   }
 
+  getGreetingMessage(): string {
+    const hour = this.currentTime().getHours();
+    let greeting = 'Good evening';
+
+    if (hour >= 5 && hour < 12) {
+      greeting = 'Good morning';
+    } else if (hour >= 12 && hour < 18) {
+      greeting = 'Good afternoon';
+    }
+
+    return `${greeting}!`;
+  }
+
+  getNotificationCount(): number {
+    const eventCount = this.getTodayEvents().length;
+    const overdueTodos = this.todoService
+      .getSortedIncompleteItems()
+      .filter(item => this.todoService.getDaysOverdue(item) > 0).length;
+    return eventCount + overdueTodos;
+  }
+
   formatEventTime(event: CalendarEvent): string {
     if (event.start.dateTime) {
       const start = new Date(event.start.dateTime);
@@ -304,14 +311,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       '10': '#51b749', '11': '#dc2127'
     };
     return event.colorId ? colorMap[event.colorId] : '#2196F3';
-  }
-
-  getActiveGroceryItems(): GroceryItem[] {
-    return this.groceryService.getActiveItems();
-  }
-
-  getCompletedGroceryItems(): GroceryItem[] {
-    return this.groceryService.getCompletedItems().slice(0, 3);
   }
 
   getTotalActiveCount(): number {
@@ -589,36 +588,6 @@ Try again once you've completed these steps!`;
     }
   }
 
-  // Todos widget methods
-  get incompleteTodos(): TodoItem[] {
-    return this.todoService.getSortedIncompleteItems();
-  }
-
-  get visibleTodos(): TodoItem[] {
-    const items = this.incompleteTodos;
-    return this.todosExpanded() ? items : items.slice(0, 4);
-  }
-
-  toggleTodosExpanded(): void {
-    this.todosExpanded.set(!this.todosExpanded());
-  }
-
-  isOverdue(item: TodoItem): boolean {
-    return this.todoService.getDaysOverdue(item) > 0;
-  }
-
-  getDaysOverdue(item: TodoItem): number {
-    return this.todoService.getDaysOverdue(item);
-  }
-
-  getOverdueSeverityColor(item: TodoItem): string {
-    return this.todoService.getOverdueSeverity(item).color;
-  }
-
-  getOverdueSeverityLabel(item: TodoItem): string {
-    return this.todoService.getOverdueSeverity(item).label;
-  }
-
   // Reading entries methods
   toggleReadingForm(): void {
     this.showReadingForm.set(!this.showReadingForm());
@@ -709,54 +678,4 @@ Try again once you've completed these steps!`;
     }
   }
 
-  // Quick Links Management
-  openAddQuickLinkDialog(): void {
-    const dialogRef = this.dialog.open(QuickLinkDialogComponent, {
-      width: '500px',
-      data: { mode: 'add' }
-    });
-
-    dialogRef.afterClosed().subscribe(async (result) => {
-      if (result) {
-        try {
-          await this.quickLinkService.addLink(result);
-          this.snackBar.open('Quick link added successfully', 'Close', { duration: 3000 });
-        } catch (error) {
-          console.error('Error adding quick link:', error);
-          this.snackBar.open('Failed to add quick link', 'Close', { duration: 3000 });
-        }
-      }
-    });
-  }
-
-  openEditQuickLinkDialog(link: QuickLink): void {
-    const dialogRef = this.dialog.open(QuickLinkDialogComponent, {
-      width: '500px',
-      data: { mode: 'edit', link }
-    });
-
-    dialogRef.afterClosed().subscribe(async (result) => {
-      if (result) {
-        try {
-          await this.quickLinkService.updateLink(link.id, result);
-          this.snackBar.open('Quick link updated successfully', 'Close', { duration: 3000 });
-        } catch (error) {
-          console.error('Error updating quick link:', error);
-          this.snackBar.open('Failed to update quick link', 'Close', { duration: 3000 });
-        }
-      }
-    });
-  }
-
-  async deleteQuickLink(link: QuickLink): Promise<void> {
-    if (confirm(`Are you sure you want to delete "${link.title}"?`)) {
-      try {
-        await this.quickLinkService.deleteLink(link.id);
-        this.snackBar.open('Quick link deleted successfully', 'Close', { duration: 3000 });
-      } catch (error) {
-        console.error('Error deleting quick link:', error);
-        this.snackBar.open('Failed to delete quick link', 'Close', { duration: 3000 });
-      }
-    }
-  }
 }
