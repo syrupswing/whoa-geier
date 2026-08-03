@@ -5,43 +5,33 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-// Define secret parameter (reads from Google Cloud Secret Manager)
-const githubToken = defineSecret('GITHUB_TOKEN');
-/**
- * Proxy requests to GitHub Models API
- * Keeps the GitHub PAT secure on the backend
- */
-exports.aiProxy = onCall({ secrets: ['GITHUB_TOKEN'] }, async (request) => {
-  // Get the GitHub PAT from environment variable
-  const token = githubToken.value();
-  
+const claudeApiKey = defineSecret('CLAUDE_API_KEY');
+
+exports.aiProxy = onCall({ secrets: ['CLAUDE_API_KEY'] }, async (request) => {
+  const token = claudeApiKey.value();
+
   if (!token) {
-    throw new Error('GitHub token not configured');
+    throw new HttpsError('internal', 'Claude API key not configured');
   }
 
   const { prompt } = request.data;
 
   if (!prompt || typeof prompt !== 'string') {
-    throw new Error('Prompt is required and must be a string');
+    throw new HttpsError('invalid-argument', 'Prompt is required and must be a string');
   }
 
   try {
-    const response = await fetch('https://models.inference.ai.azure.com/chat/completions', {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
+        'x-api-key': token,
+        'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        messages: [
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        model: 'gpt-4o-mini',
-        temperature: 0.7,
-        max_tokens: 4096
+        model: 'claude-3-5-haiku-20241022',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: prompt }]
       })
     });
 
@@ -52,21 +42,18 @@ exports.aiProxy = onCall({ secrets: ['GITHUB_TOKEN'] }, async (request) => {
 
     const result = await response.json();
 
-    if (!result.choices || !result.choices[0]?.message?.content) {
-      throw new Error('Invalid response format from GitHub Models API');
+    if (!result.content || !result.content[0]?.text) {
+      throw new Error('Invalid response format from Claude API');
     }
 
     return {
       success: true,
-      text: result.choices[0].message.content
+      text: result.content[0].text
     };
 
   } catch (error) {
-    console.error('GitHub Models API error:', error);
-    throw new HttpsError(
-      'internal',
-      error.message || 'Unknown error occurred'
-    );
+    console.error('Claude API error:', error);
+    throw new HttpsError('internal', error.message || 'Unknown error occurred');
   }
 });
 
