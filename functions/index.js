@@ -21,6 +21,21 @@ exports.aiProxy = onCall({ secrets: ['CLAUDE_API_KEY'] }, async (request) => {
   }
 
   try {
+    // Fetch available models to avoid hardcoding deprecated model names
+    const modelsResponse = await fetch('https://api.anthropic.com/v1/models', {
+      headers: { 'x-api-key': token, 'anthropic-version': '2023-06-01' }
+    });
+    let model = 'claude-3-5-haiku-20241022';
+    if (modelsResponse.ok) {
+      const modelsData = await modelsResponse.json();
+      const models = modelsData.data || [];
+      // Prefer haiku (cheapest/fastest), fall back to first available
+      const haiku = models.find(m => m.id.includes('haiku'));
+      const sonnet = models.find(m => m.id.includes('sonnet'));
+      model = (haiku || sonnet || models[0])?.id || model;
+    }
+    console.log('Using Claude model:', model);
+
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -29,7 +44,7 @@ exports.aiProxy = onCall({ secrets: ['CLAUDE_API_KEY'] }, async (request) => {
         'anthropic-version': '2023-06-01'
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-latest',
+        model,
         max_tokens: 1024,
         messages: [{ role: 'user', content: prompt }]
       })
