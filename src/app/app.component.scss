@@ -9,7 +9,7 @@
   min-height: 100dvh;
   height: 100dvh;
   width: 100%;
-  overflow: hidden;
+  overflow-y: auto;
   background-color: var(--color-background);
 }
 
@@ -342,7 +342,7 @@
   padding: 24px;
   min-height: 100dvh;
   flex: 1;
-  overflow-y: auto;
+  overflow-y: visible;
   background-color: transparent;
   padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }

@@ -10,7 +10,7 @@ export const environment = {
     // 6. Add authorized redirect URIs: http://localhost:4200
     // NOTE: API key is optional when using OAuth 2.0 - you only need the clientId
     apiKey: '', // Optional - leave empty when using OAuth
-    clientId: '675585365638-bi72vup1j25pgpa2orhul8i18507cs4p.apps.googleusercontent.com',
+    clientId: '457123034868-glfqgt2t2thpbpqcgsqfs0s4k22qobop.apps.googleusercontent.com',
     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/calendar/v3/rest'],
     scopes: 'https://www.googleapis.com/auth/calendar.readonly'
   },

@@ -25,13 +25,152 @@
         <p class="summary-main">View to-do list</p>
       </a>
 
-      <article class="summary-card summary-card-wide">
+      <a class="summary-card summary-card-wide summary-link" [routerLink]="'/quick-links'" aria-label="Open quick links">
         <div class="summary-icon notification">
-          <mat-icon>notifications</mat-icon>
+          <mat-icon>link</mat-icon>
         </div>
-        <p class="summary-kicker">You have</p>
-        <p class="summary-main">{{ getNotificationCount() }} notifications</p>
-      </article>
+        <p class="summary-kicker">Quick links</p>
+        <p class="summary-main">View all links</p>
+      </a>
+    </div>
+  </section>
+
+  <!-- Daily Calendar -->
+  <section class="day-calendar">
+    <div class="cal-nav">
+      <button mat-icon-button (click)="prevDay()" aria-label="Previous day">
+        <mat-icon>chevron_left</mat-icon>
+      </button>
+      <div class="cal-nav-center">
+        <span class="cal-today-badge" *ngIf="!isViewingToday" (click)="goToToday()">Back to today</span>
+        <span class="cal-today-badge cal-today-badge--today" *ngIf="isViewingToday">Today</span>
+        <span class="cal-date-text">{{ formatViewDate() }}</span>
+      </div>
+      <button mat-icon-button (click)="nextDay()" aria-label="Next day">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
+    </div>
+
+    <!-- Calendar selector -->
+    <div class="cal-selector" *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0">
+      <button class="cal-selector-toggle" (click)="showCalendarSelector = !showCalendarSelector">
+        <mat-icon>{{ showCalendarSelector ? 'expand_less' : 'expand_more' }}</mat-icon>
+        <span>Calendars</span>
+      </button>
+      <div class="cal-selector-list" *ngIf="showCalendarSelector">
+        <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars()">
+          <input
+            type="checkbox"
+            [checked]="calendarService.isCalendarVisible(cal.id)"
+            (change)="toggleCalendarVisibility(cal.id, $event)">
+          <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
+          <span class="cal-selector-name">{{ cal.summary }}</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- All-day events band -->
+    <div class="cal-allday" *ngIf="getAllDayEvents().length > 0">
+      <span class="cal-allday-label">All day</span>
+      <div class="cal-allday-events">
+        <div
+          *ngFor="let event of getAllDayEvents()"
+          class="cal-allday-chip"
+          [style.--event-color]="getEventColor(event)"
+          [class.has-popover]="selectedEvent()?.id === event.id"
+          (click)="selectEvent(event, $event)">
+          <mat-icon>event</mat-icon>
+          {{ event.summary }}
+          <div
+            class="cal-popover"
+            *ngIf="selectedEvent()?.id === event.id"
+            [class.cal-popover--above]="popoverAbove"
+            (click)="$event.stopPropagation()">
+            <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(event)"></div>
+            <div class="cal-popover-body">
+              <p class="cal-popover-title">{{ event.summary }}</p>
+              <p class="cal-popover-time">{{ formatEventTime(event) }}</p>
+              <p class="cal-popover-location" *ngIf="event.location"><mat-icon>location_on</mat-icon>{{ event.location }}</p>
+              <p class="cal-popover-desc" *ngIf="event.description">{{ event.description }}</p>
+            </div>
+            <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Not yet initialized -->
+    <div class="cal-status" *ngIf="!calendarService.isInitialized()">
+      <mat-spinner diameter="28"></mat-spinner>
+      <p>Initializing calendar…</p>
+    </div>
+
+    <!-- Sign-in prompt -->
+    <div class="cal-status" *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn()">
+      <mat-icon>calendar_month</mat-icon>
+      <p>Connect Google Calendar to see your events</p>
+      <button mat-stroked-button (click)="signInToCalendar()">Sign in with Google</button>
+    </div>
+
+    <!-- Timeline -->
+    <div class="cal-timeline-scroll" *ngIf="calendarService.isSignedIn()" (click)="clearSelectedEvent()"
+      [style.height.px]="TOTAL_TIMELINE_HEIGHT">
+      <!-- Out-of-view playhead: dashed line at top edge -->
+      <div class="cal-playhead-edge cal-playhead-edge--top" *ngIf="isViewingToday && playheadEdge() === 'above'"></div>
+      <!-- Out-of-view playhead: dashed line at bottom edge -->
+      <div class="cal-playhead-edge cal-playhead-edge--bottom" *ngIf="isViewingToday && playheadEdge() === 'below'"></div>
+      <div class="cal-timeline-inner" [style.--cal-hour-px]="effectiveHourPx + 'px'"
+        [style.marginTop.px]="-getVisibleHourRange().start * effectiveHourPx">
+
+        <!-- Hour grid -->
+        <div class="cal-hour-row" *ngFor="let hour of allHours">
+          <span class="cal-hour-label">{{ formatHour(hour) }}</span>
+        </div>
+
+        <!-- Events layer -->
+        <div class="cal-events-layer">
+          <div
+            class="cal-event-block"
+            *ngFor="let event of getTimedEvents()"
+            [style.top.px]="event.topPosition * scaleFactor"
+            [style.height.px]="event.height * scaleFactor"
+            [style.backgroundColor]="getEventColor(event)"
+            [class.has-popover]="selectedEvent()?.id === event.id"
+            (click)="selectEvent(event, $event)">
+            <span class="cal-event-title">{{ event.summary }}</span>
+            <div
+              class="cal-popover"
+              *ngIf="selectedEvent()?.id === event.id"
+              [class.cal-popover--above]="popoverAbove"
+              (click)="$event.stopPropagation()">
+              <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(event)"></div>
+              <div class="cal-popover-body">
+                <p class="cal-popover-title">{{ event.summary }}</p>
+                <p class="cal-popover-time">{{ formatEventTime(event) }}</p>
+                <p class="cal-popover-location" *ngIf="event.location"><mat-icon>location_on</mat-icon>{{ event.location }}</p>
+                <p class="cal-popover-desc" *ngIf="event.description">{{ event.description }}</p>
+              </div>
+              <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
+            </div>
+          </div>
+
+          <!-- Empty state -->
+          <div class="cal-no-events" *ngIf="getTimedEvents().length === 0">
+            <mat-icon>event_available</mat-icon>
+            <p>No events scheduled</p>
+          </div>
+        </div>
+
+        <!-- Current-time playhead -->
+        <div
+          class="cal-playhead"
+          *ngIf="isViewingToday && isPlayheadInView()"
+          [style.top.px]="getCurrentTimePosition() * scaleFactor">
+          <span class="cal-playhead-dot"></span>
+          <div class="cal-playhead-line"></div>
+        </div>
+
+      </div>
     </div>
   </section>
 

@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, signal, ViewChild, ElementRef, inject, effect } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, signal, ViewChild, ElementRef, inject, effect, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -36,11 +36,18 @@ interface ChatMessage {
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent],
   templateUrl: './dashboard.component.html',
-  styleUrls: ['./dashboard.component.scss']
+  styleUrls: ['./dashboard.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardComponent implements OnInit, AfterViewInit {
   currentTime = signal<Date>(new Date());
-  hours = Array.from({ length: 24 }, (_, i) => i);
+  viewDate = signal<Date>(new Date());
+  selectedEvent = signal<TimelineEvent | null>(null);
+  popoverAbove = false;
+  showCalendarSelector = false;
+  readonly HOUR_PX = 20;
+  readonly TOTAL_TIMELINE_HEIGHT = 480; // fixed container height
+  readonly allHours = Array.from({ length: 24 }, (_, i) => i);
   private timeInterval?: number;
   newItemName = '';
   showWeatherWidget = false;
@@ -149,6 +156,124 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   /**
    * Scroll timeline to position current time indicator 20% from top
    */
+  get isViewingToday(): boolean {
+    const v = this.viewDate(), t = new Date();
+    return v.getFullYear() === t.getFullYear() && v.getMonth() === t.getMonth() && v.getDate() === t.getDate();
+  }
+
+  prevDay(): void {
+    const d = new Date(this.viewDate());
+    d.setDate(d.getDate() - 1);
+    this.viewDate.set(d);
+  }
+
+  nextDay(): void {
+    const d = new Date(this.viewDate());
+    d.setDate(d.getDate() + 1);
+    this.viewDate.set(d);
+  }
+
+  goToToday(): void {
+    this.viewDate.set(new Date());
+    setTimeout(() => this.scrollToCurrentTime(), 50);
+  }
+
+  formatViewDate(): string {
+    return this.viewDate().toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+    });
+  }
+
+  getViewDayEvents(): TimelineEvent[] {
+    const day = this.viewDate();
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0);
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
+    const seenIds = new Set<string>();
+    return this.calendarService.events()
+      .filter(event => {
+        if (seenIds.has(event.id)) return false;
+        const start = this.getEventStartDate(event);
+        const end = this.getEventEndDate(event);
+        if (start <= dayEnd && end >= dayStart) { seenIds.add(event.id); return true; }
+        return false;
+      })
+      .map(event => this.calculateEventPositionForDate(event, day))
+      .sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+  }
+
+  calculateEventPositionForDate(event: CalendarEvent, forDate: Date): TimelineEvent {
+    const startDate = this.getEventStartDate(event);
+    const endDate = this.getEventEndDate(event);
+    const dayStart = new Date(forDate.getFullYear(), forDate.getMonth(), forDate.getDate(), 0, 0, 0);
+    const dayEnd = new Date(forDate.getFullYear(), forDate.getMonth(), forDate.getDate(), 23, 59, 59);
+    const effectiveStart = startDate < dayStart ? dayStart : startDate;
+    const effectiveEnd = endDate > dayEnd ? dayEnd : endDate;
+    const startMin = effectiveStart.getHours() * 60 + effectiveStart.getMinutes();
+    const endMin = effectiveEnd.getHours() * 60 + effectiveEnd.getMinutes();
+    return {
+      ...event, startDate, endDate,
+      topPosition: (startMin / 60) * this.HOUR_PX,
+      height: Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14)
+    };
+  }
+
+  getAllDayEvents(): TimelineEvent[] {
+    return this.getViewDayEvents().filter(e => !e.start.dateTime && this.calendarService.isCalendarVisible(e.calendarId || 'primary'));
+  }
+
+  getTimedEvents(): TimelineEvent[] {
+    return this.getViewDayEvents().filter(e => !!e.start.dateTime && this.calendarService.isCalendarVisible(e.calendarId || 'primary'));
+  }
+
+  getVisibleHourRange(): { start: number; end: number } {
+    const timed = this.getTimedEvents();
+    if (timed.length === 0) return { start: 0, end: 24 };
+
+    let minHour = 24, maxHour = 0;
+    for (const e of timed) {
+      const startHour = e.startDate.getHours() + e.startDate.getMinutes() / 60;
+      const endHour = e.endDate.getHours() + e.endDate.getMinutes() / 60;
+      if (startHour < minHour) minHour = startHour;
+      if (endHour > maxHour) maxHour = endHour;
+    }
+
+    return {
+      start: Math.max(0, Math.floor(minHour - 1.5)),
+      end: Math.min(24, Math.ceil(maxHour + 1.5)),
+    };
+  }
+
+  getVisibleHours(): number[] {
+    const { start, end } = this.getVisibleHourRange();
+    return this.allHours.slice(start, end);
+  }
+
+  get effectiveHourPx(): number {
+    const count = this.getVisibleHours().length;
+    return count > 0 ? this.TOTAL_TIMELINE_HEIGHT / count : this.HOUR_PX;
+  }
+
+  get scaleFactor(): number {
+    return this.effectiveHourPx / this.HOUR_PX;
+  }
+
+  isPlayheadInView(): boolean {
+    const { start, end } = this.getVisibleHourRange();
+    const now = this.currentTime();
+    const hourNow = now.getHours() + now.getMinutes() / 60;
+    return hourNow >= start && hourNow <= end;
+  }
+
+  playheadEdge(): 'above' | 'below' | null {
+    if (!this.isViewingToday) return null;
+    const { start, end } = this.getVisibleHourRange();
+    const now = this.currentTime();
+    const hourNow = now.getHours() + now.getMinutes() / 60;
+    if (hourNow < start) return 'above';
+    if (hourNow > end) return 'below';
+    return null;
+  }
+
   scrollToCurrentTime(): void {
     if (this.dashboardTimeline?.nativeElement) {
       const container = this.dashboardTimeline.nativeElement;
@@ -243,9 +368,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!dateStr) return new Date();
     
     if (event.end.date && !event.end.dateTime) {
-      // All-day event - parse as local date
       const [year, month, day] = event.end.date.split('-').map(Number);
-      return new Date(year, month - 1, day, 0, 0, 0);
+      // Google Calendar end.date is exclusive for all-day events; subtract 1ms to make it inclusive
+      return new Date(new Date(year, month - 1, day, 0, 0, 0).getTime() - 1);
     }
     
     // Parse dateTime - JavaScript will handle timezone automatically
@@ -256,7 +381,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   getCurrentTimePosition(): number {
     const now = this.currentTime();
     const minutes = now.getHours() * 60 + now.getMinutes();
-    return (minutes / 60) * 60;
+    return (minutes / 60) * this.HOUR_PX;
+  }
+
+  selectEvent(event: TimelineEvent, mouseEvent: Event): void {
+    mouseEvent.stopPropagation();
+    const target = mouseEvent.currentTarget as HTMLElement;
+    const rect = target.getBoundingClientRect();
+    // Flip above if less than 210px below the event
+    this.popoverAbove = (window.innerHeight - rect.bottom) < 210;
+    this.selectedEvent.set(event);
+  }
+
+  clearSelectedEvent(): void {
+    this.selectedEvent.set(null);
   }
 
   formatHour(hour: number): string {
@@ -291,27 +429,80 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (event.start.dateTime) {
       const start = new Date(event.start.dateTime);
       const end = new Date(event.end.dateTime || event.start.dateTime);
-      return `${this.formatTime(start)} - ${this.formatTime(end)}`;
+      const sameDay = start.toDateString() === end.toDateString();
+      if (sameDay) {
+        return `${this.formatTime(start)} – ${this.formatTime(end)}`;
+      }
+      return `${this.formatShortDate(start)} ${this.formatTime(start)} – ${this.formatShortDate(end)} ${this.formatTime(end)}`;
     }
-    return 'All day';
+    // Parse date-only strings as local midnight to avoid UTC timezone shift
+    const start = this.parseDateLocal(event.start.date!);
+    const end = this.parseDateLocal(event.end.date!);
+    // end.date is exclusive per Google API, subtract a day for display
+    end.setDate(end.getDate() - 1);
+    if (start.toDateString() === end.toDateString()) {
+      return `All day · ${this.formatShortDate(start)}`;
+    }
+    return `${this.formatShortDate(start)} – ${this.formatShortDate(end)}`;
+  }
+
+  private parseDateLocal(dateStr: string): Date {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  formatShortDate(date: Date): string {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   }
 
   formatTime(date: Date): string {
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? 'pm' : 'am';
+    
+    // Convert to 12-hour format
+    if (hours > 12) {
+      hours -= 12;
+    } else if (hours === 0) {
+      hours = 12;
+    }
+    
+    return `${hours}:${minutes}${ampm}`;
   }
 
   getEventColor(event: CalendarEvent): string {
+    // First try to get calendar's color
+    const calendarColor = this.calendarService.getCalendarColor(event.calendarId || 'primary');
+    if (calendarColor && calendarColor !== '#2196F3') {
+      return calendarColor; // Use calendar's backgroundColor if available
+    }
+    // Fall back to event colorId mapping
     const colorMap: { [key: string]: string } = {
       '1': '#a4bdfc', '2': '#7ae7bf', '3': '#dbadff',
       '4': '#ff887c', '5': '#fbd75b', '6': '#ffb878',
       '7': '#46d6db', '8': '#e1e1e1', '9': '#5484ed',
       '10': '#51b749', '11': '#dc2127'
     };
-    return event.colorId ? colorMap[event.colorId] : '#2196F3';
+    return event.colorId ? colorMap[event.colorId] : calendarColor;
+  }
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    if (this.selectedEvent()) {
+      this.clearSelectedEvent();
+    }
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    if (this.selectedEvent()) {
+      this.clearSelectedEvent();
+    }
+  }
+
+  toggleCalendarVisibility(calendarId: string, event: Event): void {
+    const checkbox = event.target as HTMLInputElement;
+    this.calendarService.toggleCalendar(calendarId, checkbox.checked);
   }
 
   getTotalActiveCount(): number {

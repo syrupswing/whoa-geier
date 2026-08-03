@@ -19,6 +19,14 @@ export interface CalendarEvent {
   location?: string;
   htmlLink?: string;
   colorId?: string;
+  calendarId?: string;
+}
+
+export interface CalendarInfo {
+  id: string;
+  summary: string;
+  backgroundColor?: string;
+  foregroundColor?: string;
 }
 
 @Injectable({
@@ -26,17 +34,22 @@ export interface CalendarEvent {
 })
 export class GoogleCalendarService {
   private readonly TOKEN_STORAGE_KEY = 'google-calendar-token';
+  private readonly VISIBLE_CALENDARS_KEY = 'google-calendar-visible-ids';
   
   // Signals for reactive state
   isSignedIn = signal<boolean>(false);
   isInitialized = signal<boolean>(false);
   events = signal<CalendarEvent[]>([]);
+  calendars = signal<CalendarInfo[]>([]);
+  visibleCalendarIds = signal<Set<string>>(new Set(['primary']));
   error = signal<string | null>(null);
 
   private gapiInited = false;
   private tokenClient: any;
 
   constructor(private localStorageService: LocalStorageService) {
+    // Load saved calendar visibility preferences
+    this.loadVisibleCalendarPreferences();
     this.initializeGapi();
   }
 
@@ -137,9 +150,47 @@ export class GoogleCalendarService {
     });
   }
 
-  /**
-   * Sign in to Google
-   */
+  toggleCalendar(calendarId: string, visible: boolean): void {
+    const updated = new Set(this.visibleCalendarIds());
+    if (visible) {
+      updated.add(calendarId);
+    } else {
+      updated.delete(calendarId);
+    }
+    this.visibleCalendarIds.set(updated);
+    // Persist to localStorage
+    this.saveVisibleCalendarPreferences(updated);
+  }
+
+  isCalendarVisible(calendarId: string): boolean {
+    return this.visibleCalendarIds().has(calendarId);
+  }
+
+  private loadVisibleCalendarPreferences(): void {
+    try {
+      const saved = this.localStorageService.getItem<string>(this.VISIBLE_CALENDARS_KEY);
+      if (saved) {
+        const ids = JSON.parse(saved) as string[];
+        this.visibleCalendarIds.set(new Set(ids));
+      }
+    } catch (err) {
+      console.error('Error loading calendar preferences:', err);
+    }
+  }
+
+  private saveVisibleCalendarPreferences(visibleIds: Set<string>): void {
+    try {
+      const ids = Array.from(visibleIds);
+      this.localStorageService.setItem(this.VISIBLE_CALENDARS_KEY, JSON.stringify(ids));
+    } catch (err) {
+      console.error('Error saving calendar preferences:', err);
+    }
+  }
+
+  getCalendarColor(calendarId: string): string {
+    const cal = this.calendars().find(c => c.id === calendarId);
+    return cal?.backgroundColor || '#2196F3';
+  }
   signIn(): void {
     if (!this.isInitialized()) {
       this.error.set('Google API not initialized yet');
@@ -225,19 +276,64 @@ export class GoogleCalendarService {
       startDate.setDate(now.getDate() - daysBehind);
       const endDate = new Date();
       endDate.setDate(now.getDate() + daysAhead);
-      
-      const response = await gapi.client.calendar.events.list({
-        calendarId: 'primary',
-        timeMin: startDate.toISOString(),
-        timeMax: endDate.toISOString(),
-        showDeleted: false,
-        singleEvents: true,
-        maxResults: 250, // Increased to handle more events
-        orderBy: 'startTime',
-      });
 
-      const events: CalendarEvent[] = response.result.items || [];
-      this.events.set(events);
+      // Fetch all calendars the user has access to
+      const calListResponse = await gapi.client.calendar.calendarList.list({
+        minAccessRole: 'reader',
+      });
+      const calendarList = calListResponse.result.items || [];
+      this.calendars.set(calendarList.map((c: any) => ({
+        id: c.id,
+        summary: c.summary,
+        backgroundColor: c.backgroundColor,
+        foregroundColor: c.foregroundColor,
+      })));
+
+      // Auto-enable all calendars on first load if user hasn't saved preferences yet
+      const currentVisible = this.visibleCalendarIds();
+      if (currentVisible.size === 1 && currentVisible.has('primary')) {
+        // Only the default 'primary' is set, so enable all calendars for first-time users
+        this.visibleCalendarIds.set(new Set(calendarList.map((c: any) => c.id)));
+        this.saveVisibleCalendarPreferences(new Set(calendarList.map((c: any) => c.id)));
+      }
+
+      const calendarIds = calendarList.map((c: any) => c.id).filter(Boolean);
+
+      // Fall back to primary if list is empty
+      if (calendarIds.length === 0) calendarIds.push('primary');
+
+      // Load events from all calendars in parallel and merge
+      const results = await Promise.allSettled(
+        calendarIds.map((calendarId: string) =>
+          gapi.client.calendar.events.list({
+            calendarId,
+            timeMin: startDate.toISOString(),
+            timeMax: endDate.toISOString(),
+            showDeleted: false,
+            singleEvents: true,
+            maxResults: 250,
+            orderBy: 'startTime',
+          })
+        )
+      );
+
+      const allEvents: CalendarEvent[] = [];
+      const seenIds = new Set<string>();
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i];
+        const calendarId = calendarIds[i];
+        if (result.status === 'fulfilled') {
+          for (const event of (result.value.result.items || []) as CalendarEvent[]) {
+            event.calendarId = calendarId;
+            if (!seenIds.has(event.id)) {
+              seenIds.add(event.id);
+              allEvents.push(event);
+            }
+          }
+        }
+      }
+
+      this.events.set(allEvents);
       this.error.set(null);
     } catch (err: any) {
       this.error.set(`Error loading events: ${err.message}`);
