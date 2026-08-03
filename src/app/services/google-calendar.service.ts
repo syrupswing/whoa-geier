@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { environment } from '../../environments/environment';
 import { LocalStorageService } from './local-storage.service';
+import { FirestoreService } from './firestore.service';
 
 declare const gapi: any;
 
@@ -35,7 +36,9 @@ export interface CalendarInfo {
 export class GoogleCalendarService {
   private readonly TOKEN_STORAGE_KEY = 'google-calendar-token';
   private readonly VISIBLE_CALENDARS_KEY = 'google-calendar-visible-ids';
-  
+  private readonly CACHE_DOC = 'calendar-events';
+  private readonly CACHE_COLLECTION = 'app-cache';
+
   // Signals for reactive state
   isSignedIn = signal<boolean>(false);
   isInitialized = signal<boolean>(false);
@@ -43,13 +46,17 @@ export class GoogleCalendarService {
   calendars = signal<CalendarInfo[]>([]);
   visibleCalendarIds = signal<Set<string>>(new Set(['primary']));
   error = signal<string | null>(null);
+  isLoadingFromCache = signal<boolean>(false);
 
   private gapiInited = false;
   private tokenClient: any;
 
-  constructor(private localStorageService: LocalStorageService) {
-    // Load saved calendar visibility preferences
+  constructor(
+    private localStorageService: LocalStorageService,
+    private firestoreService: FirestoreService
+  ) {
     this.loadVisibleCalendarPreferences();
+    this.loadCachedEvents(); // Show stale events immediately while waiting for auth
     this.initializeGapi();
   }
 
@@ -150,6 +157,56 @@ export class GoogleCalendarService {
     });
   }
 
+  // Silently re-request an access token using the already-granted consent
+  private trySilentRefresh(): void {
+    if (!this.tokenClient) return;
+    try {
+      this.tokenClient.requestAccessToken({ prompt: '' });
+    } catch {
+      // Silent refresh not possible; user will need to sign in manually
+    }
+  }
+
+  // Load last-cached events from Firestore so the UI shows data before sign-in
+  async loadCachedEvents(): Promise<void> {
+    if (!this.firestoreService.isInitialized()) return;
+    this.isLoadingFromCache.set(true);
+    try {
+      const cached = await this.firestoreService.getDocument<{ events: CalendarEvent[]; calendars: CalendarInfo[] }>(
+        this.CACHE_COLLECTION, this.CACHE_DOC
+      );
+      if (cached?.events?.length) {
+        this.events.set(cached.events);
+      }
+      if (cached?.calendars?.length) {
+        this.calendars.set(cached.calendars);
+        // Restore visible calendars preference if not already set
+        const current = this.visibleCalendarIds();
+        if (current.size <= 1 && current.has('primary')) {
+          const ids = new Set(cached.calendars.map((c: CalendarInfo) => c.id));
+          this.visibleCalendarIds.set(ids);
+        }
+      }
+    } catch {
+      // Cache miss is fine — just nothing to show yet
+    } finally {
+      this.isLoadingFromCache.set(false);
+    }
+  }
+
+  private async cacheEventsToFirestore(events: CalendarEvent[]): Promise<void> {
+    if (!this.firestoreService.isInitialized()) return;
+    try {
+      await this.firestoreService.setDocument(this.CACHE_COLLECTION, this.CACHE_DOC, {
+        events,
+        calendars: this.calendars(),
+        cachedAt: new Date().toISOString(),
+      });
+    } catch {
+      // Non-critical — silently ignore cache write failures
+    }
+  }
+
   toggleCalendar(calendarId: string, visible: boolean): void {
     const updated = new Set(this.visibleCalendarIds());
     if (visible) {
@@ -246,18 +303,17 @@ export class GoogleCalendarService {
 
     // Check if token is still valid (not expired)
     if (savedToken.expires_at && Date.now() < savedToken.expires_at) {
-      // Set the token in gapi client
       gapi.client.setToken({
         access_token: savedToken.access_token,
         token_type: savedToken.token_type || 'Bearer',
         scope: savedToken.scope
       });
-      
       this.isSignedIn.set(true);
       this.loadCalendarEvents();
     } else {
-      // Token expired, remove it
+      // Token expired — attempt silent refresh before giving up
       this.localStorageService.removeItem(this.TOKEN_STORAGE_KEY);
+      this.trySilentRefresh();
     }
   }
 
@@ -335,6 +391,7 @@ export class GoogleCalendarService {
 
       this.events.set(allEvents);
       this.error.set(null);
+      this.cacheEventsToFirestore(allEvents);
     } catch (err: any) {
       this.error.set(`Error loading events: ${err.message}`);
       console.error('Error loading calendar events:', err);

@@ -241,6 +241,18 @@ export class FirestoreService {
     }
   }
 
+  async getDocument<T>(collectionName: string, documentId: string): Promise<T | null> {
+    if (!this.db) return null;
+    try {
+      const docRef = doc(this.db, collectionName, documentId);
+      const snap = await getDoc(docRef);
+      return snap.exists() ? (snap.data() as T) : null;
+    } catch (err: any) {
+      console.error('Firestore getDocument error:', err);
+      return null;
+    }
+  }
+
   /**
    * Get app-wide stats (API counter, etc.)
    */
