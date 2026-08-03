@@ -37,6 +37,7 @@ exports.aiProxy = onCall({ secrets: ['CLAUDE_API_KEY'] }, async (request) => {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
+      console.error('Claude API error response:', JSON.stringify(errorData));
       throw new Error(errorData.error?.message || `API request failed: ${response.status}`);
     }
 
