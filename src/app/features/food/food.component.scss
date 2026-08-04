@@ -1,21 +1,6 @@
 .food-container {
   max-width: 1200px;
   margin: 0 auto;
-
-  .header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-bottom: 12px;
-
-    h1 {
-      font-size: 2rem;
-      margin: 0;
-      line-height: 1.2;
-      color: var(--color-text-primary);
-      font-weight: 700;
-    }
-  }
 }
 
 .food-tabs {
@@ -57,20 +42,7 @@
 /* Mobile optimizations */
 @media (max-width: 767px) {
   .food-container {
-    .header {
-      gap: 8px;
 
-      h1 {
-        font-size: 1.5rem;
-      }
-
-      .subtitle {
-        font-size: 1rem;
-      }
-    }
-  }
-
-  .food-tabs {
     ::ng-deep {
       .mat-mdc-tab {
         min-width: auto;

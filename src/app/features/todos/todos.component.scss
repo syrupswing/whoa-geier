@@ -2,30 +2,6 @@
   max-width: 1000px;
   margin: 0 auto;
   padding-bottom: 24px;
-
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-    flex-wrap: wrap;
-    gap: 16px;
-
-    h1 {
-      font-size: 2rem;
-      margin: 0;
-      line-height: 1.2;
-      color: var(--color-text-primary);
-      font-weight: 700;
-    }
-
-    .subtitle {
-      font-size: 1.1rem;
-      margin: 0;
-      color: var(--color-text-secondary);
-    }
-
-  }
 }
 
 .quick-add-section {
@@ -444,21 +420,6 @@
 
 /* Mobile optimizations */
 @media (max-width: 767px) {
-  .todos-container {
-    .header {
-      align-items: stretch;
-
-      h1 {
-        font-size: 1.5rem;
-      }
-
-      .add-button {
-        width: 100%;
-        justify-content: center;
-      }
-    }
-  }
-
   .add-form-card {
     .form-grid {
       grid-template-columns: 1fr;

@@ -1,12 +1,13 @@
 <div class="vehicles-container">
   <div class="header">
+    <app-home-logo-btn></app-home-logo-btn>
     <h1>Vehicle maintenance</h1>
     <app-global-nav-menu></app-global-nav-menu>
-    <button mat-raised-button color="primary" (click)="openAddVehicle()">
-      <mat-icon>add</mat-icon>
-      Add Vehicle
-    </button>
   </div>
+  <button mat-raised-button color="primary" (click)="openAddVehicle()">
+    <mat-icon>add</mat-icon>
+    Add Vehicle
+  </button>
 
   <!-- Alerts -->
   <div class="alerts" *ngIf="vehicleService.getOverdueMaintenance().length > 0">

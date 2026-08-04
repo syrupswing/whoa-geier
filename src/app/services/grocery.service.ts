@@ -13,6 +13,7 @@ export interface GroceryItem {
   quantity?: number;
   unit?: string; // 'each', 'oz', 'lbs', 'kg', 'g', 'ml', 'l', 'dozen', etc.
   notes?: string;
+  location?: string;
   userId?: string; // Track which user created the item
   createdAt?: string;
   updatedAt?: string;
@@ -205,13 +206,10 @@ export class GroceryService implements OnDestroy {
    */
   async updateItem(id: string, updates: Partial<GroceryItem>): Promise<void> {
     if (this.useFirestore() && this.firestoreService.isInitialized()) {
-      // Remove undefined fields as Firestore doesn't accept them
+      // Preserve undefined values so Firestore can delete those fields via deleteField()
       const cleanUpdates: any = {};
       Object.keys(updates).forEach(key => {
-        const value = (updates as any)[key];
-        if (value !== undefined) {
-          cleanUpdates[key] = value;
-        }
+        cleanUpdates[key] = (updates as any)[key];
       });
       cleanUpdates.updatedAt = new Date().toISOString();
       

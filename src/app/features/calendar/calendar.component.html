@@ -1,36 +1,34 @@
 <div class="calendar-container">
   <div class="header">
-    <div>
-      <h1>Family calendar</h1>
-      <p class="subtitle">Your Google Calendar events</p>
-    </div>
-    <div class="actions">
-      <button
-        *ngIf="!calendarService.isSignedIn()"
-        mat-raised-button
-        color="primary"
-        (click)="signIn()"
-        [disabled]="!calendarService.isInitialized()">
-        <mat-icon>login</mat-icon>
-        Sign In with Google
-      </button>
-      <div *ngIf="calendarService.isSignedIn()" class="signed-in-actions">
-        <button
-          mat-raised-button
-          color="accent"
-          (click)="loadEventsForCurrentView()">
-          <mat-icon>refresh</mat-icon>
-          Refresh
-        </button>
-        <button
-          mat-stroked-button
-          (click)="signOut()">
-          <mat-icon>logout</mat-icon>
-          Sign Out
-        </button>
-      </div>
-    </div>
+    <app-home-logo-btn></app-home-logo-btn>
+    <h1>Family calendar</h1>
     <app-global-nav-menu></app-global-nav-menu>
+  </div>
+  <div class="actions">
+    <button
+      *ngIf="!calendarService.isSignedIn()"
+      mat-raised-button
+      color="primary"
+      (click)="signIn()"
+      [disabled]="!calendarService.isInitialized()">
+      <mat-icon>login</mat-icon>
+      Sign In with Google
+    </button>
+    <div *ngIf="calendarService.isSignedIn()" class="signed-in-actions">
+      <button
+        mat-raised-button
+        color="accent"
+        (click)="loadEventsForCurrentView()">
+        <mat-icon>refresh</mat-icon>
+        Refresh
+      </button>
+      <button
+        mat-stroked-button
+        (click)="signOut()">
+        <mat-icon>logout</mat-icon>
+        Sign Out
+      </button>
+    </div>
   </div>
 
   <!-- Loading State -->

@@ -28,21 +28,6 @@
   }
 }
 
-.dashboard-greeting-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.dashboard-greeting {
-  margin: 0;
-  font-size: 2rem;
-  line-height: 1.2;
-  color: var(--color-text-primary);
-  font-weight: 700;
-}
-
 .dashboard-summary-grid {
   display: grid;
   gap: 12px;
@@ -1824,10 +1809,6 @@
 @media (max-width: 767px) {
   .dashboard-hero {
     gap: 12px;
-  }
-
-  .dashboard-greeting {
-    font-size: 2rem;
   }
 
   .dashboard-summary-grid {

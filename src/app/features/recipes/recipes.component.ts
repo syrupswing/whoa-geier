@@ -12,7 +12,8 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { LocalStorageService } from '../../services/local-storage.service';
 import { GithubAiService, RecipeSuggestion } from '../../services/github-ai.service';
-
+import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
+import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 export interface Recipe {
   id: string;
   name: string;
@@ -41,7 +42,9 @@ export interface Recipe {
     MatChipsModule,
     MatExpansionModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    HomeLogoBtnComponent,
+    GlobalNavMenuComponent
   ],
   templateUrl: './recipes.component.html',
   styleUrls: ['./recipes.component.scss']

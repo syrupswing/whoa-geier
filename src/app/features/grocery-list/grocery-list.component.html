@@ -1,5 +1,6 @@
 <div class="grocery-container">
   <div class="header">
+      <app-home-logo-btn></app-home-logo-btn>
       <h1>Shopping list</h1>
       <app-global-nav-menu></app-global-nav-menu>
   </div>
@@ -21,7 +22,6 @@
             [matAutocomplete]="auto"
             (keyup.enter)="addItem()"
             (keyup.escape)="closeAddForm()"
-            placeholder="Enter item"
             autocomplete="off"
             #itemInput>
           <mat-autocomplete #auto="matAutocomplete">
@@ -73,7 +73,6 @@
               matInput
               type="number"
               [(ngModel)]="newItemQuantity"
-              placeholder="Optional"
               min="0"
               step="0.1">
           </mat-form-field>
@@ -101,8 +100,7 @@
             <mat-label>Notes</mat-label>
             <input
               matInput
-              [(ngModel)]="newItemNotes"
-              placeholder="Optional">
+              [(ngModel)]="newItemNotes">
           </mat-form-field>
         </div>
       </div>
@@ -235,16 +233,29 @@
               <div class="item-content">
                 <span class="item-name">{{ getItemDisplayText(item) }}</span>
                 <span *ngIf="item.notes" class="item-notes">{{ item.notes }}</span>
+                <span *ngIf="itemLocations.has(item.id)" class="item-location">
+                  <mat-icon>location_on</mat-icon><span>{{ itemLocations.get(item.id) }}</span>
+                </span>
               </div>
               <div matListItemMeta class="item-actions">
+                <button
+                  *ngIf="!itemLocations.has(item.id)"
+                  mat-icon-button
+                  type="button"
+                  class="item-actions-trigger locate-btn"
+                  (click)="handleItemLocationAction(item)"
+                  [disabled]="isLoadingLocation(item.id)"
+                  [matTooltip]="itemLocations.has(item.id) ? 'View store location' : 'Find store location'">
+                  <mat-spinner *ngIf="isLoadingLocation(item.id)" diameter="18"></mat-spinner>
+                  <mat-icon *ngIf="!isLoadingLocation(item.id)">{{ itemLocations.has(item.id) ? 'place' : 'not_listed_location' }}</mat-icon>
+                </button>
                 <button
                   mat-icon-button
                   type="button"
                   class="item-actions-trigger"
-                  [matMenuTriggerFor]="itemActionsMenu"
-                  [matMenuTriggerData]="{ item: item, isCompleted: false }"
-                  aria-label="Open item actions">
-                  <mat-icon>more_horiz</mat-icon>
+                  (click)="startEditItem(item)"
+                  matTooltip="Edit item">
+                  <mat-icon>edit</mat-icon>
                 </button>
               </div>
             </div>
@@ -295,18 +306,27 @@
                   matInput 
                   [(ngModel)]="editingItemNotes">
               </mat-form-field>
+
+              <div *ngIf="itemLocations.has(item.id)" class="edit-location-clear">
+                <mat-icon>location_on</mat-icon>
+                <span>{{ itemLocations.get(item.id) }}</span>
+                <button mat-icon-button type="button" class="clear-location-btn" (click)="clearItemLocation(item)" matTooltip="Clear location">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
               
               <div class="edit-actions">
                 <button 
-                  mat-mini-fab 
-                  color="primary" 
+                  mat-mini-fab
+                  class="save-btn"
                   (click)="saveEdit()"
                   [disabled]="!editingItemName.trim()"
                   matTooltip="Save">
                   <mat-icon>check</mat-icon>
                 </button>
                 <button 
-                  mat-mini-fab 
+                  mat-mini-fab
+                  class="cancel-btn"
                   (click)="cancelEdit()"
                   matTooltip="Cancel">
                   <mat-icon>close</mat-icon>
@@ -386,10 +406,17 @@
                     mat-icon-button
                     type="button"
                     class="item-actions-trigger"
-                    [matMenuTriggerFor]="itemActionsMenu"
-                    [matMenuTriggerData]="{ item: item, isCompleted: true }"
-                    aria-label="Open item actions">
-                    <mat-icon>more_horiz</mat-icon>
+                    (click)="startEditItem(item)"
+                    matTooltip="Edit item">
+                    <mat-icon>edit</mat-icon>
+                  </button>
+                  <button
+                    mat-icon-button
+                    type="button"
+                    class="item-actions-trigger delete-btn"
+                    (click)="deleteItem(item.id)"
+                    matTooltip="Delete item">
+                    <mat-icon>delete</mat-icon>
                   </button>
                 </div>
               </div>
@@ -440,18 +467,27 @@
                     matInput 
                     [(ngModel)]="editingItemNotes">
                 </mat-form-field>
+
+                <div *ngIf="itemLocations.has(item.id)" class="edit-location-clear">
+                  <mat-icon>location_on</mat-icon>
+                  <span>{{ itemLocations.get(item.id) }}</span>
+                  <button mat-icon-button type="button" class="clear-location-btn" (click)="clearItemLocation(item)" matTooltip="Clear location">
+                    <mat-icon>close</mat-icon>
+                  </button>
+                </div>
                 
                 <div class="edit-actions">
                   <button 
-                    mat-mini-fab 
-                    color="primary" 
+                    mat-mini-fab
+                    class="save-btn"
                     (click)="saveEdit()"
                     [disabled]="!editingItemName.trim()"
                     matTooltip="Save">
                     <mat-icon>check</mat-icon>
                   </button>
                   <button 
-                    mat-mini-fab 
+                    mat-mini-fab
+                    class="cancel-btn"
                     (click)="cancelEdit()"
                     matTooltip="Cancel">
                     <mat-icon>close</mat-icon>
@@ -464,35 +500,6 @@
       </mat-card-content>
     </mat-card>
 
-    <mat-menu #itemActionsMenu="matMenu">
-      <ng-template matMenuContent let-item="item" let-isCompleted="isCompleted">
-        <button
-          *ngIf="!isCompleted"
-          mat-menu-item
-          type="button"
-          (click)="handleItemLocationAction(item)"
-          [disabled]="isLoadingLocation(item.id)">
-          <mat-spinner *ngIf="isLoadingLocation(item.id)" diameter="18"></mat-spinner>
-          <mat-icon *ngIf="!isLoadingLocation(item.id)">
-            {{ itemLocations.has(item.id) ? 'place' : 'not_listed_location' }}
-          </mat-icon>
-          <span>{{ itemLocations.has(item.id) ? 'View store location' : 'Find store location' }}</span>
-        </button>
-        <button
-          mat-menu-item
-          type="button"
-          (click)="startEditItem(item)">
-          <mat-icon>edit</mat-icon>
-          <span>Edit item</span>
-        </button>
-        <button
-          mat-menu-item
-          type="button"
-          (click)="deleteItem(item.id)">
-          <mat-icon>delete</mat-icon>
-          <span>Delete item</span>
-        </button>
-      </ng-template>
-    </mat-menu>
+
   </div>
 </div>

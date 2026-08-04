@@ -11,6 +11,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GithubAiService } from '../../services/github-ai.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 interface QuizQuestion {
   id: string;
@@ -41,7 +42,8 @@ interface QuizResult {
     MatRadioModule,
     MatChipsModule,
     MatProgressSpinnerModule,
-    GlobalNavMenuComponent
+    GlobalNavMenuComponent,
+    HomeLogoBtnComponent
   ],
   templateUrl: './remi-world.component.html',
   styleUrl: './remi-world.component.scss'

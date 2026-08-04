@@ -7,6 +7,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -25,7 +26,8 @@ interface TimelineEvent extends CalendarEvent {
     MatButtonModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    GlobalNavMenuComponent
+    GlobalNavMenuComponent,
+    HomeLogoBtnComponent
   ],
   templateUrl: './calendar.component.html',
   styleUrls: ['./calendar.component.scss']

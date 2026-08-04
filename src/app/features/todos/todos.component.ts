@@ -19,6 +19,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { TodoService, TodoItem } from '../../services/todo.service';
 import { MATERIAL_ICONS } from '../../shared/material-icons';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring';
 
@@ -43,7 +44,8 @@ type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft
     MatTooltipModule,
     MatExpansionModule,
     MatMenuModule,
-    GlobalNavMenuComponent
+    GlobalNavMenuComponent,
+    HomeLogoBtnComponent
   ],
   templateUrl: './todos.component.html',
   styleUrls: ['./todos.component.scss']

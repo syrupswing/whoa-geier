@@ -16,6 +16,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { VehicleService, Vehicle, MaintenanceRecord } from '../../services/vehicle.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 @Component({
   selector: 'app-vehicles',
@@ -36,7 +37,8 @@ import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-
     MatBadgeModule,
     MatChipsModule,
     MatExpansionModule,
-    GlobalNavMenuComponent
+    GlobalNavMenuComponent,
+    HomeLogoBtnComponent
   ],
   templateUrl: './vehicles.component.html',
   styleUrls: ['./vehicles.component.scss']

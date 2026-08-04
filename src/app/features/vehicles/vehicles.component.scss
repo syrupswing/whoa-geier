@@ -1,22 +1,6 @@
 .vehicles-container {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px;
-
-  .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-
-    h1 {
-      font-size: 2rem;
-      margin: 0;
-      line-height: 1.2;
-      color: var(--color-text-primary);
-      font-weight: 700;
-    }
-  }
 
   .alerts {
     margin-bottom: 24px;
@@ -201,35 +185,6 @@
     p {
       color: var(--color-text-secondary);
       margin-bottom: 24px;
-    }
-  }
-}
-
-// Mobile Responsive
-@media (max-width: 767px) {
-  .vehicles-container {
-    padding: 16px;
-
-    .header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: 16px;
-
-      h1 {
-        font-size: 1.5rem;
-      }
-
-      button {
-        width: 100%;
-      }
-    }
-
-    .vehicles-grid {
-      grid-template-columns: 1fr;
-    }
-
-    .form-card .form-grid {
-      grid-template-columns: 1fr;
     }
   }
 }

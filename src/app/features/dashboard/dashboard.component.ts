@@ -17,6 +17,7 @@ import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -34,7 +35,7 @@ interface ChatMessage {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, MatProgressSpinnerModule, MatTooltipModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent, HomeLogoBtnComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush

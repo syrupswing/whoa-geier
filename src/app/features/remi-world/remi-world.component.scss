@@ -19,42 +19,19 @@
   text-shadow: none;
 }
 
+/* Page-specific header spacing for remi-world */
 .header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex-wrap: wrap;
-  gap: 12px;
-  text-align: left;
   margin-bottom: 40px;
   padding: 20px;
+}
 
-  h1 {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    font-size: 2rem;
-    margin: 0 0 16px;
-    line-height: 1.2;
-    flex: 1;
-    min-width: 0;
-
-    mat-icon {
-      font-size: 3rem;
-      width: 3rem;
-      height: 3rem;
-      filter: drop-shadow(3px 3px 0px #000);
-    }
-  }
-
-  .subtitle {
-    width: 100%;
-    font-size: 1.4rem;
-    color: #2C2C2C;
-    text-shadow: 2px 2px 0px rgba(255,255,255,0.8);
-    font-weight: bold;
-    margin: 0;
-  }
+.subtitle {
+  width: 100%;
+  font-size: 1.4rem;
+  color: #2C2C2C;
+  text-shadow: 2px 2px 0px rgba(255,255,255,0.8);
+  font-weight: bold;
+  margin: 0;
 }
 
 // Category selection with authentic Minecraft block textures
@@ -571,18 +548,6 @@
 @media (max-width: 768px) {
   .minecraft-title {
     font-size: 1.5rem;
-  }
-
-  .header {
-    gap: 8px;
-
-    h1 {
-      font-size: 1.5rem;
-    }
-
-    .subtitle {
-      font-size: 1.1rem;
-    }
   }
 
   .categories {

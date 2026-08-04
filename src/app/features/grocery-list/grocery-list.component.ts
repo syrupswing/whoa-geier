@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewChecked, inject, ViewChild, ElementRef, ChangeDetectionStrategy, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, AfterViewChecked, inject, ViewChild, ElementRef, ChangeDetectionStrategy, ChangeDetectorRef, effect, Injector } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -21,6 +21,7 @@ import { map, startWith } from 'rxjs/operators';
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 interface AutocompleteItem {
   name: string;
@@ -48,7 +49,8 @@ interface AutocompleteItem {
     MatAutocompleteModule,
     MatMenuModule,
     MatSelectModule,
-    GlobalNavMenuComponent
+    GlobalNavMenuComponent,
+    HomeLogoBtnComponent
   ],
   templateUrl: './grocery-list.component.html',
   styleUrls: ['./grocery-list.component.scss'],
@@ -130,13 +132,23 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
     'Other'
   ];
 
+  private injector = inject(Injector);
+
   constructor(public groceryService: GroceryService) {}
 
   ngOnInit(): void {
     this.loadCustomCategories();
     this.refreshCategoryOptions();
 
-    // Service automatically loads items
+    // Sync locations from item fields whenever items signal changes
+    effect(() => {
+      const items = this.groceryService.items();
+      for (const item of items) {
+        if (item.location && !this.itemLocations.has(item.id)) {
+          this.itemLocations.set(item.id, item.location);
+        }
+      }
+    }, { injector: this.injector });
     
     // Set up autocomplete filtering
     this.filteredItems = this.itemControl.valueChanges.pipe(
@@ -768,7 +780,10 @@ Return ONLY a JSON object mapping each item name to its category. Example format
       const response = await this.githubAi.generateContent(prompt);
       
       if (response.success) {
-        this.itemLocations.set(item.id, response.text.trim());
+        const locationText = response.text.trim();
+        this.itemLocations.set(item.id, locationText);
+        // Persist location to Firestore
+        await this.groceryService.updateItem(item.id, { location: locationText });
         // Show tooltip after location is fetched
         if (tooltip) {
           setTimeout(() => tooltip.show(), 100);
@@ -789,19 +804,11 @@ Return ONLY a JSON object mapping each item name to its category. Example format
   }
 
   async handleItemLocationAction(item: GroceryItem): Promise<void> {
-    const existingLocation = this.itemLocations.get(item.id);
-
-    if (existingLocation) {
-      this.snackBar.open(existingLocation, 'Close', { duration: 3500 });
+    if (this.itemLocations.has(item.id)) {
       return;
     }
 
     await this.getStoreLocation(item);
-
-    const fetchedLocation = this.itemLocations.get(item.id);
-    if (fetchedLocation) {
-      this.snackBar.open(fetchedLocation, 'Close', { duration: 3500 });
-    }
   }
 
   getLocationTooltip(item: GroceryItem): string {
@@ -832,6 +839,11 @@ Return ONLY a JSON object mapping each item name to its category. Example format
     this.editingItemUnit = undefined;
     this.editingItemNotes = undefined;
     this.editingItemCategory = 'Grocery';
+  }
+
+  async clearItemLocation(item: GroceryItem): Promise<void> {
+    this.itemLocations.delete(item.id);
+    await this.groceryService.updateItem(item.id, { location: undefined });
   }
 
   async saveEdit(): Promise<void> {

@@ -383,3 +383,33 @@ button.card-expand-btn.mat-mdc-icon-button {
     background-color: var(--color-background-dark);
   }
 }
+
+/* Global page header — shared across all feature pages */
+.header {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 8px;
+
+  h1 {
+    font-size: 2rem;
+    margin: 0;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+    font-weight: 700;
+    flex: 1;
+  }
+
+  .subtitle {
+    font-size: 1.1rem;
+    margin: 0;
+    color: var(--color-text-secondary);
+  }
+}
+
+@media (max-width: 767px) {
+  .header h1 {
+    font-size: 1.5rem;
+  }
+}
