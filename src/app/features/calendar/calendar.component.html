@@ -33,7 +33,7 @@
 
   <!-- Loading State -->
   <div *ngIf="!calendarService.isInitialized()" class="loading-state">
-    <mat-spinner diameter="50"></mat-spinner>
+    <app-loading-animation [size]="50"></app-loading-animation>
     <p>Initializing Google Calendar...</p>
   </div>
 

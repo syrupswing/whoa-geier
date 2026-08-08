@@ -8,6 +8,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
+import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -24,7 +25,7 @@ interface TimelineEvent extends CalendarEvent {
     MatCardModule,
     MatIconModule,
     MatButtonModule,
-    MatProgressSpinnerModule,
+    LoadingAnimationComponent,
     MatTooltipModule,
     GlobalNavMenuComponent,
     HomeLogoBtnComponent

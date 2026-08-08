@@ -1,0 +1,34 @@
+:host {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.wg-loader {
+  display: block;
+}
+
+@keyframes feather-wave {
+  0%, 100% {
+    opacity: 1;
+  }
+  40%, 60% {
+    opacity: 0.25;
+  }
+}
+
+.feather {
+  animation: feather-wave 1.4s ease-in-out infinite;
+}
+
+.feather-left {
+  animation-delay: 0s;
+}
+
+.feather-center {
+  animation-delay: 0.2s;
+}
+
+.feather-right {
+  animation-delay: 0.4s;
+}

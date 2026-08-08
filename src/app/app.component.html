@@ -1,6 +1,6 @@
 <!-- Loading state -->
 <div *ngIf="authService.isLoading()" style="display: flex; justify-content: center; align-items: center; height: 100vh;">
-  <mat-spinner></mat-spinner>
+  <app-loading-animation [size]="96"></app-loading-animation>
 </div>
 
 <!-- Show login page without chrome when not authenticated -->
@@ -49,7 +49,7 @@
         <div class="message-content">
           <mat-icon class="message-icon">smart_toy</mat-icon>
           <div class="message-text">
-            <mat-spinner diameter="20"></mat-spinner>
+            <app-loading-animation [size]="20"></app-loading-animation>
             Thinking...
           </div>
         </div>

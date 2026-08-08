@@ -13,6 +13,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatTooltip, MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSelectModule } from '@angular/material/select';
 import { FormControl } from '@angular/forms';
@@ -42,7 +43,7 @@ interface AutocompleteItem {
     MatIconModule,
     MatCheckboxModule,
     MatFormFieldModule,
-    MatProgressSpinnerModule,
+    LoadingAnimationComponent,
     MatBadgeModule,
     MatTooltipModule,
     MatSnackBarModule,

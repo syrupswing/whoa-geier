@@ -10,6 +10,7 @@ import { FormsModule } from '@angular/forms';
 import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { AuthService } from './services/auth.service';
+import { LoadingAnimationComponent } from './components/loading-animation/loading-animation.component';
 import { GithubAiService } from './services/github-ai.service';
 import { PushNotificationService } from './services/push-notification.service';
 
@@ -28,6 +29,7 @@ interface ChatMessage {
     MatButtonModule,
     MatIconModule,
     MatTooltipModule,
+    LoadingAnimationComponent,
     MatProgressSpinnerModule,
     MatFormFieldModule,
     MatInputModule,

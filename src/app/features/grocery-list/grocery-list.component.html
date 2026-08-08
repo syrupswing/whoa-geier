@@ -7,7 +7,7 @@
 
   <!-- Loading State -->
   <div *ngIf="groceryService.isLoading()" class="loading-state">
-    <mat-spinner diameter="50"></mat-spinner>
+    <app-loading-animation [size]="50"></app-loading-animation>
     <p>Loading your grocery list...</p>
   </div>
 
@@ -214,7 +214,7 @@
               (click)="isSortingByStore ? toggleStoreSort() : sortByStoreLayout()"
               [disabled]="isSorting"
               matTooltip="{{ isSortingByStore ? 'Revert to chronological' : 'Smart sort' }}">
-              <mat-spinner *ngIf="isSorting" diameter="16"></mat-spinner>
+              <app-loading-animation *ngIf="isSorting" [size]="16"></app-loading-animation>
               <mat-icon *ngIf="!isSorting">{{ isSortingByStore ? 'undo' : 'network_intelligence_update' }}</mat-icon>
             </button>
           </div>
@@ -246,7 +246,7 @@
                   (click)="handleItemLocationAction(item)"
                   [disabled]="isLoadingLocation(item.id)"
                   [matTooltip]="itemLocations.has(item.id) ? 'View store location' : 'Find store location'">
-                  <mat-spinner *ngIf="isLoadingLocation(item.id)" diameter="18"></mat-spinner>
+                  <app-loading-animation *ngIf="isLoadingLocation(item.id)" [size]="18"></app-loading-animation>
                   <mat-icon *ngIf="!isLoadingLocation(item.id)">{{ itemLocations.has(item.id) ? 'place' : 'not_listed_location' }}</mat-icon>
                 </button>
                 <button

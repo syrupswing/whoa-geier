@@ -16,6 +16,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatMenuModule } from '@angular/material/menu';
+import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { TodoService, TodoItem } from '../../services/todo.service';
 import { MATERIAL_ICONS } from '../../shared/material-icons';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
@@ -40,7 +41,7 @@ type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft
     MatSelectModule,
     MatAutocompleteModule,
     MatChipsModule,
-    MatProgressSpinnerModule,
+    LoadingAnimationComponent,
     MatTooltipModule,
     MatExpansionModule,
     MatMenuModule,

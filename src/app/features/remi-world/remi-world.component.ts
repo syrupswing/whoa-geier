@@ -12,6 +12,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GithubAiService } from '../../services/github-ai.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
+import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 
 interface QuizQuestion {
   id: string;
@@ -41,7 +42,7 @@ interface QuizResult {
     MatInputModule,
     MatRadioModule,
     MatChipsModule,
-    MatProgressSpinnerModule,
+    LoadingAnimationComponent,
     GlobalNavMenuComponent,
     HomeLogoBtnComponent
   ],

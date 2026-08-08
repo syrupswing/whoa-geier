@@ -70,7 +70,7 @@
         <button mat-button (click)="toggleAiPrompt()">Cancel</button>
       </div>
 
-      <mat-spinner *ngIf="isGeneratingAi" diameter="40" class="ai-spinner"></mat-spinner>
+      <app-loading-animation *ngIf="isGeneratingAi" [size]="40"></app-loading-animation>
 
       <!-- AI Suggestions Display -->
       <div class="ai-suggestions" *ngIf="aiSuggestions().length > 0">

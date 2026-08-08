@@ -42,7 +42,7 @@
   <div class="quiz-section" *ngIf="selectedCategory()">
     <!-- Loading Spinner -->
     <div class="loading-container" *ngIf="isLoading()">
-      <mat-spinner diameter="60"></mat-spinner>
+      <app-loading-animation [size]="60"></app-loading-animation>
       <p class="loading-text">Generating new question...</p>
     </div>
 

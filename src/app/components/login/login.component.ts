@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDividerModule } from '@angular/material/divider';
 import { AuthService } from '../../services/auth.service';
+import { LoadingAnimationComponent } from '../loading-animation/loading-animation.component';
 
 @Component({
   selector: 'app-login',
@@ -22,7 +23,7 @@ import { AuthService } from '../../services/auth.service';
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatProgressSpinnerModule,
+    LoadingAnimationComponent,
     MatDividerModule
   ],
   templateUrl: './login.component.html',

@@ -47,7 +47,7 @@
           type="submit" 
           class="full-width"
           [disabled]="isLoading()">
-          <mat-spinner *ngIf="isLoading()" diameter="20"></mat-spinner>
+          <app-loading-animation *ngIf="isLoading()" [size]="20"></app-loading-animation>
           <span *ngIf="!isLoading()">
             {{ isSignUp() ? 'Sign Up' : 'Sign In' }}
           </span>

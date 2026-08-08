@@ -100,7 +100,7 @@
 
     <!-- Not yet initialized -->
     <div class="cal-status" *ngIf="!calendarService.isInitialized()">
-      <mat-spinner diameter="28"></mat-spinner>
+      <app-loading-animation [size]="28"></app-loading-animation>
       <p>Initializing calendar…</p>
     </div>
 
@@ -242,7 +242,7 @@
         {{ clothingRecommendation() }}
       </div>
       <div class="clothing-loading" *ngIf="isLoadingClothing()">
-        <mat-spinner diameter="16"></mat-spinner>
+        <app-loading-animation [size]="16"></app-loading-animation>
         <span>Getting clothing suggestion...</span>
       </div>
     </div>

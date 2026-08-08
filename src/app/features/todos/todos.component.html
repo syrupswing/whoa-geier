@@ -7,7 +7,7 @@
 
   <!-- Loading State -->
   <div *ngIf="todoService.isLoading()" class="loading-state">
-    <mat-spinner diameter="40"></mat-spinner>
+    <app-loading-animation [size]="40"></app-loading-animation>
     <p>Loading your to-dos...</p>
   </div>
 
