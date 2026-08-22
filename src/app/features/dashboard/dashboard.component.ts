@@ -17,6 +17,7 @@ import { WeatherService } from '../../services/weather.service';
 import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
+import { RemiScheduleService } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
@@ -90,6 +91,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public todoService: TodoService,
     public firestoreService: FirestoreService,
     public pushNotificationService: PushNotificationService,
+    public remiScheduleService: RemiScheduleService,
     private snackBar: MatSnackBar
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
@@ -116,6 +118,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
         this.readingMinutes.set(total);
       });
     }
+
+    // Load today's briefing for Remi
+    this.remiScheduleService.loadTodayBriefing();
     
     // Set up one-time listener for user interaction to enable audio
     const enableAudio = () => {

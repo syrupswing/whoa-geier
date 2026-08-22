@@ -279,6 +279,129 @@
 }
 
 // Reading Counter Widget
+.remi-briefing-widget {
+  background: linear-gradient(135deg, #2c8a5f 0%, #1b6b46 100%);
+  border: 2px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  padding: 12px 16px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+  color: white;
+  height: fit-content;
+  max-height: 400px;
+  overflow: auto;
+
+  .remi-briefing-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+
+    .remi-briefing-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+        color: #FFD700;
+      }
+
+      h2 {
+        margin: 0;
+        font-size: 1rem;
+        color: white;
+        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+      }
+    }
+
+    .remi-briefing-actions {
+      display: flex;
+      gap: 4px;
+    }
+
+    button[mat-icon-button] {
+      color: white;
+      background: rgba(255, 255, 255, 0.2);
+      transition: all 0.3s ease;
+      width: 32px;
+      height: 32px;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+      }
+
+      &:hover {
+        background: rgba(255, 255, 255, 0.3);
+        transform: scale(1.1);
+      }
+
+      &:disabled {
+        opacity: 0.5;
+      }
+    }
+  }
+
+  .remi-briefing-loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 0;
+    font-size: 0.85rem;
+    opacity: 0.9;
+  }
+
+  .remi-briefing-status {
+    font-weight: 600;
+    font-size: 0.9rem;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 8px;
+  }
+
+  .remi-briefing-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 6px 0;
+    font-size: 0.85rem;
+    line-height: 1.35;
+
+    mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+      color: #FFD700;
+    }
+  }
+
+  .remi-briefing-updated {
+    margin: 8px 0 0;
+    font-size: 0.7rem;
+    opacity: 0.7;
+  }
+
+  .remi-briefing-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px 0;
+    font-size: 0.85rem;
+
+    button[mat-stroked-button] {
+      color: white;
+      border-color: rgba(255, 255, 255, 0.5);
+    }
+  }
+}
+
 .reading-counter-widget {
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   border: 2px solid rgba(255, 255, 255, 0.2);

@@ -1,0 +1,189 @@
+<div class="remi-schedule-container">
+  <div class="header">
+    <app-home-logo-btn></app-home-logo-btn>
+    <h1>Remi's schedule</h1>
+    <app-global-nav-menu></app-global-nav-menu>
+  </div>
+
+  <!-- Recurring schedule settings -->
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Recurring schedule</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="weekday-picker">
+        <button
+          *ngFor="let label of weekdayLabels; let day = index"
+          type="button"
+          class="weekday-chip"
+          [class.selected]="isSchoolDay(day)"
+          (click)="toggleSchoolDay(day)">
+          {{ label }}
+        </button>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>School start time</mat-label>
+          <input matInput type="time" [(ngModel)]="settingsForm.schoolStartTime">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>School end time</mat-label>
+          <input matInput type="time" [(ngModel)]="settingsForm.schoolEndTime">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Calendar iCal URL (optional)</mat-label>
+          <input matInput [(ngModel)]="settingsForm.calendarIcalUrl" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+          <mat-hint>From Google Calendar &rarr; Settings &rarr; that calendar &rarr; "Secret address in iCal format". Used to pull today's activities into the briefing.</mat-hint>
+        </mat-form-field>
+
+        <div class="full-width">
+          <label class="lunch-plan-label">Default lunch plan</label>
+          <mat-radio-group [(ngModel)]="settingsForm.defaultLunchPlan">
+            <mat-radio-button value="hot">Hot lunch at school</mat-radio-button>
+            <mat-radio-button value="pack">Pack a lunch</mat-radio-button>
+          </mat-radio-group>
+        </div>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" [disabled]="isSavingSettings()" (click)="saveSettings()">
+        Save settings
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Exceptions -->
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Schedule exceptions</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">No school, early release, field trips, or a day to pack a lunch instead of the default.</p>
+
+      <div class="exception-list" *ngIf="exceptions().length; else noExceptions">
+        <div class="exception-row" *ngFor="let exception of exceptions()">
+          <div class="exception-info">
+            <strong>{{ exception.date }}</strong>
+            <span *ngIf="exception.noSchool" class="tag">No school</span>
+            <span *ngIf="exception.startTimeOverride || exception.endTimeOverride" class="tag">Early release</span>
+            <span *ngIf="exception.packLunch" class="tag">Pack lunch</span>
+            <span *ngIf="exception.note" class="note">{{ exception.note }}</span>
+          </div>
+          <div class="exception-actions">
+            <button mat-icon-button (click)="editException(exception)" matTooltip="Edit">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <button mat-icon-button (click)="deleteException(exception.date)" matTooltip="Delete">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+      <ng-template #noExceptions>
+        <p class="hint-text">No exceptions added.</p>
+      </ng-template>
+
+      <button mat-stroked-button (click)="openAddException()">
+        <mat-icon>add</mat-icon>
+        Add exception
+      </button>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Add/edit exception form -->
+  <mat-card *ngIf="showAddException()" class="form-card">
+    <mat-card-header>
+      <mat-card-title>Schedule exception</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Date</mat-label>
+          <input matInput type="date" [(ngModel)]="exceptionForm.date">
+        </mat-form-field>
+
+        <div class="full-width checkbox-row">
+          <mat-checkbox [(ngModel)]="exceptionForm.noSchool">No school</mat-checkbox>
+          <mat-checkbox [(ngModel)]="exceptionForm.packLunch">Pack lunch instead of hot lunch</mat-checkbox>
+        </div>
+
+        <mat-form-field appearance="outline" *ngIf="!exceptionForm.noSchool">
+          <mat-label>Start time override</mat-label>
+          <input matInput type="time" [(ngModel)]="exceptionForm.startTimeOverride">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" *ngIf="!exceptionForm.noSchool">
+          <mat-label>End time override</mat-label>
+          <input matInput type="time" [(ngModel)]="exceptionForm.endTimeOverride">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Note</mat-label>
+          <input matInput [(ngModel)]="exceptionForm.note" placeholder="e.g. Field trip to the zoo">
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-button (click)="cancelExceptionForm()">Cancel</button>
+      <button mat-raised-button color="primary" (click)="saveException()">Save</button>
+    </mat-card-actions>
+  </mat-card>
+
+  <!-- Upcoming lunch menu -->
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Upcoming lunch menu</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">
+        The current month's on-site lunch PDF is auto-fetched daily, but MPS's PDF layout can't be reliably
+        auto-mapped to specific days, so enter each day's item manually below (see the auto-fetched text further down for reference).
+      </p>
+
+      <div class="upcoming-day" *ngFor="let day of upcomingDays()">
+        <div class="upcoming-day-label">{{ day.label }}</div>
+
+        <div class="upcoming-day-value" *ngIf="editingLunchDate() !== day.date">
+          <span *ngIf="day.lunch">{{ day.lunch }}</span>
+          <span *ngIf="!day.lunch" class="hint-text">Not entered</span>
+          <span *ngIf="day.source" class="tag small">{{ day.source === 'manual' ? 'manual' : 'auto' }}</span>
+          <button mat-icon-button (click)="startEditLunch(day)" matTooltip="Edit">
+            <mat-icon>edit</mat-icon>
+          </button>
+        </div>
+
+        <div class="upcoming-day-edit" *ngIf="editingLunchDate() === day.date">
+          <mat-form-field appearance="outline">
+            <input matInput [(ngModel)]="lunchEditValue" placeholder="e.g. Chicken Lo Mein or Tofu Lo Mein">
+          </mat-form-field>
+          <button mat-icon-button (click)="saveLunch(day.date)" matTooltip="Save">
+            <mat-icon>check</mat-icon>
+          </button>
+          <button mat-icon-button (click)="cancelEditLunch()" matTooltip="Cancel">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Auto-fetched menu source reference -->
+  <mat-card class="form-card" *ngIf="menuSource()">
+    <mat-card-header>
+      <mat-card-title>This month's auto-fetched menu</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">
+        Fetched {{ menuSource()!.fetchedAt | date:'short' }} from
+        <a [href]="menuSource()!.pdfUrl" target="_blank" rel="noopener">the district's PDF</a>.
+      </p>
+      <button mat-stroked-button (click)="showMenuSource.set(!showMenuSource())">
+        {{ showMenuSource() ? 'Hide' : 'Show' }} extracted text
+      </button>
+      <pre class="menu-source-text" *ngIf="showMenuSource()">{{ menuSource()!.extractedText }}</pre>
+    </mat-card-content>
+  </mat-card>
+</div>

@@ -1,0 +1,156 @@
+.remi-schedule-container {
+  max-width: 900px;
+  margin: 0 auto;
+
+  .form-card {
+    margin-bottom: 24px;
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+
+      .full-width {
+        grid-column: 1 / -1;
+      }
+    }
+
+    mat-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 16px;
+    }
+  }
+
+  .weekday-picker {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+
+    .weekday-chip {
+      padding: 8px 14px;
+      border-radius: 20px;
+      border: 1px solid rgba(0, 0, 0, 0.2);
+      background: transparent;
+      cursor: pointer;
+      font-size: 0.85rem;
+
+      &.selected {
+        background: var(--color-primary, #3D3550);
+        color: white;
+        border-color: transparent;
+      }
+    }
+  }
+
+  .lunch-plan-label {
+    display: block;
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin-bottom: 6px;
+  }
+
+  .checkbox-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .hint-text {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin: 0 0 12px;
+  }
+
+  .exception-list {
+    margin-bottom: 12px;
+
+    .exception-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+      .exception-info {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 0.85rem;
+
+        .note {
+          opacity: 0.7;
+        }
+      }
+
+      .exception-actions {
+        display: flex;
+        gap: 4px;
+      }
+    }
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    background: rgba(61, 53, 80, 0.12);
+    font-size: 0.7rem;
+    font-weight: 600;
+
+    &.small {
+      padding: 1px 6px;
+      font-size: 0.65rem;
+    }
+  }
+
+  .upcoming-day {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+    gap: 12px;
+    flex-wrap: wrap;
+
+    .upcoming-day-label {
+      font-weight: 600;
+      min-width: 110px;
+      font-size: 0.85rem;
+    }
+
+    .upcoming-day-value {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+      flex: 1;
+    }
+
+    .upcoming-day-edit {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      flex: 1;
+
+      mat-form-field {
+        flex: 1;
+      }
+    }
+  }
+
+  .menu-source-text {
+    white-space: pre-wrap;
+    font-size: 0.75rem;
+    background: rgba(0, 0, 0, 0.04);
+    padding: 12px;
+    border-radius: 8px;
+    max-height: 300px;
+    overflow: auto;
+    margin-top: 12px;
+  }
+}

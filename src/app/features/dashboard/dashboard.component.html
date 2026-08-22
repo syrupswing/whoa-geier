@@ -283,6 +283,79 @@
 
   <div class="grid">
 
+    <!-- Today for Remi Widget -->
+    <div class="remi-briefing-widget">
+      <div class="remi-briefing-header">
+        <div class="remi-briefing-title">
+          <mat-icon>wb_sunny</mat-icon>
+          <h2>Today for Remi</h2>
+        </div>
+        <div class="remi-briefing-actions">
+          <button mat-icon-button [routerLink]="'/remi-schedule'" matTooltip="Remi's schedule settings">
+            <mat-icon>settings</mat-icon>
+          </button>
+          <button
+            mat-icon-button
+            (click)="remiScheduleService.regenerateBriefing()"
+            [disabled]="remiScheduleService.isLoadingBriefing() || remiScheduleService.isRegeneratingBriefing()"
+            matTooltip="Refresh briefing">
+            <mat-icon>refresh</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="remi-briefing-loading" *ngIf="remiScheduleService.isLoadingBriefing() || remiScheduleService.isRegeneratingBriefing()">
+        <app-loading-animation [size]="16"></app-loading-animation>
+        <span>{{ remiScheduleService.isRegeneratingBriefing() ? 'Refreshing...' : 'Loading today\'s briefing...' }}</span>
+      </div>
+
+      <ng-container *ngIf="!remiScheduleService.isLoadingBriefing() && !remiScheduleService.isRegeneratingBriefing()">
+        <ng-container *ngIf="remiScheduleService.todayBriefing() as briefing; else noRemiBriefing">
+          <div class="remi-briefing-status" [ngSwitch]="briefing.schoolStatus">
+            <span *ngSwitchCase="'no-school'">No school today{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</span>
+            <span *ngSwitchCase="'early-release'">Early release — starts {{ briefing.startTime }}{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</span>
+            <span *ngSwitchDefault>School starts {{ briefing.startTime }}</span>
+          </div>
+
+          <div class="remi-briefing-row" *ngIf="briefing.clothingIdea">
+            <mat-icon>checkroom</mat-icon>
+            <span>{{ briefing.clothingIdea }}</span>
+          </div>
+
+          <div class="remi-briefing-row" *ngIf="briefing.activities.length">
+            <mat-icon>event</mat-icon>
+            <span *ngIf="briefing.activities.length === 1">
+              {{ briefing.activities[0].title }}{{ briefing.activities[0].time ? ' at ' + briefing.activities[0].time : '' }}
+            </span>
+            <span *ngIf="briefing.activities.length > 1">{{ briefing.activities.length }} activities today</span>
+          </div>
+
+          <div class="remi-briefing-row" *ngIf="briefing.lunchPlan === 'hot'">
+            <mat-icon>restaurant</mat-icon>
+            <span *ngIf="briefing.lunchMenuText">Hot lunch: {{ briefing.lunchMenuText }}</span>
+            <span *ngIf="!briefing.lunchMenuText">Hot lunch — menu not entered yet</span>
+          </div>
+          <div class="remi-briefing-row" *ngIf="briefing.lunchPlan === 'pack' && briefing.packedLunchIdea">
+            <mat-icon>lunch_dining</mat-icon>
+            <span>Pack lunch: {{ briefing.packedLunchIdea }}</span>
+          </div>
+
+          <div class="remi-briefing-row" *ngIf="briefing.breakfastIdea">
+            <mat-icon>free_breakfast</mat-icon>
+            <span>Breakfast idea: {{ briefing.breakfastIdea }}</span>
+          </div>
+
+          <p class="remi-briefing-updated">Updated {{ briefing.generatedAt | date:'shortTime' }}</p>
+        </ng-container>
+        <ng-template #noRemiBriefing>
+          <div class="remi-briefing-empty">
+            <span>No briefing yet for today.</span>
+            <button mat-stroked-button (click)="remiScheduleService.regenerateBriefing()">Generate now</button>
+          </div>
+        </ng-template>
+      </ng-container>
+    </div>
+
     <!-- Reading Counter Widget
     <div class="reading-counter-widget">
       <div class="reading-counter-header">
