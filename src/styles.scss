@@ -1,6 +1,12 @@
 /* Mobile-First Responsive Styles */
 @use '@angular/material' as mat;
 
+/* Forces a style recalc so iOS WKWebView re-reads env(safe-area-inset-top)
+   after an orientation change; see AppComponent.forceSafeAreaRecalc */
+html.force-reflow {
+  padding-bottom: 0.01px;
+}
+
 @include mat.core();
 
 /* Google Fonts */

@@ -85,7 +85,20 @@ export class AppComponent implements OnInit, AfterViewChecked {
     });
     this.pushNotificationService.clearBadge();
 
+    // iOS WKWebView sometimes keeps a stale env(safe-area-inset-top) after a
+    // portrait -> landscape -> portrait rotation, leaving our top inset at 0.
+    // Forcing a reflow once the rotation settles makes it recompute correctly.
+    window.addEventListener('resize', this.forceSafeAreaRecalc);
   }
+
+  private forceSafeAreaRecalc = (): void => {
+    setTimeout(() => {
+      const root = document.documentElement;
+      root.classList.add('force-reflow');
+      void root.offsetHeight;
+      root.classList.remove('force-reflow');
+    }, 100);
+  };
   
   ngAfterViewChecked(): void {
     if (this.shouldScrollChat) {
