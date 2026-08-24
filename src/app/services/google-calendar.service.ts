@@ -383,7 +383,8 @@ export class GoogleCalendarService {
       const calendarList = calListResponse.result.items || [];
       this.calendars.set(calendarList.map((c: any) => ({
         id: c.id,
-        summary: c.summary,
+        // summaryOverride holds the user's own rename of a shared/subscribed calendar.
+        summary: c.summaryOverride || c.summary || c.id,
         backgroundColor: c.backgroundColor,
         foregroundColor: c.foregroundColor,
       })));
