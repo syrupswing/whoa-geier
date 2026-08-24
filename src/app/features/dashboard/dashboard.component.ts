@@ -39,6 +39,7 @@ interface ChatMessage {
 }
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
+const REMI_DAY_SHOWN_KEY = 'remiDayShown';
 
 @Component({
   selector: 'app-dashboard',
@@ -87,7 +88,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private readingUnsubscribe: any = null;
 
   // Remi's Day widget
-  showRemiDay = signal<boolean>(false);
+  showRemiDay = signal<boolean>(localStorage.getItem(REMI_DAY_SHOWN_KEY) === 'true');
 
   notificationPromptDismissed = signal<boolean>(localStorage.getItem(NOTIFICATION_PROMPT_KEY) === 'true');
   
@@ -143,6 +144,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // Capture phase, since scroll events from the timeline container don't bubble.
     window.addEventListener('scroll', this.closePopoverOnScroll, true);
+
+    if (this.showRemiDay()) {
+      void this.ensureBriefingLoaded();
+    }
   }
 
   ngAfterViewInit(): void {
@@ -853,15 +858,20 @@ Try again once you've completed these steps!`;
   async toggleRemiDay(): Promise<void> {
     if (this.showRemiDay()) {
       this.showRemiDay.set(false);
+      localStorage.setItem(REMI_DAY_SHOWN_KEY, 'false');
       return;
     }
 
     this.showRemiDay.set(true);
+    localStorage.setItem(REMI_DAY_SHOWN_KEY, 'true');
+    await this.ensureBriefingLoaded();
+  }
+
+  private async ensureBriefingLoaded(): Promise<void> {
+    if (this.remiScheduleService.todayBriefing()) return;
+    await this.remiScheduleService.loadTodayBriefing();
     if (!this.remiScheduleService.todayBriefing()) {
-      await this.remiScheduleService.loadTodayBriefing();
-      if (!this.remiScheduleService.todayBriefing()) {
-        await this.remiScheduleService.regenerateBriefing();
-      }
+      await this.remiScheduleService.regenerateBriefing();
     }
   }
 
