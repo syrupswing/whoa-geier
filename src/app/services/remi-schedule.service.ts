@@ -38,13 +38,24 @@ export interface RemiBriefingActivity {
   time: string | null;
 }
 
+export interface RemiBriefingWeather {
+  tempF: number;
+  feelsLike: number;
+  conditions: string;
+  description: string;
+  highF?: number;
+  lowF?: number;
+  maxPrecipChance?: number;
+  periods?: { part: string; tempF: number; pop: number; description: string }[];
+}
+
 export interface RemiDailyBriefing {
   date: string;
   schoolStatus: 'school' | 'no-school' | 'early-release';
   scheduleNote: string | null;
   startTime: string | null;
   endTime: string | null;
-  weather: { tempF: number; feelsLike: number; conditions: string; description: string } | null;
+  weather: RemiBriefingWeather | null;
   clothingIdea: string | null;
   activities: RemiBriefingActivity[];
   lunchPlan: 'hot' | 'pack';

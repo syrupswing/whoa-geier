@@ -310,11 +310,61 @@ async function fetchWeatherSnapshot(apiKey) {
     throw new Error(`Weather fetch failed: ${res.status}`);
   }
   const data = await res.json();
-  return {
+  const snapshot = {
     tempF: Math.round(data.main.temp),
     feelsLike: Math.round(data.main.feels_like),
     conditions: data.weather[0].main,
     description: data.weather[0].description
+  };
+
+  try {
+    Object.assign(snapshot, await fetchDayForecast(apiKey));
+  } catch (err) {
+    console.error('fetchWeatherSnapshot forecast error:', err);
+  }
+
+  return snapshot;
+}
+
+/** Summarizes the rest of today from the 3-hour forecast so suggestions can reason ahead. */
+async function fetchDayForecast(apiKey) {
+  const url = `https://api.openweathermap.org/data/2.5/forecast?zip=55410,US&units=imperial&appid=${apiKey}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Forecast fetch failed: ${res.status}`);
+  }
+  const data = await res.json();
+  const today = toDateStr(new Date());
+
+  const slots = (data.list || [])
+    .map(entry => ({
+      date: toDateStr(new Date(entry.dt * 1000)),
+      hour: Number(new Date(entry.dt * 1000).toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: TIME_ZONE })),
+      tempF: Math.round(entry.main.temp),
+      pop: Math.round((entry.pop || 0) * 100),
+      description: entry.weather?.[0]?.description || ''
+    }))
+    .filter(slot => slot.date === today);
+
+  if (slots.length === 0) return {};
+
+  const partOf = (hour) => (hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : 'evening');
+  const periods = {};
+  for (const slot of slots) {
+    const part = partOf(slot.hour);
+    if (!periods[part]) {
+      periods[part] = { part, tempF: slot.tempF, pop: slot.pop, description: slot.description };
+    } else {
+      periods[part].pop = Math.max(periods[part].pop, slot.pop);
+      periods[part].tempF = Math.max(periods[part].tempF, slot.tempF);
+    }
+  }
+
+  return {
+    highF: Math.max(...slots.map(s => s.tempF)),
+    lowF: Math.min(...slots.map(s => s.tempF)),
+    maxPrecipChance: Math.max(...slots.map(s => s.pop)),
+    periods: Object.values(periods)
   };
 }
 
@@ -365,12 +415,22 @@ function avoidClause(previous) {
 }
 
 async function generateClothingIdea(claudeToken, weather, previous) {
+  const forecastLine = (weather.periods || [])
+    .map(p => `${p.part}: ${p.tempF}°F, ${p.description}, ${p.pop}% chance of precipitation`)
+    .join('; ');
+
   return callClaude(
     claudeToken,
-    `Weather today: ${weather.tempF}°F, feels like ${weather.feelsLike}°F, ${weather.description}. ` +
-    `Write ONE short, friendly sentence (max 18 words) telling a parent what a 6-year-old going into 1st grade ` +
-    `should wear to school today, including footwear. Just the sentence, nothing else.${avoidClause(previous)}`,
-    100
+    `You're helping a parent get their 6-year-old son Remi (starting 1st grade) dressed for school.\n\n` +
+    `Right now: ${weather.tempF}°F, feels like ${weather.feelsLike}°F, ${weather.description}.\n` +
+    (weather.highF ? `Today's high ${weather.highF}°F, low ${weather.lowF}°F.\n` : '') +
+    (forecastLine ? `Rest of today — ${forecastLine}.\n` : '') +
+    `\nWrite 2-3 conversational sentences telling the parent what Remi should wear, and reason out loud from ` +
+    `the forecast (mention specific rain chances or times of day when they matter). Lead with whatever the ` +
+    `weather actually calls for — a jacket, rain gear, sun protection — then cover the basics like top, bottom, ` +
+    `and footwear. Mention extras like sunglasses, a hat, or gloves only if the forecast justifies them. ` +
+    `Refer to him as Remi. Warm and casual, like a text from a partner. Just the sentences, nothing else.${avoidClause(previous)}`,
+    300
   );
 }
 
