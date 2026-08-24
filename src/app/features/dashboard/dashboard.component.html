@@ -77,7 +77,7 @@
                 </button>
               </div>
               <div class="remi-day-card-body">
-                <p class="remi-day-muted" *ngIf="briefing.weather">{{ briefing.weather.tempF }}°F, {{ briefing.weather.description }}</p>
+                <p class="remi-day-muted" *ngIf="briefing.weather">{{ formatWeatherSummary(briefing.weather) }}</p>
                 <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'clothing'">
                   <app-loading-animation [size]="14"></app-loading-animation>
                 </div>

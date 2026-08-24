@@ -339,7 +339,7 @@ async function fetchDayForecast(apiKey) {
   const slots = (data.list || [])
     .map(entry => ({
       date: toDateStr(new Date(entry.dt * 1000)),
-      hour: Number(new Date(entry.dt * 1000).toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: TIME_ZONE })),
+      hour: Number(new Date(entry.dt * 1000).toLocaleString('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: TIME_ZONE })),
       tempF: Math.round(entry.main.temp),
       pop: Math.round((entry.pop || 0) * 100),
       description: entry.weather?.[0]?.description || ''
@@ -637,7 +637,7 @@ exports.regenerateBriefing = onCall(
  * calendar — cheap, fast, and lets the dashboard offer a per-card "different idea" refresh.
  */
 exports.regenerateBriefingFacet = onCall(
-  { secrets: ['CLAUDE_API_KEY'], invoker: 'public' },
+  { secrets: ['CLAUDE_API_KEY', 'OPEN_WEATHER_API_KEY'], invoker: 'public' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Sign-in required');
@@ -664,7 +664,20 @@ exports.regenerateBriefingFacet = onCall(
           if (!briefing.weather) {
             throw new HttpsError('failed-precondition', 'No weather data available for this day');
           }
-          updates = { clothingIdea: await generateClothingIdea(token, briefing.weather, briefing.clothingIdea) };
+          // The stored snapshot is from whenever the briefing was built (6 AM for
+          // the scheduled run), so today's outfit advice re-reads the weather.
+          let weather = briefing.weather;
+          if (date === toDateStr(new Date())) {
+            try {
+              weather = await fetchWeatherSnapshot(openWeatherApiKey.value());
+            } catch (err) {
+              console.error('regenerateBriefingFacet weather refresh error:', err);
+            }
+          }
+          updates = {
+            weather,
+            clothingIdea: await generateClothingIdea(token, weather, briefing.clothingIdea)
+          };
           break;
         }
         case 'breakfast': {

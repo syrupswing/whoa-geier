@@ -18,7 +18,7 @@ import { WeatherService } from '../../services/weather.service';
 import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
-import { RemiScheduleService } from '../../services/remi-schedule.service';
+import { RemiScheduleService, RemiBriefingWeather } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
@@ -556,6 +556,18 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const period = hours >= 12 ? 'PM' : 'AM';
     const hour12 = hours % 12 === 0 ? 12 : hours % 12;
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  }
+
+  formatWeatherSummary(weather: RemiBriefingWeather): string {
+    // Older briefings predate the forecast fields and only have a point-in-time temp.
+    const temps = weather.highF != null && weather.lowF != null
+      ? `${weather.highF}° / ${weather.lowF}°`
+      : `${weather.tempF}°F`;
+    const parts = [temps, weather.description];
+    if (weather.maxPrecipChance) {
+      parts.push(`${weather.maxPrecipChance}% chance of rain`);
+    }
+    return parts.join(', ');
   }
 
   getEventColor(event: CalendarEvent): string {
