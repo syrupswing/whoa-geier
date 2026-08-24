@@ -146,10 +146,16 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
     // Sync locations from item fields whenever items signal changes
     effect(() => {
       const items = this.groceryService.items();
+      let changed = false;
       for (const item of items) {
         if (item.location && !this.itemLocations.has(item.id)) {
           this.itemLocations.set(item.id, item.location);
+          changed = true;
         }
+      }
+      // itemLocations is a plain Map, so the view has to be told it changed.
+      if (changed) {
+        this.cdr.markForCheck();
       }
     }, { injector: this.injector });
     
