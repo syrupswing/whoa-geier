@@ -234,7 +234,7 @@
                 <span class="item-name">{{ getItemDisplayText(item) }}</span>
                 <span *ngIf="item.notes" class="item-notes">{{ item.notes }}</span>
                 <span *ngIf="itemLocations.has(item.id)" class="item-location">
-                  <mat-icon>location_on</mat-icon><span>{{ itemLocations.get(item.id) }}</span>
+                  <mat-icon>location_on</mat-icon><span [appTypewriter]="itemLocations.get(item.id)"></span>
                 </span>
               </div>
               <div matListItemMeta class="item-actions">

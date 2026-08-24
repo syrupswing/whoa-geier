@@ -255,8 +255,11 @@ exports.syncLunchMenuSource = onSchedule(
   }
 );
 
+const TIME_ZONE = 'America/Chicago';
+
+/** YYYY-MM-DD in the family's time zone; functions themselves run in UTC. */
 function toDateStr(date) {
-  return date.toISOString().split('T')[0];
+  return date.toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
 }
 
 /**
@@ -284,13 +287,19 @@ async function resolveScheduleForDate(db, dateStr) {
     schoolStatus = 'early-release';
   }
 
+  // calendarIcalUrl is the pre-multi-calendar setting and is still honored.
+  const icalUrls = (settings.calendarIcalUrls || [])
+    .concat(settings.calendarIcalUrl ? [settings.calendarIcalUrl] : [])
+    .map(url => (url || '').trim())
+    .filter(Boolean);
+
   return {
     schoolStatus,
     scheduleNote: exception.note || null,
     startTime: noSchool ? null : (exception.startTimeOverride || defaultStartTime),
     endTime: noSchool ? null : (exception.endTimeOverride || defaultEndTime),
     lunchPlan: exception.packLunch ? 'pack' : defaultLunchPlan,
-    icalUrl: settings.calendarIcalUrl || null
+    icalUrls: Array.from(new Set(icalUrls))
   };
 }
 
@@ -309,27 +318,40 @@ async function fetchWeatherSnapshot(apiKey) {
   };
 }
 
-/** Reads events for a specific date from a calendar's secret iCal URL (no OAuth needed). */
-async function fetchActivitiesForDate(icalUrl, dateStr) {
-  if (!icalUrl) return [];
-  try {
-    const events = await ical.async.fromURL(icalUrl);
-    const activities = [];
-    for (const key of Object.keys(events)) {
-      const ev = events[key];
-      if (ev.type !== 'VEVENT' || !ev.start) continue;
-      if (toDateStr(new Date(ev.start)) !== dateStr) continue;
-      const isAllDay = ev.datetype === 'date';
-      activities.push({
-        title: ev.summary || 'Event',
-        time: isAllDay ? null : new Date(ev.start).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-      });
+/** Reads events for a specific date from each calendar's secret iCal URL (no OAuth needed). */
+async function fetchActivitiesForDate(icalUrls, dateStr) {
+  const urls = (icalUrls || []).filter(Boolean);
+  if (urls.length === 0) return [];
+
+  const perCalendar = await Promise.all(urls.map(async (icalUrl) => {
+    try {
+      const events = await ical.async.fromURL(icalUrl);
+      const activities = [];
+      for (const key of Object.keys(events)) {
+        const ev = events[key];
+        if (ev.type !== 'VEVENT' || !ev.start) continue;
+        const start = new Date(ev.start);
+        const isAllDay = ev.datetype === 'date';
+        // All-day values carry no time zone, so they're compared as the plain UTC date.
+        const eventDateStr = isAllDay ? start.toISOString().split('T')[0] : toDateStr(start);
+        if (eventDateStr !== dateStr) continue;
+        activities.push({
+          start: isAllDay ? null : start.getTime(),
+          title: ev.summary || 'Event',
+          time: isAllDay ? null : start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE })
+        });
+      }
+      return activities;
+    } catch (err) {
+      console.error(`fetchActivitiesForDate error for ${icalUrl}:`, err);
+      return [];
     }
-    return activities;
-  } catch (err) {
-    console.error('fetchActivitiesForDate error:', err);
-    return [];
-  }
+  }));
+
+  return perCalendar
+    .flat()
+    .sort((a, b) => (a.start ?? -1) - (b.start ?? -1))
+    .map(({ start, ...activity }) => activity);
 }
 
 /**
@@ -337,6 +359,48 @@ async function fetchActivitiesForDate(icalUrl, dateStr) {
  * weather, calendar activities, lunch plan/menu, and short AI suggestions
  * for what to wear, what to pack, and what to make for breakfast.
  */
+/** Appends an "avoid repeating" clause when a previous suggestion is provided, so refreshing a single card gets variety. */
+function avoidClause(previous) {
+  return previous ? ` Don't repeat this previous suggestion: "${previous}".` : '';
+}
+
+async function generateClothingIdea(claudeToken, weather, previous) {
+  return callClaude(
+    claudeToken,
+    `Weather today: ${weather.tempF}°F, feels like ${weather.feelsLike}°F, ${weather.description}. ` +
+    `Write ONE short, friendly sentence (max 18 words) telling a parent what a 6-year-old going into 1st grade ` +
+    `should wear to school today, including footwear. Just the sentence, nothing else.${avoidClause(previous)}`,
+    100
+  );
+}
+
+async function generatePackedLunchIdea(claudeToken, previous) {
+  return callClaude(
+    claudeToken,
+    `Suggest ONE simple, kid-friendly packed lunch for a 6-year-old with no dietary restrictions, ` +
+    `for a school lunchbox. Max 20 words, just the idea, nothing else.${avoidClause(previous)}`,
+    100
+  );
+}
+
+async function generateBreakfastIdea(claudeToken, previous) {
+  return callClaude(
+    claudeToken,
+    `Suggest ONE quick, kid-friendly breakfast idea for a 6-year-old before school, no dietary restrictions, ` +
+    `ready in under 10 minutes. Max 18 words, just the idea, nothing else.${avoidClause(previous)}`,
+    100
+  );
+}
+
+async function generateDinnerIdea(claudeToken, previous) {
+  return callClaude(
+    claudeToken,
+    `Suggest ONE simple, kid-friendly dinner idea for a 6-year-old with no dietary restrictions, ` +
+    `easy enough for a busy weeknight. Max 20 words, just the idea, nothing else.${avoidClause(previous)}`,
+    100
+  );
+}
+
 async function buildBriefing(dateStr, claudeToken, weatherKey) {
   const db = admin.firestore();
   const schedule = await resolveScheduleForDate(db, dateStr);
@@ -351,21 +415,16 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
     console.error('buildBriefing weather error:', err);
   }
 
-  const activities = await fetchActivitiesForDate(schedule.icalUrl, dateStr);
+  const activities = await fetchActivitiesForDate(schedule.icalUrls, dateStr);
 
   let clothingIdea = null;
   let packedLunchIdea = null;
   let breakfastIdea = null;
+  let dinnerIdea = null;
 
   if (claudeToken && weather) {
     try {
-      clothingIdea = await callClaude(
-        claudeToken,
-        `Weather today: ${weather.tempF}°F, feels like ${weather.feelsLike}°F, ${weather.description}. ` +
-        `Write ONE short, friendly sentence (max 18 words) telling a parent what a 6-year-old going into 1st grade ` +
-        `should wear to school today, including footwear. Just the sentence, nothing else.`,
-        100
-      );
+      clothingIdea = await generateClothingIdea(claudeToken, weather);
     } catch (err) {
       console.error('buildBriefing clothingIdea error:', err);
     }
@@ -373,12 +432,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken && schedule.lunchPlan === 'pack') {
     try {
-      packedLunchIdea = await callClaude(
-        claudeToken,
-        `Suggest ONE simple, kid-friendly packed lunch for a 6-year-old with no dietary restrictions, ` +
-        `for a school lunchbox. Max 20 words, just the idea, nothing else.`,
-        100
-      );
+      packedLunchIdea = await generatePackedLunchIdea(claudeToken);
     } catch (err) {
       console.error('buildBriefing packedLunchIdea error:', err);
     }
@@ -386,14 +440,17 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken) {
     try {
-      breakfastIdea = await callClaude(
-        claudeToken,
-        `Suggest ONE quick, kid-friendly breakfast idea for a 6-year-old before school, no dietary restrictions, ` +
-        `ready in under 10 minutes. Max 18 words, just the idea, nothing else.`,
-        100
-      );
+      breakfastIdea = await generateBreakfastIdea(claudeToken);
     } catch (err) {
       console.error('buildBriefing breakfastIdea error:', err);
+    }
+  }
+
+  if (claudeToken) {
+    try {
+      dinnerIdea = await generateDinnerIdea(claudeToken);
+    } catch (err) {
+      console.error('buildBriefing dinnerIdea error:', err);
     }
   }
 
@@ -410,11 +467,21 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
     lunchMenuText,
     packedLunchIdea,
     breakfastIdea,
+    dinnerIdea,
     generatedAt: new Date().toISOString()
   };
 
   await db.collection('remi-daily-briefing').doc(dateStr).set(briefing);
   return briefing;
+}
+
+/** "08:00" -> "8:00 AM" */
+function formatTime12h(hhmm) {
+  if (!hhmm) return '';
+  const [hours, minutes] = hhmm.split(':').map(Number);
+  const period = hours >= 12 ? 'PM' : 'AM';
+  const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
 function summarizeBriefingForPush(briefing) {
@@ -423,9 +490,9 @@ function summarizeBriefingForPush(briefing) {
   if (briefing.schoolStatus === 'no-school') {
     parts.push(briefing.scheduleNote ? `No school today — ${briefing.scheduleNote}` : 'No school today');
   } else if (briefing.schoolStatus === 'early-release') {
-    parts.push(`Early release today, starts ${briefing.startTime}`);
+    parts.push(`Early release today, starts ${formatTime12h(briefing.startTime)}`);
   } else {
-    parts.push(`School at ${briefing.startTime}`);
+    parts.push(`School at ${formatTime12h(briefing.startTime)}`);
   }
 
   if (briefing.clothingIdea) parts.push(briefing.clothingIdea);
@@ -459,7 +526,7 @@ exports.dailyRemiBriefing = onSchedule(
     const tokens = tokensSnap.docs.map(doc => doc.data().token).filter(Boolean);
     const messaging = admin.messaging();
 
-    const title = "Remi's Daily Briefing";
+    const title = "Remi's Day";
     const body = summarizeBriefingForPush(briefing);
 
     const results = await Promise.allSettled(
@@ -501,5 +568,71 @@ exports.regenerateBriefing = onCall(
       console.error('regenerateBriefing error:', err);
       throw new HttpsError('internal', err.message || 'Failed to generate briefing');
     }
+  }
+);
+
+/**
+ * Regenerates a single AI-suggested facet of an already-generated briefing
+ * (clothing, breakfast, lunch, or dinner) without recomputing weather/schedule/
+ * calendar — cheap, fast, and lets the dashboard offer a per-card "different idea" refresh.
+ */
+exports.regenerateBriefingFacet = onCall(
+  { secrets: ['CLAUDE_API_KEY'], invoker: 'public' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+
+    const { date, facet } = request.data || {};
+    if (!date || !facet) {
+      throw new HttpsError('invalid-argument', 'date and facet are required');
+    }
+
+    const db = admin.firestore();
+    const docRef = db.collection('remi-daily-briefing').doc(date);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      throw new HttpsError('not-found', 'No briefing exists for this date yet');
+    }
+    const briefing = snap.data();
+    const token = claudeApiKey.value();
+
+    let updates;
+    try {
+      switch (facet) {
+        case 'clothing': {
+          if (!briefing.weather) {
+            throw new HttpsError('failed-precondition', 'No weather data available for this day');
+          }
+          updates = { clothingIdea: await generateClothingIdea(token, briefing.weather, briefing.clothingIdea) };
+          break;
+        }
+        case 'breakfast': {
+          updates = { breakfastIdea: await generateBreakfastIdea(token, briefing.breakfastIdea) };
+          break;
+        }
+        case 'lunch': {
+          if (briefing.lunchPlan !== 'pack') {
+            throw new HttpsError('failed-precondition', 'Today is a hot-lunch day, not a packed lunch');
+          }
+          updates = { packedLunchIdea: await generatePackedLunchIdea(token, briefing.packedLunchIdea) };
+          break;
+        }
+        case 'dinner': {
+          updates = { dinnerIdea: await generateDinnerIdea(token, briefing.dinnerIdea) };
+          break;
+        }
+        default:
+          throw new HttpsError('invalid-argument', `Unknown facet: ${facet}`);
+      }
+    } catch (err) {
+      if (err instanceof HttpsError) throw err;
+      console.error('regenerateBriefingFacet generation error:', err);
+      throw new HttpsError('internal', err.message || 'Failed to regenerate');
+    }
+
+    updates.generatedAt = new Date().toISOString();
+    await docRef.update(updates);
+    return { success: true, ...updates };
   }
 );

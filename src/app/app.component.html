@@ -40,7 +40,8 @@
            [class.ai-message]="!message.isUser">
         <div class="message-content">
           <mat-icon class="message-icon">{{ message.isUser ? 'person' : 'smart_toy' }}</mat-icon>
-          <div class="message-text">{{ message.text }}</div>
+          <div class="message-text" *ngIf="message.isUser">{{ message.text }}</div>
+          <div class="message-text" *ngIf="!message.isUser" [appTypewriter]="message.text"></div>
         </div>
         <div class="message-time">{{ message.timestamp | date:'shortTime' }}</div>
       </div>

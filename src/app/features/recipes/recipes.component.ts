@@ -15,6 +15,7 @@ import { GithubAiService, RecipeSuggestion } from '../../services/github-ai.serv
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
 export interface Recipe {
   id: string;
   name: string;
@@ -45,7 +46,8 @@ export interface Recipe {
     LoadingAnimationComponent,
     MatSnackBarModule,
     HomeLogoBtnComponent,
-    GlobalNavMenuComponent
+    GlobalNavMenuComponent,
+    TypewriterDirective
   ],
   templateUrl: './recipes.component.html',
   styleUrls: ['./recipes.component.scss']

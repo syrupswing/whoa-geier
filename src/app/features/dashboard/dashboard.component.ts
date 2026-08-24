@@ -7,6 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
@@ -20,12 +21,15 @@ import { PushNotificationService } from '../../services/push-notification.servic
 import { RemiScheduleService } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
+import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
   endDate: Date;
   topPosition: number;
   height: number;
+  columnIndex: number;
+  columnCount: number;
 }
 
 interface ChatMessage {
@@ -37,7 +41,7 @@ interface ChatMessage {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent, HomeLogoBtnComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -47,7 +51,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   viewDate = signal<Date>(new Date());
   selectedEvent = signal<TimelineEvent | null>(null);
   popoverAbove = false;
-  showCalendarSelector = false;
+  popoverTop = 0;
   readonly HOUR_PX = 20;
   readonly TOTAL_TIMELINE_HEIGHT = 480; // fixed container height
   readonly allHours = Array.from({ length: 24 }, (_, i) => i);
@@ -79,6 +83,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   showReadingLog = signal<boolean>(false);
   minutesToAdd = signal<number | null>(null);
   private readingUnsubscribe: any = null;
+
+  // Remi's Day widget
+  showRemiDay = signal<boolean>(false);
   
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
@@ -119,9 +126,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       });
     }
 
-    // Load today's briefing for Remi
-    this.remiScheduleService.loadTodayBriefing();
-    
     // Set up one-time listener for user interaction to enable audio
     const enableAudio = () => {
       this.hasUserInteracted = true;
@@ -132,6 +136,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     document.addEventListener('click', enableAudio, { once: true });
     document.addEventListener('keydown', enableAudio, { once: true });
     document.addEventListener('touchstart', enableAudio, { once: true });
+
+    // Capture phase, since scroll events from the timeline container don't bubble.
+    window.addEventListener('scroll', this.closePopoverOnScroll, true);
   }
 
   ngAfterViewInit(): void {
@@ -140,6 +147,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('scroll', this.closePopoverOnScroll, true);
     if (this.timeInterval) {
       clearInterval(this.timeInterval);
     }
@@ -187,7 +195,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   formatViewDate(): string {
     return this.viewDate().toLocaleDateString('en-US', {
-      weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'
+      weekday: 'short', month: 'short', day: 'numeric'
     });
   }
 
@@ -220,7 +228,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return {
       ...event, startDate, endDate,
       topPosition: (startMin / 60) * this.HOUR_PX,
-      height: Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14)
+      height: Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14),
+      columnIndex: 0,
+      columnCount: 1
     };
   }
 
@@ -229,7 +239,50 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getTimedEvents(): TimelineEvent[] {
-    return this.getViewDayEvents().filter(e => !!e.start.dateTime && this.calendarService.isCalendarVisible(e.calendarId || 'primary'));
+    const events = this.getViewDayEvents().filter(e => !!e.start.dateTime && this.calendarService.isCalendarVisible(e.calendarId || 'primary'));
+    return this.assignOverlapColumns(events);
+  }
+
+  /** Splits overlapping events into side-by-side columns so none are hidden. */
+  private assignOverlapColumns(events: TimelineEvent[]): TimelineEvent[] {
+    const sorted = [...events].sort((a, b) => a.topPosition - b.topPosition || b.height - a.height);
+    let cluster: TimelineEvent[] = [];
+    let columnEnds: number[] = [];
+
+    const closeCluster = () => {
+      const count = Math.max(columnEnds.length, 1);
+      cluster.forEach(e => (e.columnCount = count));
+      cluster = [];
+      columnEnds = [];
+    };
+
+    for (const event of sorted) {
+      const start = event.topPosition;
+      const end = start + event.height;
+
+      if (cluster.length && columnEnds.every(colEnd => colEnd <= start)) {
+        closeCluster();
+      }
+
+      let column = columnEnds.findIndex(colEnd => colEnd <= start);
+      if (column === -1) {
+        column = columnEnds.length;
+      }
+      columnEnds[column] = end;
+      event.columnIndex = column;
+      cluster.push(event);
+    }
+    closeCluster();
+
+    return sorted;
+  }
+
+  getEventLayoutStyle(event: TimelineEvent): { [key: string]: string } {
+    const width = 100 / event.columnCount;
+    return {
+      left: `${width * event.columnIndex}%`,
+      width: event.columnCount > 1 ? `calc(${width}% - 2px)` : '100%'
+    };
   }
 
   getVisibleHourRange(): { start: number; end: number } {
@@ -351,7 +404,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       startDate,
       endDate,
       topPosition,
-      height
+      height,
+      columnIndex: 0,
+      columnCount: 1
     };
   }
 
@@ -397,12 +452,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const rect = target.getBoundingClientRect();
     // Flip above if less than 210px below the event
     this.popoverAbove = (window.innerHeight - rect.bottom) < 210;
+    // The popover is position: fixed, so it needs a viewport-relative offset.
+    this.popoverTop = this.popoverAbove ? rect.top - 8 : rect.bottom + 8;
     this.selectedEvent.set(event);
   }
 
   clearSelectedEvent(): void {
     this.selectedEvent.set(null);
   }
+
+  private readonly closePopoverOnScroll = (): void => {
+    if (this.selectedEvent()) {
+      this.clearSelectedEvent();
+    }
+  };
 
   formatHour(hour: number): string {
     if (hour === 0) return '12 AM';
@@ -475,6 +538,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
     
     return `${hours}:${minutes}${ampm}`;
+  }
+
+  /** Formats a stored "HH:mm" schedule time as "8:00 AM". */
+  formatClockTime(time: string | null): string {
+    if (!time) return '';
+    const [hours, minutes] = time.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
   }
 
   getEventColor(event: CalendarEvent): string {
@@ -755,6 +827,21 @@ Try again once you've completed these steps!`;
     if (condition === 'stormy') return 'heavy-rain';
     if (condition === 'rainy') return 'rain';
     return 'none';
+  }
+
+  async toggleRemiDay(): Promise<void> {
+    if (this.showRemiDay()) {
+      this.showRemiDay.set(false);
+      return;
+    }
+
+    this.showRemiDay.set(true);
+    if (!this.remiScheduleService.todayBriefing()) {
+      await this.remiScheduleService.loadTodayBriefing();
+      if (!this.remiScheduleService.todayBriefing()) {
+        await this.remiScheduleService.regenerateBriefing();
+      }
+    }
   }
 
   async generateClothingRecommendation(): Promise<void> {

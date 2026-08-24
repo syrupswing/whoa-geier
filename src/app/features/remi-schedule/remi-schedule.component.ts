@@ -56,7 +56,7 @@ export class RemiScheduleComponent implements OnInit {
     schoolStartTime: '08:00',
     schoolEndTime: '14:30',
     defaultLunchPlan: 'hot',
-    calendarIcalUrl: ''
+    calendarIcalUrls: []
   };
   isSavingSettings = signal(false);
 
@@ -78,12 +78,33 @@ export class RemiScheduleComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     await this.remiScheduleService.loadSettings();
-    this.settingsForm = { ...this.remiScheduleService.settings() };
+    this.settingsForm = {
+      ...this.remiScheduleService.settings(),
+      calendarIcalUrls: [...(this.remiScheduleService.settings().calendarIcalUrls ?? [])]
+    };
 
     await this.loadExceptions();
     await this.loadUpcomingLunchMenu();
 
     this.menuSource.set(await this.remiScheduleService.getLatestLunchMenuSource());
+  }
+
+  trackByIndex(index: number): number {
+    return index;
+  }
+
+  addCalendarUrl(): void {
+    this.settingsForm.calendarIcalUrls = [...(this.settingsForm.calendarIcalUrls ?? []), ''];
+  }
+
+  updateCalendarUrl(index: number, url: string): void {
+    const urls = [...(this.settingsForm.calendarIcalUrls ?? [])];
+    urls[index] = url;
+    this.settingsForm.calendarIcalUrls = urls;
+  }
+
+  removeCalendarUrl(index: number): void {
+    this.settingsForm.calendarIcalUrls = (this.settingsForm.calendarIcalUrls ?? []).filter((_, i) => i !== index);
   }
 
   isSchoolDay(day: number): boolean {
@@ -103,7 +124,15 @@ export class RemiScheduleComponent implements OnInit {
   async saveSettings(): Promise<void> {
     this.isSavingSettings.set(true);
     try {
-      const ok = await this.remiScheduleService.saveSettings(this.settingsForm);
+      const { calendarIcalUrl, ...rest } = this.settingsForm;
+      const settings: RemiScheduleSettings = {
+        ...rest,
+        calendarIcalUrls: (rest.calendarIcalUrls ?? []).map(url => url.trim()).filter(Boolean)
+      };
+      const ok = await this.remiScheduleService.saveSettings(settings);
+      if (ok) {
+        this.settingsForm = { ...settings, calendarIcalUrls: [...settings.calendarIcalUrls!] };
+      }
       this.snackBar.open(ok ? 'Schedule settings saved' : 'Failed to save settings', 'Close', { duration: 3000 });
       if (ok) {
         await this.loadUpcomingLunchMenu();

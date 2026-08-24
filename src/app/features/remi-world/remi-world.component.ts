@@ -13,6 +13,7 @@ import { GithubAiService } from '../../services/github-ai.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
+import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
 
 interface QuizQuestion {
   id: string;
@@ -44,7 +45,8 @@ interface QuizResult {
     MatChipsModule,
     LoadingAnimationComponent,
     GlobalNavMenuComponent,
-    HomeLogoBtnComponent
+    HomeLogoBtnComponent,
+    TypewriterDirective
   ],
   templateUrl: './remi-world.component.html',
   styleUrl: './remi-world.component.scss'

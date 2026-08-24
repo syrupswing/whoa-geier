@@ -82,7 +82,7 @@
           <mat-card *ngFor="let suggestion of aiSuggestions()" class="suggestion-card">
             <mat-card-header>
               <mat-card-title>{{ suggestion.name }}</mat-card-title>
-              <mat-card-subtitle>{{ suggestion.description }}</mat-card-subtitle>
+              <mat-card-subtitle [appTypewriter]="suggestion.description"></mat-card-subtitle>
             </mat-card-header>
             <mat-card-content>
               <div class="recipe-info">

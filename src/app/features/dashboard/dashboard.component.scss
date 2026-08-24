@@ -279,126 +279,195 @@
 }
 
 // Reading Counter Widget
-.remi-briefing-widget {
-  background: linear-gradient(135deg, #2c8a5f 0%, #1b6b46 100%);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 12px;
-  padding: 12px 16px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
-  color: white;
-  height: fit-content;
-  max-height: 400px;
-  overflow: auto;
+.remi-day-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: fit-content;
+  margin: 0 auto;
+  padding: 14px 16px;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+  border-radius: 22px;
+  background: color-mix(in srgb, var(--color-aura-sage) 20%, white);
+  color: var(--color-aura-sage);
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(26, 10, 46, 0.12);
+  transition: transform 0.32s ease,
+    background-color 0.32s ease,
+    color 0.32s ease,
+    border-color 0.32s ease;
 
-  .remi-briefing-header {
+  mat-icon {
+    color: inherit;
+  }
+
+  &:hover,
+  &:active {
+    background: #ffffff;
+    color: var(--color-aura-sage);
+    border-color: transparent;
+  }
+}
+
+.remi-day-section {
+  .remi-day-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 8px;
+    margin-bottom: 12px;
 
-    .remi-briefing-title {
+    .remi-day-title {
       display: flex;
       align-items: center;
       gap: 8px;
 
       mat-icon {
-        font-size: 20px;
-        width: 20px;
-        height: 20px;
-        color: #FFD700;
+        color: var(--color-primary);
       }
 
       h2 {
         margin: 0;
-        font-size: 1rem;
-        color: white;
-        text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.3);
+        font-size: 1.1rem;
+        color: var(--color-text-primary);
       }
     }
 
-    .remi-briefing-actions {
+    .remi-day-actions {
       display: flex;
       gap: 4px;
     }
-
-    button[mat-icon-button] {
-      color: white;
-      background: rgba(255, 255, 255, 0.2);
-      transition: all 0.3s ease;
-      width: 32px;
-      height: 32px;
-
-      mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-      }
-
-      &:hover {
-        background: rgba(255, 255, 255, 0.3);
-        transform: scale(1.1);
-      }
-
-      &:disabled {
-        opacity: 0.5;
-      }
-    }
   }
 
-  .remi-briefing-loading {
+  .remi-day-loading {
     display: flex;
     align-items: center;
     gap: 8px;
     padding: 12px 0;
     font-size: 0.85rem;
-    opacity: 0.9;
+    color: var(--color-text-secondary);
   }
 
-  .remi-briefing-status {
-    font-weight: 600;
-    font-size: 0.9rem;
-    margin-bottom: 8px;
-    padding: 6px 10px;
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 8px;
-  }
-
-  .remi-briefing-row {
+  .remi-day-grid {
     display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    padding: 6px 0;
-    font-size: 0.85rem;
-    line-height: 1.35;
+    flex-direction: column;
+  }
 
-    mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+  .remi-day-card {
+    padding: 14px 0;
+    display: grid;
+    gap: 8px;
+    align-content: start;
+
+    & + .remi-day-card {
+      border-top: 1px solid rgba(0, 0, 0, 0.08);
+    }
+
+    .remi-day-card-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+
+      h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        flex: 1;
+      }
+
+      .remi-day-refresh {
+        width: 32px;
+        height: 32px;
+        color: var(--color-text-secondary);
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+        }
+
+        &:disabled {
+          opacity: 0.4;
+        }
+      }
+    }
+
+    .remi-day-card-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
       flex-shrink: 0;
-      margin-top: 1px;
-      color: #FFD700;
+      color: #fff;
+      background: var(--color-primary);
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: #fff;
+      }
+    }
+
+    &.schedule .remi-day-card-icon { background: var(--color-electric-cobalt); }
+    &.outfit .remi-day-card-icon { background: var(--color-glacial-blue); }
+    &.breakfast .remi-day-card-icon { background: var(--color-dusk-rose); }
+    &.lunch .remi-day-card-icon { background: var(--color-aura-sage); }
+    &.dinner .remi-day-card-icon { background: var(--color-iris-bloom); }
+
+    .remi-day-card-body {
+      font-size: 0.85rem;
+      line-height: 1.4;
+      color: var(--color-text-primary);
+
+      p {
+        margin: 0 0 4px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      .remi-day-muted {
+        color: var(--color-text-secondary);
+        font-size: 0.78rem;
+      }
+
+      .remi-day-activity-list {
+        margin: 4px 0 0;
+        padding-left: 18px;
+
+        li {
+          margin-bottom: 2px;
+        }
+      }
+    }
+
+    .remi-day-card-loading {
+      display: flex;
+      align-items: center;
+      padding: 4px 0;
     }
   }
 
-  .remi-briefing-updated {
-    margin: 8px 0 0;
+  .remi-day-updated {
+    margin: 10px 0 0;
     font-size: 0.7rem;
-    opacity: 0.7;
+    color: var(--color-text-secondary);
   }
 
-  .remi-briefing-empty {
+  .remi-day-empty {
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
     padding: 8px 0;
     font-size: 0.85rem;
-
-    button[mat-stroked-button] {
-      color: white;
-      border-color: rgba(255, 255, 255, 0.5);
-    }
   }
 }
 
@@ -2079,77 +2148,56 @@
   color: var(--color-text-primary);
 }
 
-.cal-selector {
-  border-bottom: 1px solid rgba(61, 53, 80, 0.07);
-  background: rgba(61, 53, 80, 0.02);
-}
-
-.cal-selector-toggle {
-  width: 100%;
+.cal-nav-actions {
   display: flex;
   align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 8px 12px;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 0.88rem;
-  font-weight: 500;
-  color: var(--color-text-primary);
-
-  mat-icon {
-    font-size: 18px;
-    width: 18px;
-    height: 18px;
-  }
-
-  &:hover {
-    background: rgba(61, 53, 80, 0.08);
-  }
 }
 
-.cal-selector-list {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 6px 8px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-.cal-selector-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
-  cursor: pointer;
-  border-radius: 4px;
-  user-select: none;
-
-  &:hover {
-    background: rgba(61, 53, 80, 0.08);
+// Menu content is rendered in an overlay, outside this component's view encapsulation.
+::ng-deep .cal-selector-menu {
+  .mat-mdc-menu-content {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 6px 8px;
+    max-height: 260px;
+    overflow-y: auto;
   }
 
-  input[type='checkbox'] {
+  .cal-selector-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
     cursor: pointer;
-    width: 16px;
-    height: 16px;
+    border-radius: 4px;
+    user-select: none;
+
+    &:hover {
+      background: rgba(61, 53, 80, 0.08);
+    }
+
+    input[type='checkbox'] {
+      cursor: pointer;
+      width: 16px;
+      height: 16px;
+    }
   }
-}
 
-.cal-selector-color {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border-radius: 2px;
-  flex-shrink: 0;
-}
+  .cal-selector-color {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
 
-.cal-selector-name {
-  font-size: 0.85rem;
-  color: var(--color-text-primary);
-  flex: 1;
+  .cal-selector-name {
+    font-size: 0.85rem;
+    color: var(--color-text-primary);
+    flex: 1;
+    white-space: nowrap;
+  }
 }
 
 .cal-allday {
@@ -2292,7 +2340,7 @@
 .cal-event-block {
   position: absolute;
   left: 0;
-  right: 0;
+  width: 100%;
   border-radius: 5px;
   padding: 1px 5px;
   overflow: visible; // Allow popover to escape
@@ -2395,7 +2443,12 @@
       top: -3px;
     }
   }
-}.cal-playhead-dot {
+
+  .cal-playhead-time {
+    left: 50%;
+  }
+}
+.cal-playhead-dot {
   position: absolute;
   left: 43px;
   top: -5px;
@@ -2415,6 +2468,23 @@
   border-radius: 1px;
 }
 
+.cal-playhead-time {
+  position: absolute;
+  // Centers on the line, which starts after the 51px hour gutter.
+  left: calc(51px + (100% - 51px) / 2);
+  top: 1px;
+  transform: translate(-50%, -50%);
+  padding: 1px 6px;
+  background: #fff;
+  border: 1px solid var(--color-dusk-rose);
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
 // ====== Event Popover ======
 
 .cal-popover-backdrop {
@@ -2425,12 +2495,11 @@
 }
 
 .cal-popover {
-  position: absolute;
+  position: fixed;
   left: 50%;
-  top: calc(100% + 8px);
   transform: translateX(-50%);
   z-index: 201;
-  width: 270px;
+  width: min(270px, calc(100vw - 32px));
   background: #fff;
   border-radius: 16px;
   box-shadow: 0 10px 36px rgba(26, 10, 46, 0.2);
@@ -2440,14 +2509,13 @@
   pointer-events: auto;
 
   &--above {
-    top: auto;
-    bottom: calc(100% + 8px);
+    transform: translate(-50%, -100%);
   }
 }
 
 @keyframes calPopoverIn {
-  from { opacity: 0; transform: translateX(-50%) scale(0.95); }
-  to   { opacity: 1; transform: translateX(-50%) scale(1); }
+  from { opacity: 0; }
+  to   { opacity: 1; }
 }
 
 .cal-popover-swatch {

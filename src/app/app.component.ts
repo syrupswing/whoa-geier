@@ -13,6 +13,7 @@ import { AuthService } from './services/auth.service';
 import { LoadingAnimationComponent } from './components/loading-animation/loading-animation.component';
 import { GithubAiService } from './services/github-ai.service';
 import { PushNotificationService } from './services/push-notification.service';
+import { TypewriterDirective } from './shared/typewriter/typewriter.directive';
 
 interface ChatMessage {
   text: string;
@@ -33,7 +34,8 @@ interface ChatMessage {
     MatProgressSpinnerModule,
     MatFormFieldModule,
     MatInputModule,
-    FormsModule
+    FormsModule,
+    TypewriterDirective
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],

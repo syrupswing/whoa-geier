@@ -64,9 +64,9 @@
         </div>
         
         <div class="question-content">
-          <p class="question-text">{{ currentQuestion()?.question }}</p>
+          <p class="question-text" [appTypewriter]="currentQuestion()?.question"></p>
           <p class="hint" *ngIf="currentQuestion()?.hint">
-            💡 Hint: {{ currentQuestion()?.hint }}
+            💡 Hint: <span [appTypewriter]="currentQuestion()?.hint"></span>
           </p>
         </div>
 

@@ -33,11 +33,30 @@
           <input matInput type="time" [(ngModel)]="settingsForm.schoolEndTime">
         </mat-form-field>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Calendar iCal URL (optional)</mat-label>
-          <input matInput [(ngModel)]="settingsForm.calendarIcalUrl" placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
-          <mat-hint>From Google Calendar &rarr; Settings &rarr; that calendar &rarr; "Secret address in iCal format". Used to pull today's activities into the briefing.</mat-hint>
-        </mat-form-field>
+        <div class="full-width ical-url-list">
+          <label class="lunch-plan-label">Calendar iCal URLs (optional)</label>
+          <p class="hint-text">From Google Calendar &rarr; Settings &rarr; that calendar &rarr; "Secret address in iCal format". Events from every calendar listed here are pulled into the briefing.</p>
+
+          <div class="ical-url-row" *ngFor="let url of settingsForm.calendarIcalUrls; let i = index; trackBy: trackByIndex">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Calendar {{ i + 1 }}</mat-label>
+              <input
+                matInput
+                [ngModel]="settingsForm.calendarIcalUrls![i]"
+                (ngModelChange)="updateCalendarUrl(i, $event)"
+                [name]="'calendarIcalUrl' + i"
+                placeholder="https://calendar.google.com/calendar/ical/.../basic.ics">
+            </mat-form-field>
+            <button mat-icon-button type="button" (click)="removeCalendarUrl(i)" matTooltip="Remove calendar">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+
+          <button mat-stroked-button type="button" (click)="addCalendarUrl()">
+            <mat-icon>add</mat-icon>
+            Add calendar
+          </button>
+        </div>
 
         <div class="full-width">
           <label class="lunch-plan-label">Default lunch plan</label>

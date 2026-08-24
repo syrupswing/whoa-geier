@@ -7,6 +7,8 @@ export interface RemiScheduleSettings {
   schoolStartTime: string; // "HH:mm"
   schoolEndTime: string; // "HH:mm"
   defaultLunchPlan: 'hot' | 'pack';
+  calendarIcalUrls?: string[];
+  /** @deprecated superseded by calendarIcalUrls; still read for older saved settings. */
   calendarIcalUrl?: string;
 }
 
@@ -49,8 +51,11 @@ export interface RemiDailyBriefing {
   lunchMenuText: string | null;
   packedLunchIdea: string | null;
   breakfastIdea: string | null;
+  dinnerIdea: string | null;
   generatedAt: string;
 }
+
+export type RemiBriefingFacet = 'clothing' | 'breakfast' | 'lunch' | 'dinner';
 
 const SETTINGS_COLLECTION = 'remi-schedule';
 const SETTINGS_DOC_ID = 'settings';
@@ -63,7 +68,8 @@ const DEFAULT_SETTINGS: RemiScheduleSettings = {
   schoolDays: [1, 2, 3, 4, 5],
   schoolStartTime: '08:00',
   schoolEndTime: '14:30',
-  defaultLunchPlan: 'hot'
+  defaultLunchPlan: 'hot',
+  calendarIcalUrls: []
 };
 
 @Injectable({
@@ -76,11 +82,20 @@ export class RemiScheduleService {
   todayBriefing = signal<RemiDailyBriefing | null>(null);
   isLoadingBriefing = signal<boolean>(false);
   isRegeneratingBriefing = signal<boolean>(false);
+  regeneratingFacet = signal<RemiBriefingFacet | null>(null);
   error = signal<string | null>(null);
 
   async loadSettings(): Promise<void> {
     const settings = await this.firestoreService.getDocument<RemiScheduleSettings>(SETTINGS_COLLECTION, SETTINGS_DOC_ID);
-    this.settings.set(settings ? { ...DEFAULT_SETTINGS, ...settings } : DEFAULT_SETTINGS);
+    if (!settings) {
+      this.settings.set(DEFAULT_SETTINGS);
+      return;
+    }
+    const merged = { ...DEFAULT_SETTINGS, ...settings };
+    if (!merged.calendarIcalUrls?.length && merged.calendarIcalUrl) {
+      merged.calendarIcalUrls = [merged.calendarIcalUrl];
+    }
+    this.settings.set(merged);
   }
 
   async saveSettings(settings: RemiScheduleSettings): Promise<boolean> {
@@ -164,7 +179,30 @@ export class RemiScheduleService {
     }
   }
 
+  async regenerateFacet(facet: RemiBriefingFacet): Promise<void> {
+    this.regeneratingFacet.set(facet);
+    this.error.set(null);
+    try {
+      const functions = getFunctions();
+      const regenerate = httpsCallable(functions, 'regenerateBriefingFacet');
+      const result: any = await regenerate({ date: this.todayDateStr(), facet });
+      const current = this.todayBriefing();
+      if (result.data?.success && current) {
+        const { success, ...fields } = result.data;
+        this.todayBriefing.set({ ...current, ...fields });
+      } else if (!result.data?.success) {
+        this.error.set('Failed to regenerate');
+      }
+    } catch (err: any) {
+      console.error('regenerateFacet error:', err);
+      this.error.set(err.message || 'Failed to regenerate');
+    } finally {
+      this.regeneratingFacet.set(null);
+    }
+  }
+
   private todayDateStr(): string {
-    return new Date().toISOString().split('T')[0];
+    // Must match the functions' America/Chicago date key, not the UTC one.
+    return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
   }
 }

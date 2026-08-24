@@ -23,6 +23,7 @@ import { GroceryService, GroceryItem } from '../../services/grocery.service';
 import { GithubAiService } from '../../services/github-ai.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
+import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
 
 interface AutocompleteItem {
   name: string;
@@ -51,7 +52,8 @@ interface AutocompleteItem {
     MatMenuModule,
     MatSelectModule,
     GlobalNavMenuComponent,
-    HomeLogoBtnComponent
+    HomeLogoBtnComponent,
+    TypewriterDirective
   ],
   templateUrl: './grocery-list.component.html',
   styleUrls: ['./grocery-list.component.scss'],

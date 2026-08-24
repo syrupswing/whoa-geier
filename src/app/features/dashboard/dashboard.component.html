@@ -7,6 +7,168 @@
       <app-global-nav-menu></app-global-nav-menu>
     </div>
 
+    <!-- Remi's Day -->
+    <button
+      *ngIf="!showRemiDay()"
+      type="button"
+      class="remi-day-trigger"
+      (click)="toggleRemiDay()">
+      <mat-icon>auto_awesome</mat-icon>
+      Remi's day
+    </button>
+
+    <div class="remi-day-section" *ngIf="showRemiDay()">
+      <div class="remi-day-header">
+        <div class="remi-day-title">
+          <mat-icon>wb_sunny</mat-icon>
+          <h2>Remi's day</h2>
+        </div>
+        <div class="remi-day-actions">
+          <button mat-icon-button [routerLink]="'/remi-schedule'" matTooltip="Remi's schedule settings">
+            <mat-icon>settings</mat-icon>
+          </button>
+          <button mat-icon-button (click)="toggleRemiDay()" matTooltip="Hide">
+            <mat-icon>close</mat-icon>
+          </button>
+        </div>
+      </div>
+
+      <div class="remi-day-loading" *ngIf="remiScheduleService.isLoadingBriefing() || remiScheduleService.isRegeneratingBriefing()">
+        <app-loading-animation [size]="16"></app-loading-animation>
+        <span>{{ remiScheduleService.isRegeneratingBriefing() ? 'Generating...' : 'Loading...' }}</span>
+      </div>
+
+      <ng-container *ngIf="!remiScheduleService.isLoadingBriefing() && !remiScheduleService.isRegeneratingBriefing()">
+        <ng-container *ngIf="remiScheduleService.todayBriefing() as briefing; else noRemiBriefing">
+          <div class="remi-day-grid">
+
+            <!-- Schedule / activities card -->
+            <div class="remi-day-card schedule">
+              <div class="remi-day-card-header">
+                <div class="remi-day-card-icon"><mat-icon>event</mat-icon></div>
+                <h3>Schedule</h3>
+              </div>
+              <div class="remi-day-card-body" [ngSwitch]="briefing.schoolStatus">
+                <p *ngSwitchCase="'no-school'">No school today{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</p>
+                <p *ngSwitchCase="'early-release'">Early release — starts {{ formatClockTime(briefing.startTime) }}{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</p>
+                <p *ngSwitchDefault>School {{ formatClockTime(briefing.startTime) }}–{{ formatClockTime(briefing.endTime) }}</p>
+
+                <ul class="remi-day-activity-list" *ngIf="briefing.activities.length">
+                  <li *ngFor="let activity of briefing.activities">
+                    {{ activity.title }}{{ activity.time ? ' at ' + activity.time : '' }}
+                  </li>
+                </ul>
+                <p class="remi-day-muted" *ngIf="!briefing.activities.length">No other activities today.</p>
+              </div>
+            </div>
+
+            <!-- Outfit & accessories card -->
+            <div class="remi-day-card outfit">
+              <div class="remi-day-card-header">
+                <div class="remi-day-card-icon"><mat-icon>checkroom</mat-icon></div>
+                <h3>Outfit &amp; accessories</h3>
+                <button
+                  mat-icon-button
+                  class="remi-day-refresh"
+                  (click)="remiScheduleService.regenerateFacet('clothing')"
+                  [disabled]="remiScheduleService.regeneratingFacet() === 'clothing'"
+                  matTooltip="Different suggestion">
+                  <mat-icon>refresh</mat-icon>
+                </button>
+              </div>
+              <div class="remi-day-card-body">
+                <p class="remi-day-muted" *ngIf="briefing.weather">{{ briefing.weather.tempF }}°F, {{ briefing.weather.description }}</p>
+                <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'clothing'">
+                  <app-loading-animation [size]="14"></app-loading-animation>
+                </div>
+                <p *ngIf="remiScheduleService.regeneratingFacet() !== 'clothing'" [appTypewriter]="briefing.clothingIdea || 'No suggestion yet.'"></p>
+              </div>
+            </div>
+
+            <!-- Breakfast card -->
+            <div class="remi-day-card breakfast">
+              <div class="remi-day-card-header">
+                <div class="remi-day-card-icon"><mat-icon>free_breakfast</mat-icon></div>
+                <h3>Breakfast</h3>
+                <button
+                  mat-icon-button
+                  class="remi-day-refresh"
+                  (click)="remiScheduleService.regenerateFacet('breakfast')"
+                  [disabled]="remiScheduleService.regeneratingFacet() === 'breakfast'"
+                  matTooltip="Different idea">
+                  <mat-icon>refresh</mat-icon>
+                </button>
+              </div>
+              <div class="remi-day-card-body">
+                <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'breakfast'">
+                  <app-loading-animation [size]="14"></app-loading-animation>
+                </div>
+                <p *ngIf="remiScheduleService.regeneratingFacet() !== 'breakfast'" [appTypewriter]="briefing.breakfastIdea || 'No idea yet.'"></p>
+              </div>
+            </div>
+
+            <!-- Lunch card -->
+            <div class="remi-day-card lunch">
+              <div class="remi-day-card-header">
+                <div class="remi-day-card-icon"><mat-icon>lunch_dining</mat-icon></div>
+                <h3>Lunch</h3>
+                <button
+                  *ngIf="briefing.lunchPlan === 'pack'"
+                  mat-icon-button
+                  class="remi-day-refresh"
+                  (click)="remiScheduleService.regenerateFacet('lunch')"
+                  [disabled]="remiScheduleService.regeneratingFacet() === 'lunch'"
+                  matTooltip="Different idea">
+                  <mat-icon>refresh</mat-icon>
+                </button>
+              </div>
+              <div class="remi-day-card-body">
+                <ng-container *ngIf="briefing.lunchPlan === 'hot'; else packLunch">
+                  <p>{{ briefing.lunchMenuText || 'Hot lunch — menu not entered yet' }}</p>
+                </ng-container>
+                <ng-template #packLunch>
+                  <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'lunch'">
+                    <app-loading-animation [size]="14"></app-loading-animation>
+                  </div>
+                  <p *ngIf="remiScheduleService.regeneratingFacet() !== 'lunch'" [appTypewriter]="briefing.packedLunchIdea || 'No idea yet.'"></p>
+                </ng-template>
+              </div>
+            </div>
+
+            <!-- Dinner card -->
+            <div class="remi-day-card dinner">
+              <div class="remi-day-card-header">
+                <div class="remi-day-card-icon"><mat-icon>dinner_dining</mat-icon></div>
+                <h3>Dinner</h3>
+                <button
+                  mat-icon-button
+                  class="remi-day-refresh"
+                  (click)="remiScheduleService.regenerateFacet('dinner')"
+                  [disabled]="remiScheduleService.regeneratingFacet() === 'dinner'"
+                  matTooltip="Different idea">
+                  <mat-icon>refresh</mat-icon>
+                </button>
+              </div>
+              <div class="remi-day-card-body">
+                <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'dinner'">
+                  <app-loading-animation [size]="14"></app-loading-animation>
+                </div>
+                <p *ngIf="remiScheduleService.regeneratingFacet() !== 'dinner'" [appTypewriter]="briefing.dinnerIdea || 'No idea yet.'"></p>
+              </div>
+            </div>
+
+          </div>
+          <p class="remi-day-updated">Updated {{ briefing.generatedAt | date:'shortTime' }}</p>
+        </ng-container>
+        <ng-template #noRemiBriefing>
+          <div class="remi-day-empty">
+            <span>Couldn't generate today's briefing.</span>
+            <button mat-stroked-button (click)="remiScheduleService.regenerateBriefing()">Try again</button>
+          </div>
+        </ng-template>
+      </ng-container>
+    </div>
+
     <div class="dashboard-summary-grid">
       <a class="summary-card summary-link" [routerLink]="'/grocery-list'" aria-label="Open shopping list">
         <div class="summary-icon event">
@@ -18,7 +180,7 @@
 
       <a class="summary-card summary-link" [routerLink]="'/todos'" aria-label="Open to-do list">
         <div class="summary-icon todo">
-          <mat-icon>auto_awesome</mat-icon>
+          <mat-icon>checklist</mat-icon>
         </div>
         <p class="summary-kicker">To-do list</p>
         <p class="summary-main">View to-do list</p>
@@ -45,28 +207,31 @@
         <span class="cal-today-badge cal-today-badge--today" *ngIf="isViewingToday">Today</span>
         <span class="cal-date-text">{{ formatViewDate() }}</span>
       </div>
-      <button mat-icon-button (click)="nextDay()" aria-label="Next day">
-        <mat-icon>chevron_right</mat-icon>
-      </button>
-    </div>
-
-    <!-- Calendar selector -->
-    <div class="cal-selector" *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0">
-      <button class="cal-selector-toggle" (click)="showCalendarSelector = !showCalendarSelector">
-        <mat-icon>{{ showCalendarSelector ? 'expand_less' : 'expand_more' }}</mat-icon>
-        <span>Calendars</span>
-      </button>
-      <div class="cal-selector-list" *ngIf="showCalendarSelector">
-        <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars()">
-          <input
-            type="checkbox"
-            [checked]="calendarService.isCalendarVisible(cal.id)"
-            (change)="toggleCalendarVisibility(cal.id, $event)">
-          <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
-          <span class="cal-selector-name">{{ cal.summary }}</span>
-        </label>
+      <div class="cal-nav-actions">
+        <button
+          mat-icon-button
+          *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0"
+          [matMenuTriggerFor]="calendarMenu"
+          matTooltip="Choose calendars"
+          aria-label="Choose calendars">
+          <mat-icon>settings</mat-icon>
+        </button>
+        <button mat-icon-button (click)="nextDay()" aria-label="Next day">
+          <mat-icon>chevron_right</mat-icon>
+        </button>
       </div>
     </div>
+
+    <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
+      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars()" (click)="$event.stopPropagation()">
+        <input
+          type="checkbox"
+          [checked]="calendarService.isCalendarVisible(cal.id)"
+          (change)="toggleCalendarVisibility(cal.id, $event)">
+        <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
+        <span class="cal-selector-name">{{ cal.summary }}</span>
+      </label>
+    </mat-menu>
 
     <!-- All-day events band -->
     <div class="cal-allday" *ngIf="getAllDayEvents().length > 0">
@@ -84,6 +249,7 @@
             class="cal-popover"
             *ngIf="selectedEvent()?.id === event.id"
             [class.cal-popover--above]="popoverAbove"
+            [style.top.px]="popoverTop"
             (click)="$event.stopPropagation()">
             <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(event)"></div>
             <div class="cal-popover-body">
@@ -115,9 +281,13 @@
     <div class="cal-timeline-scroll" *ngIf="calendarService.isSignedIn()" (click)="clearSelectedEvent()"
       [style.height.px]="TOTAL_TIMELINE_HEIGHT">
       <!-- Out-of-view playhead: dashed line at top edge -->
-      <div class="cal-playhead-edge cal-playhead-edge--top" *ngIf="isViewingToday && playheadEdge() === 'above'"></div>
+      <div class="cal-playhead-edge cal-playhead-edge--top" *ngIf="isViewingToday && playheadEdge() === 'above'">
+        <span class="cal-playhead-time">{{ formatTime(currentTime()) }}</span>
+      </div>
       <!-- Out-of-view playhead: dashed line at bottom edge -->
-      <div class="cal-playhead-edge cal-playhead-edge--bottom" *ngIf="isViewingToday && playheadEdge() === 'below'"></div>
+      <div class="cal-playhead-edge cal-playhead-edge--bottom" *ngIf="isViewingToday && playheadEdge() === 'below'">
+        <span class="cal-playhead-time">{{ formatTime(currentTime()) }}</span>
+      </div>
       <div class="cal-timeline-inner" [style.--cal-hour-px]="effectiveHourPx + 'px'"
         [style.marginTop.px]="-getVisibleHourRange().start * effectiveHourPx">
 
@@ -134,6 +304,7 @@
             [style.top.px]="event.topPosition * scaleFactor"
             [style.height.px]="event.height * scaleFactor"
             [style.backgroundColor]="getEventColor(event)"
+            [ngStyle]="getEventLayoutStyle(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
             (click)="selectEvent(event, $event)">
             <span class="cal-event-title">{{ event.summary }}</span>
@@ -141,6 +312,7 @@
               class="cal-popover"
               *ngIf="selectedEvent()?.id === event.id"
               [class.cal-popover--above]="popoverAbove"
+              [style.top.px]="popoverTop"
               (click)="$event.stopPropagation()">
               <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(event)"></div>
               <div class="cal-popover-body">
@@ -167,6 +339,7 @@
           [style.top.px]="getCurrentTimePosition() * scaleFactor">
           <span class="cal-playhead-dot"></span>
           <div class="cal-playhead-line"></div>
+          <span class="cal-playhead-time">{{ formatTime(currentTime()) }}</span>
         </div>
 
       </div>
@@ -282,79 +455,6 @@
   </div>
 
   <div class="grid">
-
-    <!-- Today for Remi Widget -->
-    <div class="remi-briefing-widget">
-      <div class="remi-briefing-header">
-        <div class="remi-briefing-title">
-          <mat-icon>wb_sunny</mat-icon>
-          <h2>Today for Remi</h2>
-        </div>
-        <div class="remi-briefing-actions">
-          <button mat-icon-button [routerLink]="'/remi-schedule'" matTooltip="Remi's schedule settings">
-            <mat-icon>settings</mat-icon>
-          </button>
-          <button
-            mat-icon-button
-            (click)="remiScheduleService.regenerateBriefing()"
-            [disabled]="remiScheduleService.isLoadingBriefing() || remiScheduleService.isRegeneratingBriefing()"
-            matTooltip="Refresh briefing">
-            <mat-icon>refresh</mat-icon>
-          </button>
-        </div>
-      </div>
-
-      <div class="remi-briefing-loading" *ngIf="remiScheduleService.isLoadingBriefing() || remiScheduleService.isRegeneratingBriefing()">
-        <app-loading-animation [size]="16"></app-loading-animation>
-        <span>{{ remiScheduleService.isRegeneratingBriefing() ? 'Refreshing...' : 'Loading today\'s briefing...' }}</span>
-      </div>
-
-      <ng-container *ngIf="!remiScheduleService.isLoadingBriefing() && !remiScheduleService.isRegeneratingBriefing()">
-        <ng-container *ngIf="remiScheduleService.todayBriefing() as briefing; else noRemiBriefing">
-          <div class="remi-briefing-status" [ngSwitch]="briefing.schoolStatus">
-            <span *ngSwitchCase="'no-school'">No school today{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</span>
-            <span *ngSwitchCase="'early-release'">Early release — starts {{ briefing.startTime }}{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</span>
-            <span *ngSwitchDefault>School starts {{ briefing.startTime }}</span>
-          </div>
-
-          <div class="remi-briefing-row" *ngIf="briefing.clothingIdea">
-            <mat-icon>checkroom</mat-icon>
-            <span>{{ briefing.clothingIdea }}</span>
-          </div>
-
-          <div class="remi-briefing-row" *ngIf="briefing.activities.length">
-            <mat-icon>event</mat-icon>
-            <span *ngIf="briefing.activities.length === 1">
-              {{ briefing.activities[0].title }}{{ briefing.activities[0].time ? ' at ' + briefing.activities[0].time : '' }}
-            </span>
-            <span *ngIf="briefing.activities.length > 1">{{ briefing.activities.length }} activities today</span>
-          </div>
-
-          <div class="remi-briefing-row" *ngIf="briefing.lunchPlan === 'hot'">
-            <mat-icon>restaurant</mat-icon>
-            <span *ngIf="briefing.lunchMenuText">Hot lunch: {{ briefing.lunchMenuText }}</span>
-            <span *ngIf="!briefing.lunchMenuText">Hot lunch — menu not entered yet</span>
-          </div>
-          <div class="remi-briefing-row" *ngIf="briefing.lunchPlan === 'pack' && briefing.packedLunchIdea">
-            <mat-icon>lunch_dining</mat-icon>
-            <span>Pack lunch: {{ briefing.packedLunchIdea }}</span>
-          </div>
-
-          <div class="remi-briefing-row" *ngIf="briefing.breakfastIdea">
-            <mat-icon>free_breakfast</mat-icon>
-            <span>Breakfast idea: {{ briefing.breakfastIdea }}</span>
-          </div>
-
-          <p class="remi-briefing-updated">Updated {{ briefing.generatedAt | date:'shortTime' }}</p>
-        </ng-container>
-        <ng-template #noRemiBriefing>
-          <div class="remi-briefing-empty">
-            <span>No briefing yet for today.</span>
-            <button mat-stroked-button (click)="remiScheduleService.regenerateBriefing()">Generate now</button>
-          </div>
-        </ng-template>
-      </ng-container>
-    </div>
 
     <!-- Reading Counter Widget
     <div class="reading-counter-widget">

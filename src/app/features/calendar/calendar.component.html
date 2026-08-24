@@ -60,7 +60,7 @@
         <mat-icon>chevron_left</mat-icon>
       </button>
       <div class="current-date">
-        <h2>{{ currentDate() | date:'EEEE, MMMM d, y' }}</h2>
+        <h2>{{ currentDate() | date:'EEEE, MMMM d' }}</h2>
         <button mat-button (click)="today()" *ngIf="!isToday(currentDate())">
           <mat-icon>event_upcoming</mat-icon>
           Today

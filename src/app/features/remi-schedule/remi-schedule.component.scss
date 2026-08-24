@@ -65,6 +65,19 @@
     margin: 0 0 12px;
   }
 
+  .ical-url-list {
+    .ical-url-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+
+      mat-form-field {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+  }
+
   .exception-list {
     margin-bottom: 12px;
 
