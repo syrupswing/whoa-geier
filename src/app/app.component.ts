@@ -21,6 +21,8 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+const PORTRAIT_INSET_KEY = 'app-portrait-safe-area-top';
+
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -54,6 +56,7 @@ interface ChatMessage {
 export class AppComponent implements OnInit, AfterViewChecked {
   @ViewChild('floatingChatContainer') private chatContainer!: ElementRef<HTMLDivElement>;
   private shouldScrollChat = false;
+  private lastPortraitTopInset = Number(localStorage.getItem(PORTRAIT_INSET_KEY)) || 0;
   
   // Floating chat
   showChat = signal<boolean>(false);
@@ -93,11 +96,14 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.syncSafeAreaInsets();
     window.addEventListener('resize', this.scheduleSafeAreaSync);
     window.addEventListener('orientationchange', this.scheduleSafeAreaSync);
+    window.addEventListener('pageshow', this.scheduleSafeAreaSync);
+    window.visualViewport?.addEventListener('resize', this.scheduleSafeAreaSync);
+    window.screen.orientation?.addEventListener('change', this.scheduleSafeAreaSync);
   }
 
   private scheduleSafeAreaSync = (): void => {
-    // Rotation settles over several frames; sample a few times and keep the last.
-    [0, 150, 400].forEach(delay => setTimeout(() => this.syncSafeAreaInsets(), delay));
+    // Rotation settles over several frames; sample repeatedly and keep the last.
+    [0, 150, 400, 800, 1200].forEach(delay => setTimeout(() => this.syncSafeAreaInsets(), delay));
   };
 
   private syncSafeAreaInsets(): void {
@@ -107,13 +113,24 @@ export class AppComponent implements OnInit, AfterViewChecked {
       'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);';
     document.body.appendChild(probe);
     const styles = getComputedStyle(probe);
-    const top = styles.paddingTop;
-    const bottom = styles.paddingBottom;
+    let top = parseFloat(styles.paddingTop) || 0;
+    const bottom = parseFloat(styles.paddingBottom) || 0;
     probe.remove();
 
+    // WebKit can report the landscape inset (0) after rotating back to portrait,
+    // so the last known-good portrait value is used instead of trusting that.
+    if (window.matchMedia('(orientation: portrait)').matches) {
+      if (top > 0) {
+        this.lastPortraitTopInset = top;
+        localStorage.setItem(PORTRAIT_INSET_KEY, String(top));
+      } else if (this.lastPortraitTopInset > 0) {
+        top = this.lastPortraitTopInset;
+      }
+    }
+
     const root = document.documentElement;
-    root.style.setProperty('--app-safe-area-top', top);
-    root.style.setProperty('--app-safe-area-bottom', bottom);
+    root.style.setProperty('--app-safe-area-top', `${top}px`);
+    root.style.setProperty('--app-safe-area-bottom', `${bottom}px`);
   }
   
   ngAfterViewChecked(): void {
