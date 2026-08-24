@@ -1,0 +1,45 @@
+.settings-container {
+  max-width: 900px;
+  margin: 0 auto;
+
+  .form-card {
+    margin-bottom: 24px;
+  }
+
+  .hint-text {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin: 0 0 12px;
+  }
+
+  .section-heading {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin: 0 0 12px;
+    color: var(--color-text-primary);
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    font-size: 0.9rem;
+
+    .status-icon {
+      color: var(--color-text-secondary);
+
+      &--on {
+        color: var(--color-aura-sage);
+      }
+
+      &--off {
+        color: var(--color-dusk-rose);
+      }
+    }
+
+    button {
+      margin-left: auto;
+    }
+  }
+}

@@ -54,8 +54,8 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
-    path: 'remi-schedule',
-    loadComponent: () => import('./features/remi-schedule/remi-schedule.component').then(m => m.RemiScheduleComponent),
+    path: 'settings',
+    loadComponent: () => import('./features/settings/settings.component').then(m => m.SettingsComponent),
     canActivate: [authGuard]
   },
   {

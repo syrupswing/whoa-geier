@@ -24,7 +24,7 @@
           <h2>Remi's day</h2>
         </div>
         <div class="remi-day-actions">
-          <button mat-icon-button [routerLink]="'/remi-schedule'" matTooltip="Remi's schedule settings">
+          <button mat-icon-button [routerLink]="'/settings'" matTooltip="Settings">
             <mat-icon>settings</mat-icon>
           </button>
           <button mat-icon-button (click)="toggleRemiDay()" matTooltip="Hide">
@@ -447,11 +447,15 @@
   </div>
 
   <!-- Push Notification Prompt (shown only when permission not yet decided) -->
-  <div class="notification-prompt"
-       *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'default'">
+  <div class="notification-toast"
+       *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'default' && !notificationPromptDismissed()"
+       role="status">
     <mat-icon>notifications_none</mat-icon>
-    <span>Enable push notifications to get family reminders on this device.</span>
-    <button mat-stroked-button color="primary" (click)="enableNotifications()">Enable</button>
+    <span class="notification-toast-text">Enable push notifications to get family reminders on this device.</span>
+    <div class="notification-toast-actions">
+      <button mat-button (click)="dismissNotificationPrompt()">Dismiss</button>
+      <button mat-stroked-button color="primary" (click)="enableNotifications()">Enable</button>
+    </div>
   </div>
 
   <div class="grid">

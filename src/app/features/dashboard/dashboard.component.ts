@@ -38,6 +38,8 @@ interface ChatMessage {
   timestamp: Date;
 }
 
+const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
+
 @Component({
   selector: 'app-dashboard',
   standalone: true,
@@ -86,6 +88,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   // Remi's Day widget
   showRemiDay = signal<boolean>(false);
+
+  notificationPromptDismissed = signal<boolean>(localStorage.getItem(NOTIFICATION_PROMPT_KEY) === 'true');
   
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
@@ -166,6 +170,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     } else {
       this.snackBar.open('Notifications blocked — you can enable them in browser settings.', 'Dismiss', { duration: 5000 });
     }
+  }
+
+  dismissNotificationPrompt(): void {
+    this.notificationPromptDismissed.set(true);
+    localStorage.setItem(NOTIFICATION_PROMPT_KEY, 'true');
   }
 
   /**

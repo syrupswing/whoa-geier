@@ -275,8 +275,8 @@
   background-color: var(--color-slate-smoke);
   box-shadow: 1px 1px 4px 0px rgba(0, 0, 0, 0.5);
   gap: 12px;
-  padding-top: env(safe-area-inset-top, 0px);
-  height: calc(var(--app-toolbar-base-height) + env(safe-area-inset-top, 0px));
+  padding-top: var(--app-safe-area-top, env(safe-area-inset-top, 0px));
+  height: calc(var(--app-toolbar-base-height) + var(--app-safe-area-top, env(safe-area-inset-top, 0px)));
   
   .home-link {
     display: flex;
@@ -344,19 +344,19 @@
   flex: 1;
   overflow-y: visible;
   background-color: transparent;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  padding-bottom: calc(24px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
 }
 
 /* Mobile adjustments */
 @media (max-width: 767px) {
   .app-container {
     --app-content-inline-padding: 16px;
-    --app-mobile-top-inset: calc(env(safe-area-inset-top, 0px) + 2px);
+    --app-mobile-top-inset: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 2px);
   }
 
   .content {
     padding: calc(10px + var(--app-mobile-top-inset)) 16px 24px;
-    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(16px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   }
 }
 
@@ -364,7 +364,7 @@
   .app-container {
     --app-toolbar-base-height: 44px;
     --app-content-inline-padding: 12px;
-    --app-mobile-top-inset: calc(env(safe-area-inset-top, 0px) + 2px);
+    --app-mobile-top-inset: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 2px);
   }
 
   .mat-toolbar.mat-primary.home-link {
@@ -403,7 +403,7 @@
 
   .content {
     padding: calc(8px + var(--app-mobile-top-inset)) 12px 24px;
-    padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(12px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   }
 }
 
@@ -581,7 +581,7 @@
 // Floating AI Chat
 .floating-chat {
   position: fixed;
-  bottom: calc(90px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(90px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   right: 24px;
   width: 380px;
   max-height: 600px;
@@ -596,7 +596,7 @@
   
   @media (max-width: 768px) {
     width: calc(100vw - 48px);
-    max-height: calc(100dvh - 140px - env(safe-area-inset-bottom, 0px));
+    max-height: calc(100dvh - 140px - var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
     right: 24px;
   }
   
@@ -770,7 +770,7 @@
 // Chat Toggle Button
 .chat-toggle-btn {
   position: fixed;
-  bottom: calc(24px + env(safe-area-inset-bottom, 0px));
+  bottom: calc(24px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   right: 24px;
   z-index: 999;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);

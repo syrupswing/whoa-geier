@@ -16,8 +16,6 @@ import {
   RemiLunchMenuEntry,
   RemiLunchMenuSource
 } from '../../services/remi-schedule.service';
-import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -41,9 +39,7 @@ interface UpcomingDay {
     MatInputModule,
     MatCheckboxModule,
     MatRadioModule,
-    MatSnackBarModule,
-    GlobalNavMenuComponent,
-    HomeLogoBtnComponent
+    MatSnackBarModule
   ],
   templateUrl: './remi-schedule.component.html',
   styleUrl: './remi-schedule.component.scss'

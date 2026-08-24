@@ -87,20 +87,34 @@ export class AppComponent implements OnInit, AfterViewChecked {
     });
     this.pushNotificationService.clearBadge();
 
-    // iOS WKWebView sometimes keeps a stale env(safe-area-inset-top) after a
-    // portrait -> landscape -> portrait rotation, leaving our top inset at 0.
-    // Forcing a reflow once the rotation settles makes it recompute correctly.
-    window.addEventListener('resize', this.forceSafeAreaRecalc);
+    // iOS WKWebView keeps stale env(safe-area-inset-*) values after a
+    // portrait -> landscape -> portrait rotation, so the insets are measured
+    // here and published as plain px custom properties instead.
+    this.syncSafeAreaInsets();
+    window.addEventListener('resize', this.scheduleSafeAreaSync);
+    window.addEventListener('orientationchange', this.scheduleSafeAreaSync);
   }
 
-  private forceSafeAreaRecalc = (): void => {
-    setTimeout(() => {
-      const root = document.documentElement;
-      root.classList.add('force-reflow');
-      void root.offsetHeight;
-      root.classList.remove('force-reflow');
-    }, 100);
+  private scheduleSafeAreaSync = (): void => {
+    // Rotation settles over several frames; sample a few times and keep the last.
+    [0, 150, 400].forEach(delay => setTimeout(() => this.syncSafeAreaInsets(), delay));
   };
+
+  private syncSafeAreaInsets(): void {
+    const probe = document.createElement('div');
+    probe.style.cssText =
+      'position:fixed;top:0;left:0;width:0;visibility:hidden;pointer-events:none;' +
+      'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);';
+    document.body.appendChild(probe);
+    const styles = getComputedStyle(probe);
+    const top = styles.paddingTop;
+    const bottom = styles.paddingBottom;
+    probe.remove();
+
+    const root = document.documentElement;
+    root.style.setProperty('--app-safe-area-top', top);
+    root.style.setProperty('--app-safe-area-bottom', bottom);
+  }
   
   ngAfterViewChecked(): void {
     if (this.shouldScrollChat) {

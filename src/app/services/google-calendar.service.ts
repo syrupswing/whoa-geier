@@ -50,6 +50,8 @@ export class GoogleCalendarService {
 
   private gapiInited = false;
   private tokenClient: any;
+  private needsConsent = false;
+  private tokenRefreshTimer?: number;
 
   constructor(
     private localStorageService: LocalStorageService,
@@ -101,18 +103,33 @@ export class GoogleCalendarService {
         prompt: '', // Don't show consent screen every time
         callback: (response: any) => {
           if (response.error) {
+            this.needsConsent = true;
             this.error.set(response.error);
             return;
           }
+          this.needsConsent = false;
           // Save token to localStorage
           this.saveToken(response);
           this.isSignedIn.set(true);
+          this.scheduleTokenRefresh(Number(response.expires_in) || 3600);
           this.loadCalendarEvents();
+        },
+        error_callback: () => {
+          // A silent attempt failed (no Google session / grant not usable here),
+          // so the next explicit sign-in has to be interactive.
+          this.needsConsent = true;
         },
       });
 
       this.isInitialized.set(true);
-      
+
+      // Mobile browsers suspend the app long enough for the 1-hour token to lapse.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') {
+          this.refreshTokenIfStale();
+        }
+      });
+
       // Check for saved token and auto-reconnect
       this.checkSavedToken();
     } catch (err: any) {
@@ -164,6 +181,25 @@ export class GoogleCalendarService {
       this.tokenClient.requestAccessToken({ prompt: '' });
     } catch {
       // Silent refresh not possible; user will need to sign in manually
+      this.needsConsent = true;
+    }
+  }
+
+  /** Renews shortly before expiry so an active session never hits a dead token. */
+  private scheduleTokenRefresh(expiresInSeconds: number): void {
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer);
+    }
+    const refreshInMs = Math.max((expiresInSeconds - 300) * 1000, 60_000);
+    this.tokenRefreshTimer = window.setTimeout(() => this.trySilentRefresh(), refreshInMs);
+  }
+
+  private refreshTokenIfStale(): void {
+    if (!this.isInitialized()) return;
+    const savedToken = this.localStorageService.getItem<any>(this.TOKEN_STORAGE_KEY);
+    const expiresAt = savedToken?.expires_at ?? 0;
+    if (Date.now() > expiresAt - 300_000) {
+      this.trySilentRefresh();
     }
   }
 
@@ -255,8 +291,9 @@ export class GoogleCalendarService {
     }
 
     if (gapi.client.getToken() === null) {
-      // Prompt the user to select a Google Account and ask for consent
-      this.tokenClient.requestAccessToken({ prompt: 'consent' });
+      // Re-consenting is only needed when a silent attempt has already failed;
+      // forcing it every time is what made mobile re-authorize constantly.
+      this.tokenClient.requestAccessToken({ prompt: this.needsConsent ? 'consent' : '' });
     } else {
       // Skip display of account chooser and consent dialog for an existing session
       this.tokenClient.requestAccessToken({ prompt: '' });
@@ -273,6 +310,11 @@ export class GoogleCalendarService {
       gapi.client.setToken(null);
       this.isSignedIn.set(false);
       this.events.set([]);
+      if (this.tokenRefreshTimer) {
+        clearTimeout(this.tokenRefreshTimer);
+        this.tokenRefreshTimer = undefined;
+      }
+      this.needsConsent = true;
       // Clear saved token
       this.localStorageService.removeItem(this.TOKEN_STORAGE_KEY);
     }
@@ -309,6 +351,7 @@ export class GoogleCalendarService {
         scope: savedToken.scope
       });
       this.isSignedIn.set(true);
+      this.scheduleTokenRefresh(Math.floor((savedToken.expires_at - Date.now()) / 1000));
       this.loadCalendarEvents();
     } else {
       // Token expired — attempt silent refresh before giving up
@@ -393,6 +436,10 @@ export class GoogleCalendarService {
       this.error.set(null);
       this.cacheEventsToFirestore(allEvents);
     } catch (err: any) {
+      if (err?.status === 401) {
+        this.trySilentRefresh();
+        return;
+      }
       this.error.set(`Error loading events: ${err.message}`);
       console.error('Error loading calendar events:', err);
     }

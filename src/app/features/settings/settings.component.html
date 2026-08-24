@@ -1,0 +1,48 @@
+<div class="settings-container">
+  <div class="header">
+    <app-home-logo-btn></app-home-logo-btn>
+    <h1>Settings</h1>
+    <app-global-nav-menu></app-global-nav-menu>
+  </div>
+
+  <!-- Notifications -->
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Notifications</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">Push notifications deliver Remi's morning briefing and family reminders to this device.</p>
+
+      <div class="setting-row" *ngIf="!pushNotificationService.isSupported()">
+        <mat-icon class="status-icon status-icon--off">notifications_off</mat-icon>
+        <span>This device or browser doesn't support push notifications.</span>
+      </div>
+
+      <div class="setting-row" *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'granted'">
+        <mat-icon class="status-icon status-icon--on">notifications_active</mat-icon>
+        <span>Enabled on this device</span>
+      </div>
+
+      <div class="setting-row" *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'denied'">
+        <mat-icon class="status-icon status-icon--off">notifications_off</mat-icon>
+        <span>Blocked — turn notifications back on for this site in your browser settings.</span>
+      </div>
+
+      <div class="setting-row" *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'default'">
+        <mat-icon class="status-icon">notifications_none</mat-icon>
+        <span>Not enabled on this device</span>
+        <button
+          mat-stroked-button
+          color="primary"
+          (click)="enableNotifications()"
+          [disabled]="isRequestingPermission()">
+          Enable
+        </button>
+      </div>
+    </mat-card-content>
+  </mat-card>
+
+  <!-- Remi's schedule -->
+  <h2 class="section-heading">Remi's schedule</h2>
+  <app-remi-schedule></app-remi-schedule>
+</div>
