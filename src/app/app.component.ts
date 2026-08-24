@@ -21,8 +21,6 @@ interface ChatMessage {
   timestamp: Date;
 }
 
-const PORTRAIT_INSET_KEY = 'app-portrait-safe-area-top';
-
 @Component({
   selector: 'app-root',
   standalone: true,
@@ -56,7 +54,7 @@ const PORTRAIT_INSET_KEY = 'app-portrait-safe-area-top';
 export class AppComponent implements OnInit, AfterViewChecked {
   @ViewChild('floatingChatContainer') private chatContainer!: ElementRef<HTMLDivElement>;
   private shouldScrollChat = false;
-  private lastPortraitTopInset = Number(localStorage.getItem(PORTRAIT_INSET_KEY)) || 0;
+  private wasPortrait = window.matchMedia('(orientation: portrait)').matches;
   
   // Floating chat
   showChat = signal<boolean>(false);
@@ -90,9 +88,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
     });
     this.pushNotificationService.clearBadge();
 
-    // iOS WKWebView keeps stale env(safe-area-inset-*) values after a
-    // portrait -> landscape -> portrait rotation, so the insets are measured
-    // here and published as plain px custom properties instead.
+    // Safe-area insets are republished as plain px custom properties; WebKit
+    // caches env() values inside custom properties across orientation changes.
     this.syncSafeAreaInsets();
     window.addEventListener('resize', this.scheduleSafeAreaSync);
     window.addEventListener('orientationchange', this.scheduleSafeAreaSync);
@@ -102,9 +99,42 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
 
   private scheduleSafeAreaSync = (): void => {
+    const isPortrait = window.matchMedia('(orientation: portrait)').matches;
+    const orientationChanged = isPortrait !== this.wasPortrait;
+    this.wasPortrait = isPortrait;
+
+    if (orientationChanged) {
+      // Only a viewport re-declaration makes WebKit re-read the insets after a
+      // rotation; a plain reflow or re-measure still returns the stale values.
+      [0, 250, 600].forEach(delay => setTimeout(() => this.refreshViewport(), delay));
+    }
+
     // Rotation settles over several frames; sample repeatedly and keep the last.
-    [0, 150, 400, 800, 1200].forEach(delay => setTimeout(() => this.syncSafeAreaInsets(), delay));
+    [0, 150, 400, 800].forEach(delay => setTimeout(() => this.syncSafeAreaInsets(), delay));
   };
+
+  /**
+   * Rewrites the viewport meta and forces the layout root to re-attach, which is
+   * what a page refresh or route change does implicitly to fix the stale inset.
+   */
+  private refreshViewport(): void {
+    const meta = document.querySelector('meta[name="viewport"]');
+    if (meta) {
+      const content = meta.getAttribute('content') || '';
+      meta.setAttribute('content', `${content}, minimal-ui`);
+      requestAnimationFrame(() => {
+        meta.setAttribute('content', content);
+        this.syncSafeAreaInsets();
+      });
+    }
+
+    const container = document.querySelector('.app-container') as HTMLElement | null;
+    if (container) {
+      container.style.display = 'none';
+      void container.offsetHeight;
+      container.style.display = '';
+    }
+  }
 
   private syncSafeAreaInsets(): void {
     const probe = document.createElement('div');
@@ -113,20 +143,9 @@ export class AppComponent implements OnInit, AfterViewChecked {
       'padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);';
     document.body.appendChild(probe);
     const styles = getComputedStyle(probe);
-    let top = parseFloat(styles.paddingTop) || 0;
+    const top = parseFloat(styles.paddingTop) || 0;
     const bottom = parseFloat(styles.paddingBottom) || 0;
     probe.remove();
-
-    // WebKit can report the landscape inset (0) after rotating back to portrait,
-    // so the last known-good portrait value is used instead of trusting that.
-    if (window.matchMedia('(orientation: portrait)').matches) {
-      if (top > 0) {
-        this.lastPortraitTopInset = top;
-        localStorage.setItem(PORTRAIT_INSET_KEY, String(top));
-      } else if (this.lastPortraitTopInset > 0) {
-        top = this.lastPortraitTopInset;
-      }
-    }
 
     const root = document.documentElement;
     root.style.setProperty('--app-safe-area-top', `${top}px`);
