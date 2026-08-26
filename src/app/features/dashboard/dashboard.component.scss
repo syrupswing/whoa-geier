@@ -397,14 +397,10 @@
   }
 
   .remi-day-card {
-    padding: 14px 0;
+    padding: 8px 0;
     display: grid;
     gap: 8px;
     align-content: start;
-
-    & + .remi-day-card {
-      border-top: 1px solid rgba(0, 0, 0, 0.08);
-    }
 
     .remi-day-card-header {
       display: flex;
@@ -417,6 +413,12 @@
         font-weight: 600;
         color: var(--color-text-primary);
         flex: 1;
+      }
+
+      .remi-day-timestamp {
+        font-size: 0.72rem;
+        color: var(--color-text-secondary);
+        white-space: nowrap;
       }
 
       .remi-day-refresh {
@@ -464,6 +466,7 @@
       font-size: 0.85rem;
       line-height: 1.4;
       color: var(--color-text-primary);
+      margin-left: 44px;
 
       p {
         margin: 0 0 4px;

@@ -314,7 +314,8 @@ async function fetchWeatherSnapshot(apiKey) {
     tempF: Math.round(data.main.temp),
     feelsLike: Math.round(data.main.feels_like),
     conditions: data.weather[0].main,
-    description: data.weather[0].description
+    description: data.weather[0].description,
+    fetchedAt: new Date().toISOString()
   };
 
   try {

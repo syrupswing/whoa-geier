@@ -67,6 +67,12 @@
               <div class="remi-day-card-header">
                 <div class="remi-day-card-icon"><mat-icon>checkroom</mat-icon></div>
                 <h3>Outfit &amp; accessories</h3>
+                <span
+                  class="remi-day-timestamp"
+                  *ngIf="briefing.weather?.fetchedAt"
+                  matTooltip="When the weather was last checked">
+                  {{ formatWeatherFetchedAt(briefing.weather!.fetchedAt!) }}
+                </span>
                 <button
                   mat-icon-button
                   class="remi-day-refresh"

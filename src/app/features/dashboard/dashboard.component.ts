@@ -40,6 +40,7 @@ interface ChatMessage {
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
 const REMI_DAY_SHOWN_KEY = 'remiDayShown';
+const WEATHER_STALE_MS = 2 * 60 * 60 * 1000;
 
 @Component({
   selector: 'app-dashboard',
@@ -563,6 +564,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
   }
 
+  /** Formats the outfit card's weather freshness badge, e.g. "3:45pm". */
+  formatWeatherFetchedAt(fetchedAt: string): string {
+    return this.formatTime(new Date(fetchedAt));
+  }
+
   formatWeatherSummary(weather: RemiBriefingWeather): string {
     // Older briefings predate the forecast fields and only have a point-in-time temp.
     const temps = weather.highF != null && weather.lowF != null
@@ -872,6 +878,17 @@ Try again once you've completed these steps!`;
     await this.remiScheduleService.loadTodayBriefing();
     if (!this.remiScheduleService.todayBriefing()) {
       await this.remiScheduleService.regenerateBriefing();
+    }
+    this.refreshWeatherIfStale();
+  }
+
+  /** Keeps the outfit widget's weather from going stale while the tab stays open. */
+  private refreshWeatherIfStale(): void {
+    const fetchedAt = this.remiScheduleService.todayBriefing()?.weather?.fetchedAt;
+    if (!fetchedAt) return;
+    const ageMs = Date.now() - new Date(fetchedAt).getTime();
+    if (ageMs > WEATHER_STALE_MS) {
+      void this.remiScheduleService.regenerateFacet('clothing');
     }
   }
 

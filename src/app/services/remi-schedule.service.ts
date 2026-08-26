@@ -43,6 +43,7 @@ export interface RemiBriefingWeather {
   feelsLike: number;
   conditions: string;
   description: string;
+  fetchedAt?: string;
   highF?: number;
   lowF?: number;
   maxPrecipChance?: number;
