@@ -9,7 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { GithubAiService } from '../../services/github-ai.service';
+import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
@@ -52,7 +52,7 @@ interface QuizResult {
   styleUrl: './remi-world.component.scss'
 })
 export class RemiWorldComponent {
-  private aiService = inject(GithubAiService);
+  private aiOrchestrator = inject(AiOrchestratorService);
   
   selectedCategory = signal<string>('');
   currentQuestion = signal<QuizQuestion | null>(null);
@@ -88,62 +88,9 @@ export class RemiWorldComponent {
   }
 
   private async generateQuestion(category: string): Promise<QuizQuestion | null> {
-    let prompt = '';
-    let questionType: QuizQuestion['type'] = 'math';
-
-    switch (category) {
-      case 'spelling':
-        questionType = 'spelling';
-        prompt = `Generate 1 unique and creative spelling question for a 5-6 year old child. Use variety in word selection across these categories:
-
-EASY WORDS (3-4 letters): cat, dog, sun, run, hat, mat, box, fox, bat, rat, bug, hug, jet, net, pen, hen, top, mop, car, jar
-MEDIUM WORDS (4-6 letters): happy, silly, funny, apple, pizza, tiger, ninja, magic, dragon, robot, wizard, castle, banana, cookie, rocket, turtle, monkey, pencil
-MINECRAFT THEMED: mine, cave, dirt, wood, tree, gold, iron, crop, farm, food, chest, sword, block, stone, craft
-NATURE WORDS: bird, fish, frog, leaf, seed, moon, star, rain, snow, wind
-ACTION WORDS: swim, jump, run, hop, skip, play, read, sing, dance, climb
-
-Pick ONE word randomly from ANY category above (mix it up!). Create an engaging sentence that relates to Minecraft, nature, or something fun. Return ONLY a JSON object in this format:
-{
-  "word": "dragon",
-  "sentence": "Can you spell DRAGON? In Minecraft, the ender dragon flies in the sky!",
-  "hint": "A big flying creature that breathes fire"
-}`;
-        break;
-      
-      case 'math':
-        questionType = 'math';
-        prompt = `Generate 1 simple math question for a 5-6 year old child. Use addition or subtraction with numbers 1-10 only. Make it fun and engaging. Return ONLY a JSON object in this format:
-{
-  "question": "If you have 3 blocks and get 2 more, how many blocks do you have?",
-  "answer": "5"
-}`;
-        break;
-      
-      case 'fun-facts':
-        questionType = 'fun-facts';
-        prompt = `Generate 1 fun multiple choice question for a 5-6 year old child about Minecraft or animals or nature. Make it fun and educational. Return ONLY a JSON object in this format:
-{
-  "question": "What do creepers in Minecraft do?",
-  "correctAnswer": "Explode",
-  "options": ["Explode", "Fly", "Swim", "Sleep"]
-}`;
-        break;
-    }
-
     try {
-      const response = await this.aiService.generateContent(prompt);
-      
-      if (!response.success || !response.text) {
-        throw new Error(response.error || 'Failed to generate question');
-      }
+      const data = await this.aiOrchestrator.generate<any>('remi-quiz-question', { category });
 
-      // Parse the AI response
-      let jsonText = response.text.trim();
-      // Remove markdown code blocks if present
-      jsonText = jsonText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      
-      const data = JSON.parse(jsonText);
-      
       // Build question based on category
       if (category === 'spelling') {
         return {

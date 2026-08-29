@@ -11,7 +11,7 @@ import { CommonModule } from '@angular/common';
 import { trigger, state, style, transition, animate } from '@angular/animations';
 import { AuthService } from './services/auth.service';
 import { LoadingAnimationComponent } from './components/loading-animation/loading-animation.component';
-import { GithubAiService } from './services/github-ai.service';
+import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
 import { TypewriterDirective } from './shared/typewriter/typewriter.directive';
 
@@ -65,7 +65,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
   constructor(
     private router: Router,
     public authService: AuthService,
-    public githubAiService: GithubAiService,
+    private aiOrchestrator: AiOrchestratorService,
     public pushNotificationService: PushNotificationService
   ) {
     // Redirect to dashboard if authenticated and on login page
@@ -169,16 +169,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
       return;
     }
     
-    if (!this.githubAiService.isConfigured()) {
-      this.chatMessages.update(messages => [...messages, {
-        text: 'AI is not configured. Please add your GitHub token to use this feature.',
-        isUser: false,
-        timestamp: new Date()
-      }]);
-      this.shouldScrollChat = true;
-      return;
-    }
-
     const userMessage = this.chatInput.trim();
     this.chatInput = '';
     
@@ -193,21 +183,12 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.isChatLoading.set(true);
     
     try {
-      const response = await this.githubAiService.generateContent(userMessage);
-      
-      if (response.success) {
-        this.chatMessages.update(messages => [...messages, {
-          text: response.text,
-          isUser: false,
-          timestamp: new Date()
-        }]);
-      } else {
-        this.chatMessages.update(messages => [...messages, {
-          text: `Error: ${response.error || 'Failed to get response'}`,
-          isUser: false,
-          timestamp: new Date()
-        }]);
-      }
+      const result = await this.aiOrchestrator.generate<{ text: string }>('family-chat', { message: userMessage });
+      this.chatMessages.update(messages => [...messages, {
+        text: result.text,
+        isUser: false,
+        timestamp: new Date()
+      }]);
     } catch (error: any) {
       this.chatMessages.update(messages => [...messages, {
         text: `Error: ${error.message || 'An unexpected error occurred'}`,

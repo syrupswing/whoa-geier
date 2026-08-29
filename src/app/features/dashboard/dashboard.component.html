@@ -406,8 +406,8 @@
           mat-icon-button 
           class="clothing-suggest-btn"
           (click)="generateClothingRecommendation()"
-          [disabled]="isLoadingClothing() || !githubAi.isConfigured()"
-          [matTooltip]="githubAi.isConfigured() ? 'Get clothing suggestion' : 'GitHub AI not configured'"
+          [disabled]="isLoadingClothing()"
+          matTooltip="Get clothing suggestion"
           *ngIf="!clothingRecommendation()">
           <mat-icon>checkroom</mat-icon>
         </button>

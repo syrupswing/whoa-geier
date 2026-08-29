@@ -8,6 +8,7 @@ import { PushNotificationService } from '../../services/push-notification.servic
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { RemiScheduleComponent } from '../remi-schedule/remi-schedule.component';
+import { FamilyMemoryComponent } from '../family-memory/family-memory.component';
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
 
@@ -22,7 +23,8 @@ const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
     MatSnackBarModule,
     GlobalNavMenuComponent,
     HomeLogoBtnComponent,
-    RemiScheduleComponent
+    RemiScheduleComponent,
+    FamilyMemoryComponent
   ],
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'

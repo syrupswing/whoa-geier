@@ -58,12 +58,16 @@ export interface RemiDailyBriefing {
   endTime: string | null;
   weather: RemiBriefingWeather | null;
   clothingIdea: string | null;
+  clothingSuggestionId?: string | null;
   activities: RemiBriefingActivity[];
   lunchPlan: 'hot' | 'pack';
   lunchMenuText: string | null;
   packedLunchIdea: string | null;
+  packedLunchSuggestionId?: string | null;
   breakfastIdea: string | null;
+  breakfastSuggestionId?: string | null;
   dinnerIdea: string | null;
+  dinnerSuggestionId?: string | null;
   generatedAt: string;
 }
 

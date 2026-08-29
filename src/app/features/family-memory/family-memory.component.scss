@@ -1,0 +1,59 @@
+.family-memory-container {
+  max-width: 900px;
+  margin: 0 auto;
+
+  .form-card {
+    margin-bottom: 24px;
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 16px;
+
+      .full-width {
+        grid-column: 1 / -1;
+      }
+    }
+
+    mat-card-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 12px;
+      padding: 16px;
+    }
+  }
+
+  .hint-text {
+    font-size: 0.8rem;
+    opacity: 0.7;
+  }
+
+  .fact-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 8px;
+
+    .fact-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+
+      .fact-text {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .fact-meta mat-chip {
+        font-size: 0.7rem;
+        min-height: 22px;
+      }
+    }
+  }
+}

@@ -246,9 +246,37 @@ export class FirestoreService {
     try {
       const docRef = doc(this.db, collectionName, documentId);
       const snap = await getDoc(docRef);
-      return snap.exists() ? (snap.data() as T) : null;
+      return snap.exists() ? ({ id: snap.id, ...snap.data() } as T) : null;
     } catch (err: any) {
       console.error('Firestore getDocument error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to real-time updates for a single document
+   */
+  subscribeToDocument<T>(
+    collectionName: string,
+    documentId: string,
+    callback: (data: T | null) => void
+  ): Unsubscribe | null {
+    if (!this.db) {
+      console.warn('Firestore not initialized');
+      return null;
+    }
+
+    try {
+      const docRef = doc(this.db, collectionName, documentId);
+      return onSnapshot(docRef, (snap) => {
+        callback(snap.exists() ? ({ id: snap.id, ...snap.data() } as T) : null);
+      }, (err) => {
+        this.error.set(`Error subscribing to document: ${err.message}`);
+        console.error('Firestore document subscription error:', err);
+      });
+    } catch (err: any) {
+      this.error.set(`Error setting up document subscription: ${err.message}`);
+      console.error('Firestore document subscription setup error:', err);
       return null;
     }
   }

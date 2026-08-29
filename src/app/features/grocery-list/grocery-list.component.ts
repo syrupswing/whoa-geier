@@ -20,7 +20,7 @@ import { FormControl } from '@angular/forms';
 import { Observable } from 'rxjs';
 import { map, startWith } from 'rxjs/operators';
 import { GroceryService, GroceryItem } from '../../services/grocery.service';
-import { GithubAiService } from '../../services/github-ai.service';
+import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
@@ -115,7 +115,7 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
     { value: 'bag', label: 'Bag' }
   ];
   
-  private githubAi = inject(GithubAiService);
+  private aiOrchestrator = inject(AiOrchestratorService);
   private snackBar = inject(MatSnackBar);
   private cdr = inject(ChangeDetectorRef);
   // Typical grocery store section order
@@ -227,10 +227,6 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
   }
 
   async preloadLocations(): Promise<void> {
-    if (!this.githubAi.isConfigured()) {
-      return;
-    }
-
     // Wait a bit for items to load
     setTimeout(async () => {
       const items = this.activeItems;
@@ -354,57 +350,30 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
   }
   
   async sortByStoreLayout(): Promise<void> {
-    if (!this.githubAi.isConfigured()) {
-      this.snackBar.open(
-        'AI is not configured. Add your GitHub token to use this feature.',
-        'Close',
-        { duration: 4000 }
-      );
-      return;
-    }
-    
     if (this.activeItems.length === 0) {
       return;
     }
-    
+
     this.isSorting = true;
-    
+
     try {
       // Categorize items that don't have categories yet
       const itemsToCategorize = this.activeItems.filter(item => !this.itemCategories.has(item.id));
-      
+
       if (itemsToCategorize.length > 0) {
-        const itemNames = itemsToCategorize.map(i => i.name).join(', ');
-        const prompt = `Categorize these grocery items into store sections. For each item, choose ONE category from this list: ${this.storeSectionOrder.join(', ')}.
+        const categories = await this.aiOrchestrator.generate<Record<string, string>>(
+          'grocery-categorize',
+          { itemNames: itemsToCategorize.map(i => i.name) }
+        );
 
-Items: ${itemNames}
-
-Return ONLY a JSON object mapping each item name to its category. Example format:
-{
-  "milk": "Dairy",
-  "apples": "Produce",
-  "bread": "Bakery"
-}`;
-        
-        const response = await this.githubAi.generateContent(prompt);
-        
-        if (response.success) {
-          // Parse JSON response
-          const jsonMatch = response.text.match(/\{[\s\S]*\}/);
-          if (jsonMatch) {
-            const categories = JSON.parse(jsonMatch[0]);
-            
-            // Store categories for each item
-            itemsToCategorize.forEach(item => {
-              const category = categories[item.name];
-              if (category) {
-                this.itemCategories.set(item.id, category);
-              }
-            });
+        itemsToCategorize.forEach(item => {
+          const category = categories[item.name];
+          if (category) {
+            this.itemCategories.set(item.id, category);
           }
-        }
+        });
       }
-      
+
       // Enable sorting mode
       this.isSortingByStore = true;
       this.snackBar.open(
@@ -759,15 +728,6 @@ Return ONLY a JSON object mapping each item name to its category. Example format
   }
 
   async getStoreLocation(item: GroceryItem, tooltip?: MatTooltip): Promise<void> {
-    if (!this.githubAi.isConfigured()) {
-      this.snackBar.open(
-        'GitHub AI is not configured. Add your token to use this feature.',
-        'Close',
-        { duration: 4000 }
-      );
-      return;
-    }
-
     // If already loaded, show the tooltip and return
     if (this.itemLocations.has(item.id)) {
       if (tooltip) {
@@ -775,7 +735,7 @@ Return ONLY a JSON object mapping each item name to its category. Example format
       }
       return;
     }
-    
+
     // If currently loading, just return
     if (this.loadingLocations.has(item.id)) {
       return;
@@ -784,21 +744,17 @@ Return ONLY a JSON object mapping each item name to its category. Example format
     this.loadingLocations.add(item.id);
 
     try {
-      const prompt = `In which aisle or section of a grocery store would I typically find "${item.name}"? Give a brief, specific answer in one sentence. For example: "Produce section" or "Dairy aisle, near the milk" or "Baking aisle, with flour and sugar".`;
-      
-      const response = await this.githubAi.generateContent(prompt);
-      
-      if (response.success) {
-        const locationText = response.text.trim();
-        this.itemLocations.set(item.id, locationText);
-        // Persist location to Firestore
-        await this.groceryService.updateItem(item.id, { location: locationText });
-        // Show tooltip after location is fetched
-        if (tooltip) {
-          setTimeout(() => tooltip.show(), 100);
-        }
-      } else {
-        throw new Error(response.error || 'Failed to get location');
+      const result = await this.aiOrchestrator.generate<{ location: string }>(
+        'grocery-aisle-hint',
+        { itemName: item.name }
+      );
+      const locationText = result.location;
+      this.itemLocations.set(item.id, locationText);
+      // Persist location to Firestore
+      await this.groceryService.updateItem(item.id, { location: locationText });
+      // Show tooltip after location is fetched
+      if (tooltip) {
+        setTimeout(() => tooltip.show(), 100);
       }
     } catch (error: any) {
       console.error('Error getting store location:', error);

@@ -13,7 +13,7 @@ import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GroceryService } from '../../services/grocery.service';
-import { GithubAiService } from '../../services/github-ai.service';
+import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
 import { WeatherService } from '../../services/weather.service';
 import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
@@ -99,7 +99,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   constructor(
     public calendarService: GoogleCalendarService,
     public groceryService: GroceryService,
-    public githubAi: GithubAiService,
+    private aiOrchestrator: AiOrchestratorService,
     public weatherService: WeatherService,
     public todoService: TodoService,
     public firestoreService: FirestoreService,
@@ -665,22 +665,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       return;
     }
     
-    if (!this.githubAi.isConfigured()) {
-      return; // Keep default message
-    }
-
     this.hasGeneratedWelcome = true;
-    
+
     // Use setTimeout to write to signals outside reactive context
     setTimeout(() => this.isLoadingWelcome.set(true), 0);
 
     try {
-      const prompt = `Write a very brief, friendly, and colloquial welcome message (maximum 15 words) for a family command center app that helps families manage their schedules, grocery lists, and daily activities. Make it warm and encouraging. Just return the message text, nothing else.`;
-      
-      const response = await this.githubAi.generateContent(prompt);
-      
-      if (response.success && response.text.trim()) {
-        const message = response.text.trim().replace(/^[\"']|[\"']$/g, '');
+      const result = await this.aiOrchestrator.generate<{ text: string }>('dashboard-welcome-message');
+
+      if (result.text.trim()) {
+        const message = result.text.trim().replace(/^[\"']|[\"']$/g, '');
         // Use setTimeout to write to signals outside reactive context
         setTimeout(() => this.welcomeMessage.set(message), 0);
       }
@@ -698,15 +692,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       return;
     }
 
-    if (!this.githubAi.isConfigured()) {
-      this.chatMessages.update(messages => [...messages, {
-        text: 'AI assistant is not configured. Please add your GitHub Personal Access Token to the environment file (src/environments/environment.ts). Get a token from: https://github.com/settings/tokens?type=beta with "Model inference: Read" permission.',
-        isUser: false,
-        timestamp: new Date()
-      }]);;
-      return;
-    }
-
     const userMessage = this.chatInput.trim();
     this.chatInput = '';
 
@@ -721,54 +706,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.scrollChatToBottom();
 
     try {
-      const context = `You are a helpful family assistant for a family command center app. Be friendly, concise, and helpful. The user asked: ${userMessage}`;
-      const response = await this.githubAi.generateContent(context);
-
-      if (response.success) {
-        this.chatMessages.update(messages => [...messages, {
-          text: response.text,
-          isUser: false,
-          timestamp: new Date()
-        }]);
-      } else {
-        throw new Error(response.error || 'Failed to get response');
-      }
-    } catch (error: any) {
-      // Check if it's a model/API access error
-      const isApiError = error.message?.includes('not found') || error.message?.includes('API version') || error.message?.includes('401') || error.message?.includes('403');
-      
-      let errorMessage = `Sorry, I couldn't process your message: ${error.message}`;
-      
-      if (isApiError) {
-        errorMessage = `🔧 **GitHub Token Setup Required**
-
-The GitHub Personal Access Token needs to be configured. Here's how:
-
-**Step 1: Create Token**
-1. Visit: https://github.com/settings/tokens?type=beta
-2. Click "Generate new token" (fine-grained)
-3. Name it: "Family Command Center AI"
-4. Set expiration: 90 days or longer
-
-**Step 2: Set Permissions**
-- Account permissions → Model inference: **Read** access
-
-**Step 3: Generate & Copy**
-1. Click "Generate token"
-2. Copy the token (starts with github_pat_)
-
-**Step 4: Update Your App**
-1. Open: src/environments/environment.ts
-2. Replace githubToken value with your new token
-3. Restart the dev server (npm start)
-
-**Why GitHub?** It's completely FREE - no payment method needed!
-
-Try again once you've completed these steps!`;
-      }
-      
+      const result = await this.aiOrchestrator.generate<{ text: string }>('family-chat', { message: userMessage });
       this.chatMessages.update(messages => [...messages, {
-        text: errorMessage,
+        text: result.text,
+        isUser: false,
+        timestamp: new Date()
+      }]);
+    } catch (error: any) {
+      this.chatMessages.update(messages => [...messages, {
+        text: `Sorry, I couldn't process your message: ${error.message}`,
         isUser: false,
         timestamp: new Date()
       }]);
@@ -894,19 +840,22 @@ Try again once you've completed these steps!`;
 
   async generateClothingRecommendation(): Promise<void> {
     const weather = this.weatherService.weather();
-    if (!weather || !this.githubAi.isConfigured() || this.isLoadingClothing()) {
+    if (!weather || this.isLoadingClothing()) {
       return;
     }
 
     this.isLoadingClothing.set(true);
 
     try {
-      const prompt = `Based on this weather: ${weather.temperature}°F, ${weather.description}, humidity ${weather.humidity}%, wind ${weather.windSpeed} mph - write ONE short, friendly sentence (max 15 words) suggesting what to wear including both clothing AND footwear. Be conversational and helpful. Just return the sentence, nothing else.`;
-      
-      const response = await this.githubAi.generateContent(prompt);
-      
-      if (response.success && response.text.trim()) {
-        const fullText = response.text.trim().replace(/^["']|["']$/g, '');
+      const result = await this.aiOrchestrator.generate<{ text: string }>('dashboard-clothing-recommendation', {
+        temperature: weather.temperature,
+        description: weather.description,
+        humidity: weather.humidity,
+        windSpeed: weather.windSpeed
+      });
+
+      if (result.text.trim()) {
+        const fullText = result.text.trim().replace(/^["']|["']$/g, '');
         // Set loading to false BEFORE animating so text is visible
         this.isLoadingClothing.set(false);
         // Animate the text typing effect

@@ -1,4 +1,5 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { FirestoreService } from './firestore.service';
 import { LocalStorageService } from './local-storage.service';
 
 export interface Vehicle {
@@ -30,90 +31,189 @@ export interface MaintenanceRecord {
   providedIn: 'root'
 })
 export class VehicleService {
+  private firestoreService = inject(FirestoreService);
+  private localStorageService = inject(LocalStorageService);
+
+  private readonly VEHICLES_COLLECTION = 'vehicles';
+  private readonly MAINTENANCE_COLLECTION = 'maintenanceRecords';
   private readonly VEHICLES_KEY = 'vehicles';
   private readonly MAINTENANCE_KEY = 'maintenance_records';
 
   vehicles = signal<Vehicle[]>([]);
   maintenanceRecords = signal<MaintenanceRecord[]>([]);
 
-  constructor(private localStorage: LocalStorageService) {
-    this.loadVehicles();
-    this.loadMaintenanceRecords();
+  constructor() {
+    this.load();
+  }
+
+  private async load(): Promise<void> {
+    if (this.firestoreService.isInitialized()) {
+      await this.migrateFromLocalStorageIfEmpty();
+      this.firestoreService.subscribeToCollection<any>(
+        this.VEHICLES_COLLECTION,
+        (items) => this.vehicles.set(items.map(v => this.deserializeVehicle(v)))
+      );
+      this.firestoreService.subscribeToCollection<any>(
+        this.MAINTENANCE_COLLECTION,
+        (items) => this.maintenanceRecords.set(items.map(r => this.deserializeMaintenanceRecord(r)))
+      );
+    } else {
+      this.loadVehicles();
+      this.loadMaintenanceRecords();
+    }
+  }
+
+  // One-time move of whatever this device had saved locally into Firestore, so vehicle
+  // and maintenance data syncs across devices and is visible to the future nightly
+  // smart-alerts job. Reuses the original ids so maintenanceRecords.vehicleId references
+  // stay valid across the migration.
+  private async migrateFromLocalStorageIfEmpty(): Promise<void> {
+    const [existingVehicles, existingRecords] = await Promise.all([
+      this.firestoreService.getCollection<Vehicle>(this.VEHICLES_COLLECTION),
+      this.firestoreService.getCollection<MaintenanceRecord>(this.MAINTENANCE_COLLECTION)
+    ]);
+
+    if (existingVehicles.length === 0) {
+      const localVehicles = this.localStorageService.getItem<Vehicle[]>(this.VEHICLES_KEY) || [];
+      await Promise.all(localVehicles.map(v =>
+        this.firestoreService.setDocument(this.VEHICLES_COLLECTION, v.id, this.serializeVehicle(v))
+      ));
+    }
+
+    if (existingRecords.length === 0) {
+      const localRecords = this.localStorageService.getItem<MaintenanceRecord[]>(this.MAINTENANCE_KEY) || [];
+      await Promise.all(localRecords.map(r =>
+        this.firestoreService.setDocument(this.MAINTENANCE_COLLECTION, r.id, this.serializeMaintenanceRecord(r))
+      ));
+    }
+  }
+
+  // Firestore fields round-trip as plain values, so Date fields are stored as ISO strings
+  // (same as they already were via JSON.stringify into localStorage) and reconstructed
+  // into real Date instances on read — the rest of this service calls .getTime() on them.
+  private serializeVehicle(vehicle: Partial<Vehicle>): Record<string, any> {
+    const data: Record<string, any> = { ...vehicle };
+    if ('registrationExpiry' in data) {
+      data['registrationExpiry'] = vehicle.registrationExpiry
+        ? new Date(vehicle.registrationExpiry).toISOString()
+        : undefined;
+    }
+    return data;
+  }
+
+  private deserializeVehicle(data: any): Vehicle {
+    return {
+      ...data,
+      registrationExpiry: data.registrationExpiry ? new Date(data.registrationExpiry) : undefined
+    };
+  }
+
+  private serializeMaintenanceRecord(record: Partial<MaintenanceRecord>): Record<string, any> {
+    const data: Record<string, any> = { ...record };
+    if ('date' in data) {
+      data['date'] = new Date(record.date!).toISOString();
+    }
+    if ('nextDueDate' in data) {
+      data['nextDueDate'] = record.nextDueDate ? new Date(record.nextDueDate).toISOString() : undefined;
+    }
+    return data;
+  }
+
+  private deserializeMaintenanceRecord(data: any): MaintenanceRecord {
+    return {
+      ...data,
+      date: new Date(data.date),
+      nextDueDate: data.nextDueDate ? new Date(data.nextDueDate) : undefined
+    };
   }
 
   private loadVehicles(): void {
-    const stored = this.localStorage.getItem<Vehicle[]>(this.VEHICLES_KEY);
+    const stored = this.localStorageService.getItem<Vehicle[]>(this.VEHICLES_KEY);
     if (stored) {
-      this.vehicles.set(stored);
+      this.vehicles.set(stored.map(v => this.deserializeVehicle(v)));
     }
   }
 
   private loadMaintenanceRecords(): void {
-    const stored = this.localStorage.getItem<MaintenanceRecord[]>(this.MAINTENANCE_KEY);
+    const stored = this.localStorageService.getItem<MaintenanceRecord[]>(this.MAINTENANCE_KEY);
     if (stored) {
-      // Convert date strings back to Date objects
-      const records = stored.map(record => ({
-        ...record,
-        date: new Date(record.date),
-        nextDueDate: record.nextDueDate ? new Date(record.nextDueDate) : undefined
-      }));
-      this.maintenanceRecords.set(records);
+      this.maintenanceRecords.set(stored.map(r => this.deserializeMaintenanceRecord(r)));
     }
   }
 
-  private saveVehicles(): void {
-    this.localStorage.setItem(this.VEHICLES_KEY, this.vehicles());
+  private saveVehiclesToLocalStorage(): void {
+    this.localStorageService.setItem(this.VEHICLES_KEY, this.vehicles());
   }
 
-  private saveMaintenanceRecords(): void {
-    this.localStorage.setItem(this.MAINTENANCE_KEY, this.maintenanceRecords());
+  private saveMaintenanceRecordsToLocalStorage(): void {
+    this.localStorageService.setItem(this.MAINTENANCE_KEY, this.maintenanceRecords());
   }
 
-  addVehicle(vehicle: Omit<Vehicle, 'id'>): void {
-    const newVehicle: Vehicle = {
-      ...vehicle,
-      id: Date.now().toString()
-    };
-    this.vehicles.update(vehicles => [...vehicles, newVehicle]);
-    this.saveVehicles();
+  async addVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<void> {
+    const newVehicle: Vehicle = { ...vehicle, id: crypto.randomUUID() };
+    if (this.firestoreService.isInitialized()) {
+      await this.firestoreService.setDocument(
+        this.VEHICLES_COLLECTION, newVehicle.id, this.serializeVehicle(newVehicle)
+      );
+    } else {
+      this.vehicles.update(vehicles => [...vehicles, newVehicle]);
+      this.saveVehiclesToLocalStorage();
+    }
   }
 
-  updateVehicle(id: string, updates: Partial<Vehicle>): void {
-    this.vehicles.update(vehicles =>
-      vehicles.map(v => v.id === id ? { ...v, ...updates } : v)
-    );
-    this.saveVehicles();
+  async updateVehicle(id: string, updates: Partial<Vehicle>): Promise<void> {
+    if (this.firestoreService.isInitialized()) {
+      await this.firestoreService.updateDocument(this.VEHICLES_COLLECTION, id, this.serializeVehicle(updates));
+    } else {
+      this.vehicles.update(vehicles => vehicles.map(v => v.id === id ? { ...v, ...updates } : v));
+      this.saveVehiclesToLocalStorage();
+    }
   }
 
-  deleteVehicle(id: string): void {
-    this.vehicles.update(vehicles => vehicles.filter(v => v.id !== id));
-    // Also delete associated maintenance records
-    this.maintenanceRecords.update(records =>
-      records.filter(r => r.vehicleId !== id)
-    );
-    this.saveVehicles();
-    this.saveMaintenanceRecords();
+  async deleteVehicle(id: string): Promise<void> {
+    if (this.firestoreService.isInitialized()) {
+      await this.firestoreService.deleteDocument(this.VEHICLES_COLLECTION, id);
+      // Also delete associated maintenance records
+      const related = this.maintenanceRecords().filter(r => r.vehicleId === id);
+      await Promise.all(related.map(r => this.firestoreService.deleteDocument(this.MAINTENANCE_COLLECTION, r.id)));
+    } else {
+      this.vehicles.update(vehicles => vehicles.filter(v => v.id !== id));
+      this.maintenanceRecords.update(records => records.filter(r => r.vehicleId !== id));
+      this.saveVehiclesToLocalStorage();
+      this.saveMaintenanceRecordsToLocalStorage();
+    }
   }
 
-  addMaintenanceRecord(record: Omit<MaintenanceRecord, 'id'>): void {
-    const newRecord: MaintenanceRecord = {
-      ...record,
-      id: Date.now().toString()
-    };
-    this.maintenanceRecords.update(records => [...records, newRecord]);
-    this.saveMaintenanceRecords();
+  async addMaintenanceRecord(record: Omit<MaintenanceRecord, 'id'>): Promise<void> {
+    const newRecord: MaintenanceRecord = { ...record, id: crypto.randomUUID() };
+    if (this.firestoreService.isInitialized()) {
+      await this.firestoreService.setDocument(
+        this.MAINTENANCE_COLLECTION, newRecord.id, this.serializeMaintenanceRecord(newRecord)
+      );
+    } else {
+      this.maintenanceRecords.update(records => [...records, newRecord]);
+      this.saveMaintenanceRecordsToLocalStorage();
+    }
   }
 
-  updateMaintenanceRecord(id: string, updates: Partial<MaintenanceRecord>): void {
-    this.maintenanceRecords.update(records =>
-      records.map(r => r.id === id ? { ...r, ...updates } : r)
-    );
-    this.saveMaintenanceRecords();
+  async updateMaintenanceRecord(id: string, updates: Partial<MaintenanceRecord>): Promise<void> {
+    if (this.firestoreService.isInitialized()) {
+      await this.firestoreService.updateDocument(
+        this.MAINTENANCE_COLLECTION, id, this.serializeMaintenanceRecord(updates)
+      );
+    } else {
+      this.maintenanceRecords.update(records => records.map(r => r.id === id ? { ...r, ...updates } : r));
+      this.saveMaintenanceRecordsToLocalStorage();
+    }
   }
 
-  deleteMaintenanceRecord(id: string): void {
-    this.maintenanceRecords.update(records => records.filter(r => r.id !== id));
-    this.saveMaintenanceRecords();
+  async deleteMaintenanceRecord(id: string): Promise<void> {
+    if (this.firestoreService.isInitialized()) {
+      await this.firestoreService.deleteDocument(this.MAINTENANCE_COLLECTION, id);
+    } else {
+      this.maintenanceRecords.update(records => records.filter(r => r.id !== id));
+      this.saveMaintenanceRecordsToLocalStorage();
+    }
   }
 
   getVehicleById(id: string): Vehicle | undefined {
@@ -139,7 +239,7 @@ export class VehicleService {
       }
     });
 
-    return upcoming.sort((a, b) => 
+    return upcoming.sort((a, b) =>
       a.record.nextDueDate!.getTime() - b.record.nextDueDate!.getTime()
     );
   }

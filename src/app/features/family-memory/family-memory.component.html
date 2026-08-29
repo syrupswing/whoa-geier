@@ -1,0 +1,121 @@
+<div class="family-memory-container">
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Family members</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">
+        Add each person facts and future AI suggestions can be attached to individually, instead of
+        everything defaulting to "whole household".
+      </p>
+
+      <div class="member-list" *ngIf="householdService.members().length">
+        <mat-chip-set>
+          <mat-chip *ngFor="let member of householdService.members()" (removed)="removeMember(member)">
+            {{ member.name }}
+            <button matChipRemove matTooltip="Remove">
+              <mat-icon>cancel</mat-icon>
+            </button>
+          </mat-chip>
+        </mat-chip-set>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Name</mat-label>
+          <input
+            matInput
+            [(ngModel)]="memberNameInput"
+            placeholder="Remi"
+            (keydown.enter)="addMember()">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Dietary restrictions (comma-separated, optional)</mat-label>
+          <input
+            matInput
+            [(ngModel)]="memberDietaryInput"
+            placeholder="shellfish allergy, no dairy"
+            (keydown.enter)="addMember()">
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" [disabled]="isSavingMember() || !memberNameInput.trim()" (click)="addMember()">
+        Add member
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Remember something</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">
+        Facts stated here (allergies, preferences, maintenance intervals) are used across the app's AI
+        suggestions — meals, outfits, alerts — instead of being asked for again each time.
+      </p>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Remember that...</mat-label>
+          <input
+            matInput
+            [(ngModel)]="factText"
+            placeholder="Remi is allergic to shellfish"
+            (keydown.enter)="addFact()">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Category</mat-label>
+          <mat-select [(ngModel)]="category">
+            <mat-option *ngFor="let c of categories" [value]="c">{{ c }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>About</mat-label>
+          <mat-select [(ngModel)]="memberId">
+            <mat-option [value]="null">Whole household</mat-option>
+            <mat-option *ngFor="let member of householdService.members()" [value]="member.id">
+              {{ member.name }}
+            </mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" [disabled]="isSaving() || !factText.trim()" (click)="addFact()">
+        Remember
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>What's remembered</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <div class="fact-list" *ngIf="memoryService.explicitFacts().length; else noFacts">
+        <div class="fact-row" *ngFor="let fact of memoryService.explicitFacts()">
+          <div class="fact-text">
+            <span>{{ fact.factText }}</span>
+            <div class="fact-meta">
+              <mat-chip-set>
+                <mat-chip>{{ fact.category }}</mat-chip>
+                <mat-chip>{{ memberName(fact.memberId) }}</mat-chip>
+              </mat-chip-set>
+            </div>
+          </div>
+          <button mat-icon-button (click)="deleteFact(fact)" matTooltip="Forget this">
+            <mat-icon>delete</mat-icon>
+          </button>
+        </div>
+      </div>
+      <ng-template #noFacts>
+        <p class="hint-text">Nothing remembered yet.</p>
+      </ng-template>
+    </mat-card-content>
+  </mat-card>
+</div>

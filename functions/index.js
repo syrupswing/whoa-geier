@@ -81,6 +81,225 @@ exports.aiProxy = onCall({ secrets: ['CLAUDE_API_KEY'] }, async (request) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// AI orchestrator — shared entry point for client-triggered AI features.
+// Unlike aiProxy (which just relays a client-built prompt), each featureType here owns
+// its own prompt template server-side, so the client sends a small structured payload
+// instead of prose it assembled itself. New features should be added here rather than
+// building another prompt client-side and hitting aiProxy directly.
+// ---------------------------------------------------------------------------
+
+const GROCERY_STORE_SECTIONS = [
+  'Produce', 'Bakery', 'Deli/Meat', 'Dairy', 'Frozen', 'Canned Goods',
+  'Dry Goods', 'Condiments', 'Snacks', 'Beverages', 'Health/Beauty', 'Household', 'Other'
+];
+
+const ORCHESTRATOR_TEMPLATES = {
+  'grocery-aisle-hint': {
+    // Fired once per grocery item on every list load — no accept/reject action exists for
+    // it, so it's excluded from the aiSuggestions log to avoid flooding it with permanently-
+    // "pending" noise, and it skips the memory lookup since a fact/recent-context lookup has
+    // nothing to add to "which aisle is milk in".
+    usesMemory: false,
+    logSuggestion: false,
+    maxTokens: 100,
+    buildPrompt: (payload) => (
+      `In which aisle or section of a grocery store would I typically find "${payload.itemName}"? ` +
+      `Respond with ONLY a JSON object of the exact shape {"location": "..."} — no other text. The ` +
+      `"location" value should be a brief, specific answer, e.g. "Produce section" or "Dairy aisle, near ` +
+      `the milk" or "Baking aisle, with flour and sugar".`
+    ),
+    parseResponse: extractJson
+  },
+  'grocery-categorize': {
+    usesMemory: false,
+    logSuggestion: false,
+    maxTokens: 500,
+    buildPrompt: (payload) => (
+      `Categorize these grocery items into store sections. For each item, choose ONE category from this ` +
+      `list: ${GROCERY_STORE_SECTIONS.join(', ')}.\n\nItems: ${(payload.itemNames || []).join(', ')}\n\n` +
+      `Respond with ONLY a JSON object mapping each item name to its category — no other text. Example ` +
+      `format:\n{"milk": "Dairy", "apples": "Produce", "bread": "Bakery"}`
+    ),
+    parseResponse: extractJson
+  },
+  'recipe-suggestions': {
+    // Recipes are a rare, deliberate ask (unlike the per-item grocery calls above), and
+    // dietary facts genuinely change what a "good" suggestion looks like, so this one uses
+    // memory and logs to aiSuggestions.
+    usesMemory: true,
+    logSuggestion: true,
+    maxTokens: 2048,
+    buildPrompt: (payload, context) => {
+      const factsClause = context.facts.length
+        ? ` Keep in mind these household facts: ${context.facts.join('; ')}.`
+        : '';
+      return (
+        `You are a helpful cooking assistant for a family. Provide practical, family-friendly recipes.` +
+        `${factsClause}\n\nGenerate 3 recipe suggestions based on: ${payload.prompt}\n\n` +
+        `Respond with ONLY a JSON array of recipes, no other text, in this exact format:\n` +
+        `[\n  {\n    "name": "Recipe Name",\n    "description": "Brief description",\n` +
+        `    "prepTime": 15,\n    "cookTime": 30,\n    "servings": 4,\n` +
+        `    "ingredients": ["ingredient 1", "ingredient 2"],\n` +
+        `    "instructions": ["step 1", "step 2"],\n    "tags": ["tag1", "tag2"]\n  }\n]`
+      );
+    },
+    parseResponse: extractJsonArray
+  },
+  'remi-quiz-question': {
+    usesMemory: false,
+    logSuggestion: false,
+    maxTokens: 300,
+    buildPrompt: (payload) => {
+      switch (payload.category) {
+        case 'spelling':
+          return (
+            `Generate 1 unique and creative spelling question for a 5-6 year old child. Use variety in ` +
+            `word selection across these categories:\n\n` +
+            `EASY WORDS (3-4 letters): cat, dog, sun, run, hat, mat, box, fox, bat, rat, bug, hug, jet, net, pen, hen, top, mop, car, jar\n` +
+            `MEDIUM WORDS (4-6 letters): happy, silly, funny, apple, pizza, tiger, ninja, magic, dragon, robot, wizard, castle, banana, cookie, rocket, turtle, monkey, pencil\n` +
+            `MINECRAFT THEMED: mine, cave, dirt, wood, tree, gold, iron, crop, farm, food, chest, sword, block, stone, craft\n` +
+            `NATURE WORDS: bird, fish, frog, leaf, seed, moon, star, rain, snow, wind\n` +
+            `ACTION WORDS: swim, jump, run, hop, skip, play, read, sing, dance, climb\n\n` +
+            `Pick ONE word randomly from ANY category above (mix it up!). Create an engaging sentence ` +
+            `that relates to Minecraft, nature, or something fun. Respond with ONLY a JSON object, no ` +
+            `other text, in this format:\n` +
+            `{"word": "dragon", "sentence": "Can you spell DRAGON? In Minecraft, the ender dragon flies ` +
+            `in the sky!", "hint": "A big flying creature that breathes fire"}`
+          );
+        case 'math':
+          return (
+            `Generate 1 simple math question for a 5-6 year old child. Use addition or subtraction with ` +
+            `numbers 1-10 only. Make it fun and engaging. Respond with ONLY a JSON object, no other text, ` +
+            `in this format:\n` +
+            `{"question": "If you have 3 blocks and get 2 more, how many blocks do you have?", "answer": "5"}`
+          );
+        case 'fun-facts':
+          return (
+            `Generate 1 fun multiple choice question for a 5-6 year old child about Minecraft or animals ` +
+            `or nature. Make it fun and educational. Respond with ONLY a JSON object, no other text, in ` +
+            `this format:\n` +
+            `{"question": "What do creepers in Minecraft do?", "correctAnswer": "Explode", ` +
+            `"options": ["Explode", "Fly", "Swim", "Sleep"]}`
+          );
+        default:
+          throw new Error(`Unknown quiz category: ${payload.category}`);
+      }
+    },
+    parseResponse: extractJson
+  },
+  'dashboard-welcome-message': {
+    usesMemory: false,
+    logSuggestion: false,
+    maxTokens: 60,
+    buildPrompt: () => (
+      `Write a very brief, friendly, and colloquial welcome message (maximum 15 words) for a family ` +
+      `command center app that helps families manage their schedules, grocery lists, and daily activities. ` +
+      `Make it warm and encouraging. Respond with ONLY a JSON object of the exact shape {"text": "..."} — ` +
+      `no other text.`
+    ),
+    parseResponse: extractJson
+  },
+  'dashboard-clothing-recommendation': {
+    usesMemory: false,
+    logSuggestion: false,
+    maxTokens: 100,
+    buildPrompt: (payload) => (
+      `Based on this weather: ${payload.temperature}°F, ${payload.description}, humidity ` +
+      `${payload.humidity}%, wind ${payload.windSpeed} mph - write ONE short, friendly sentence (max 15 ` +
+      `words) suggesting what to wear including both clothing AND footwear. Be conversational and helpful. ` +
+      `Respond with ONLY a JSON object of the exact shape {"text": "..."} — no other text.`
+    ),
+    parseResponse: extractJson
+  },
+  'family-chat': {
+    // Open-ended chat doesn't fit a bounded JSON schema the way a single fact/dish/sentence
+    // does, so this is the one template that stays prose in/out. No accept/reject action
+    // exists for a chat reply either, so it's excluded from the aiSuggestions log.
+    usesMemory: true,
+    logSuggestion: false,
+    maxTokens: 1024,
+    buildPrompt: (payload, context) => {
+      const factsClause = context.facts.length
+        ? ` Household facts to keep in mind: ${context.facts.join('; ')}.`
+        : '';
+      return (
+        `You are a helpful family assistant for a family command center app. Be friendly, concise, and ` +
+        `helpful.${factsClause}\n\nThe user asked: ${payload.message}`
+      );
+    },
+    parseResponse: (raw) => ({ text: raw.trim() })
+  }
+};
+
+/** Facts and still-relevant recent-context entries for a member (or the whole household). */
+async function buildOrchestratorMemoryContext(db, memberId) {
+  const now = new Date();
+  const [factsSnap, contextSnap] = await Promise.all([
+    db.collection('explicitFacts').get(),
+    db.collection('recentContext').get()
+  ]);
+
+  const facts = factsSnap.docs
+    .map(d => d.data())
+    .filter(f => !f.memberId || f.memberId === memberId)
+    .map(f => f.factText);
+
+  const recentContext = contextSnap.docs
+    .map(d => d.data())
+    .filter(c => !c.archivedAt && (!c.relevantDateEnd || new Date(c.relevantDateEnd) >= now))
+    .map(c => c.description);
+
+  return { facts, recentContext };
+}
+
+exports.orchestratedGenerate = onCall(
+  { secrets: ['CLAUDE_API_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+
+    const { featureType, payload, memberId } = request.data || {};
+    const template = ORCHESTRATOR_TEMPLATES[featureType];
+    if (!template) {
+      throw new HttpsError('invalid-argument', `Unknown featureType: ${featureType}`);
+    }
+
+    const token = claudeApiKey.value();
+    if (!token) {
+      throw new HttpsError('internal', 'Claude API key not configured');
+    }
+
+    const db = admin.firestore();
+
+    try {
+      const context = template.usesMemory === false
+        ? { facts: [], recentContext: [] }
+        : await buildOrchestratorMemoryContext(db, memberId);
+
+      const prompt = template.buildPrompt(payload || {}, context);
+      const raw = await callClaude(token, prompt, template.maxTokens || 1024);
+      const result = template.parseResponse(raw);
+
+      let suggestionId = null;
+      if (template.logSuggestion !== false) {
+        suggestionId = await logAiSuggestion(db, {
+          featureType,
+          memberId,
+          generatedContent: result,
+          contextSnapshot: { payload: payload || {}, memory: context }
+        });
+      }
+
+      return { success: true, result, suggestionId };
+    } catch (err) {
+      console.error(`orchestratedGenerate error (${featureType}):`, err);
+      throw new HttpsError('internal', err.message || 'Failed to generate suggestion');
+    }
+  }
+);
+
 /**
  * Daily push notification for overdue or due-today todos.
  * Runs every morning at 8:00 AM Central Time.
@@ -100,7 +319,7 @@ exports.dailyTodoReminder = onSchedule(
   const tokens = tokensSnap.docs.map(doc => doc.data().token).filter(Boolean);
 
   // Get all incomplete todos
-  const todosSnap = await db.collection('todos').where('completed', '==', false).get();
+  const todosSnap = await db.collection('todoItems').where('completed', '==', false).get();
   if (todosSnap.empty) {
     console.log('No incomplete todos — skipping notification.');
     return;
@@ -415,55 +634,120 @@ function avoidClause(previous) {
   return previous ? ` Don't repeat this previous suggestion: "${previous}".` : '';
 }
 
+/** Extracts and parses the first {...} JSON object found in a model response. */
+function extractJson(text) {
+  const match = text.match(/\{[\s\S]*\}/);
+  if (!match) {
+    throw new Error(`No JSON object found in model response: ${text.slice(0, 200)}`);
+  }
+  return JSON.parse(match[0]);
+}
+
+/** Extracts and parses the first [...] JSON array found in a model response. */
+function extractJsonArray(text) {
+  const match = text.match(/\[[\s\S]*\]/);
+  if (!match) {
+    throw new Error(`No JSON array found in model response: ${text.slice(0, 200)}`);
+  }
+  return JSON.parse(match[0]);
+}
+
+/**
+ * Logs an AI-generated suggestion to the aiSuggestions collection so its outcome
+ * (accepted/edited/rejected) can be tracked and later mined for learned patterns.
+ */
+async function logAiSuggestion(db, { featureType, memberId, generatedContent, contextSnapshot }) {
+  const suggestion = {
+    featureType,
+    generatedContent,
+    contextSnapshot,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  };
+  if (memberId) suggestion.memberId = memberId;
+  const ref = await db.collection('aiSuggestions').add(suggestion);
+  return ref.id;
+}
+
+/** Marks a previously-logged suggestion rejected — used when a facet is explicitly regenerated. */
+async function rejectAiSuggestion(db, suggestionId) {
+  if (!suggestionId) return;
+  try {
+    await db.collection('aiSuggestions').doc(suggestionId).update({ status: 'rejected' });
+  } catch (err) {
+    console.error('rejectAiSuggestion error:', err);
+  }
+}
+
 async function generateClothingIdea(claudeToken, weather, previous) {
   const forecastLine = (weather.periods || [])
     .map(p => `${p.part}: ${p.tempF}°F, ${p.description}, ${p.pop}% chance of precipitation`)
     .join('; ');
 
-  return callClaude(
+  const raw = await callClaude(
     claudeToken,
     `You're helping a parent get their 6-year-old son Remi (starting 1st grade) dressed for school.\n\n` +
     `Right now: ${weather.tempF}°F, feels like ${weather.feelsLike}°F, ${weather.description}.\n` +
     (weather.highF ? `Today's high ${weather.highF}°F, low ${weather.lowF}°F.\n` : '') +
     (forecastLine ? `Rest of today — ${forecastLine}.\n` : '') +
-    `\nWrite 2-3 conversational sentences telling the parent what Remi should wear, and reason out loud from ` +
-    `the forecast (mention specific rain chances or times of day when they matter). Lead with whatever the ` +
-    `weather actually calls for — a jacket, rain gear, sun protection — then cover the basics like top, bottom, ` +
-    `and footwear. Mention extras like sunglasses, a hat, or gloves only if the forecast justifies them. ` +
-    `Refer to him as Remi. Warm and casual, like a text from a partner. Just the sentences, nothing else.${avoidClause(previous)}`,
-    300
+    `\nRespond with ONLY a JSON object of the exact shape {"reasoning": "..."} — no other text. The ` +
+    `"reasoning" value should be 2-3 conversational sentences telling the parent what Remi should wear, ` +
+    `reasoning out loud from the forecast (mention specific rain chances or times of day when they matter). ` +
+    `Lead with whatever the weather actually calls for — a jacket, rain gear, sun protection — then cover ` +
+    `the basics like top, bottom, and footwear. Mention extras like sunglasses, a hat, or gloves only if the ` +
+    `forecast justifies them. Refer to him as Remi. Warm and casual, like a text from a ` +
+    `partner.${avoidClause(previous)}`,
+    350
   );
+
+  return extractJson(raw);
 }
 
 async function generatePackedLunchIdea(claudeToken, previous) {
-  return callClaude(
+  const raw = await callClaude(
     claudeToken,
-    `Suggest ONE simple, kid-friendly packed lunch for a 6-year-old with no dietary restrictions, ` +
-    `for a school lunchbox. Max 20 words, just the idea, nothing else.${avoidClause(previous)}`,
-    100
+    `Respond with ONLY a JSON object of the exact shape {"dish": "..."} — no other text. The "dish" value ` +
+    `should suggest ONE simple, kid-friendly packed lunch for a 6-year-old with no dietary restrictions, ` +
+    `for a school lunchbox. Max 20 words.${avoidClause(previous)}`,
+    150
   );
+
+  return extractJson(raw);
 }
 
 async function generateBreakfastIdea(claudeToken, previous) {
-  return callClaude(
+  const raw = await callClaude(
     claudeToken,
-    `Suggest ONE quick, kid-friendly breakfast idea for a 6-year-old before school, no dietary restrictions, ` +
-    `ready in under 10 minutes. Max 18 words, just the idea, nothing else.${avoidClause(previous)}`,
-    100
+    `Respond with ONLY a JSON object of the exact shape {"dish": "..."} — no other text. The "dish" value ` +
+    `should suggest ONE quick, kid-friendly breakfast idea for a 6-year-old before school, no dietary ` +
+    `restrictions, ready in under 10 minutes. Max 18 words.${avoidClause(previous)}`,
+    150
   );
+
+  return extractJson(raw);
 }
 
 async function generateDinnerIdea(claudeToken, previous) {
-  return callClaude(
+  const raw = await callClaude(
     claudeToken,
-    `Suggest ONE simple, kid-friendly dinner idea for a 6-year-old with no dietary restrictions, ` +
-    `easy enough for a busy weeknight. Max 20 words, just the idea, nothing else.${avoidClause(previous)}`,
-    100
+    `Respond with ONLY a JSON object of the exact shape {"dish": "..."} — no other text. The "dish" value ` +
+    `should suggest ONE simple, kid-friendly dinner idea for a 6-year-old with no dietary restrictions, ` +
+    `easy enough for a busy weeknight. Max 20 words.${avoidClause(previous)}`,
+    150
   );
+
+  return extractJson(raw);
 }
 
 async function buildBriefing(dateStr, claudeToken, weatherKey) {
   const db = admin.firestore();
+  const docRef = db.collection('remi-daily-briefing').doc(dateStr);
+
+  // If a briefing already exists for this date, this call is regenerating it (rather than
+  // a fresh day's first run) — the old suggestions get marked rejected once new ones land.
+  const existingSnap = await docRef.get();
+  const existing = existingSnap.exists ? existingSnap.data() : null;
+
   const schedule = await resolveScheduleForDate(db, dateStr);
 
   const lunchDoc = await db.collection('remi-lunch-menu').doc(dateStr).get();
@@ -479,13 +763,24 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
   const activities = await fetchActivitiesForDate(schedule.icalUrls, dateStr);
 
   let clothingIdea = null;
+  let clothingSuggestionId = null;
   let packedLunchIdea = null;
+  let packedLunchSuggestionId = null;
   let breakfastIdea = null;
+  let breakfastSuggestionId = null;
   let dinnerIdea = null;
+  let dinnerSuggestionId = null;
 
   if (claudeToken && weather) {
     try {
-      clothingIdea = await generateClothingIdea(claudeToken, weather);
+      const idea = await generateClothingIdea(claudeToken, weather, existing?.clothingIdea);
+      clothingIdea = idea.reasoning;
+      await rejectAiSuggestion(db, existing?.clothingSuggestionId);
+      clothingSuggestionId = await logAiSuggestion(db, {
+        featureType: 'remi-clothing',
+        generatedContent: idea,
+        contextSnapshot: { date: dateStr, weather }
+      });
     } catch (err) {
       console.error('buildBriefing clothingIdea error:', err);
     }
@@ -493,7 +788,14 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken && schedule.lunchPlan === 'pack') {
     try {
-      packedLunchIdea = await generatePackedLunchIdea(claudeToken);
+      const idea = await generatePackedLunchIdea(claudeToken, existing?.packedLunchIdea);
+      packedLunchIdea = idea.dish;
+      await rejectAiSuggestion(db, existing?.packedLunchSuggestionId);
+      packedLunchSuggestionId = await logAiSuggestion(db, {
+        featureType: 'remi-packed-lunch',
+        generatedContent: idea,
+        contextSnapshot: { date: dateStr }
+      });
     } catch (err) {
       console.error('buildBriefing packedLunchIdea error:', err);
     }
@@ -501,7 +803,14 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken) {
     try {
-      breakfastIdea = await generateBreakfastIdea(claudeToken);
+      const idea = await generateBreakfastIdea(claudeToken, existing?.breakfastIdea);
+      breakfastIdea = idea.dish;
+      await rejectAiSuggestion(db, existing?.breakfastSuggestionId);
+      breakfastSuggestionId = await logAiSuggestion(db, {
+        featureType: 'remi-breakfast',
+        generatedContent: idea,
+        contextSnapshot: { date: dateStr }
+      });
     } catch (err) {
       console.error('buildBriefing breakfastIdea error:', err);
     }
@@ -509,7 +818,14 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken) {
     try {
-      dinnerIdea = await generateDinnerIdea(claudeToken);
+      const idea = await generateDinnerIdea(claudeToken, existing?.dinnerIdea);
+      dinnerIdea = idea.dish;
+      await rejectAiSuggestion(db, existing?.dinnerSuggestionId);
+      dinnerSuggestionId = await logAiSuggestion(db, {
+        featureType: 'remi-dinner',
+        generatedContent: idea,
+        contextSnapshot: { date: dateStr }
+      });
     } catch (err) {
       console.error('buildBriefing dinnerIdea error:', err);
     }
@@ -523,16 +839,20 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
     endTime: schedule.endTime,
     weather,
     clothingIdea,
+    clothingSuggestionId,
     activities,
     lunchPlan: schedule.lunchPlan,
     lunchMenuText,
     packedLunchIdea,
+    packedLunchSuggestionId,
     breakfastIdea,
+    breakfastSuggestionId,
     dinnerIdea,
+    dinnerSuggestionId,
     generatedAt: new Date().toISOString()
   };
 
-  await db.collection('remi-daily-briefing').doc(dateStr).set(briefing);
+  await docRef.set(briefing);
   return briefing;
 }
 
@@ -675,25 +995,50 @@ exports.regenerateBriefingFacet = onCall(
               console.error('regenerateBriefingFacet weather refresh error:', err);
             }
           }
-          updates = {
-            weather,
-            clothingIdea: await generateClothingIdea(token, weather, briefing.clothingIdea)
-          };
+          const idea = await generateClothingIdea(token, weather, briefing.clothingIdea);
+          await rejectAiSuggestion(db, briefing.clothingSuggestionId);
+          const suggestionId = await logAiSuggestion(db, {
+            featureType: 'remi-clothing',
+            generatedContent: idea,
+            contextSnapshot: { date, weather }
+          });
+          updates = { weather, clothingIdea: idea.reasoning, clothingSuggestionId: suggestionId };
           break;
         }
         case 'breakfast': {
-          updates = { breakfastIdea: await generateBreakfastIdea(token, briefing.breakfastIdea) };
+          const idea = await generateBreakfastIdea(token, briefing.breakfastIdea);
+          await rejectAiSuggestion(db, briefing.breakfastSuggestionId);
+          const suggestionId = await logAiSuggestion(db, {
+            featureType: 'remi-breakfast',
+            generatedContent: idea,
+            contextSnapshot: { date }
+          });
+          updates = { breakfastIdea: idea.dish, breakfastSuggestionId: suggestionId };
           break;
         }
         case 'lunch': {
           if (briefing.lunchPlan !== 'pack') {
             throw new HttpsError('failed-precondition', 'Today is a hot-lunch day, not a packed lunch');
           }
-          updates = { packedLunchIdea: await generatePackedLunchIdea(token, briefing.packedLunchIdea) };
+          const idea = await generatePackedLunchIdea(token, briefing.packedLunchIdea);
+          await rejectAiSuggestion(db, briefing.packedLunchSuggestionId);
+          const suggestionId = await logAiSuggestion(db, {
+            featureType: 'remi-packed-lunch',
+            generatedContent: idea,
+            contextSnapshot: { date }
+          });
+          updates = { packedLunchIdea: idea.dish, packedLunchSuggestionId: suggestionId };
           break;
         }
         case 'dinner': {
-          updates = { dinnerIdea: await generateDinnerIdea(token, briefing.dinnerIdea) };
+          const idea = await generateDinnerIdea(token, briefing.dinnerIdea);
+          await rejectAiSuggestion(db, briefing.dinnerSuggestionId);
+          const suggestionId = await logAiSuggestion(db, {
+            featureType: 'remi-dinner',
+            generatedContent: idea,
+            contextSnapshot: { date }
+          });
+          updates = { dinnerIdea: idea.dish, dinnerSuggestionId: suggestionId };
           break;
         }
         default:
@@ -708,5 +1053,134 @@ exports.regenerateBriefingFacet = onCall(
     updates.generatedAt = new Date().toISOString();
     await docRef.update(updates);
     return { success: true, ...updates };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Smart alerts
+// ---------------------------------------------------------------------------
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * Creates a smart alert unless a pending one from the same triggering rule already
+ * exists — keeps an ongoing issue (e.g. registration that's been expired for weeks)
+ * from generating a fresh alert every single night.
+ */
+async function upsertSmartAlert(db, { alertType, message, triggeringRule }) {
+  const existing = await db.collection('smartAlerts')
+    .where('triggeringRule', '==', triggeringRule)
+    .where('status', '==', 'pending')
+    .limit(1)
+    .get();
+  if (!existing.empty) return;
+
+  await db.collection('smartAlerts').add({
+    alertType,
+    message,
+    triggeringRule,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  });
+}
+
+/** Vehicle registration expiring/expired, or maintenance due/overdue by date or mileage. */
+async function evaluateVehicleAlerts(db) {
+  const [vehiclesSnap, recordsSnap] = await Promise.all([
+    db.collection('vehicles').get(),
+    db.collection('maintenanceRecords').get()
+  ]);
+
+  const vehicles = vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const records = recordsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const now = new Date();
+  const thirtyDaysOut = new Date(now.getTime() + THIRTY_DAYS_MS);
+
+  for (const vehicle of vehicles) {
+    if (!vehicle.registrationExpiry) continue;
+    const expiry = new Date(vehicle.registrationExpiry);
+    if (expiry < now) {
+      await upsertSmartAlert(db, {
+        alertType: 'vehicle-registration-expired',
+        message: `${vehicle.name}'s registration expired ${expiry.toLocaleDateString()}`,
+        triggeringRule: `vehicle-registration:${vehicle.id}`
+      });
+    } else if (expiry <= thirtyDaysOut) {
+      await upsertSmartAlert(db, {
+        alertType: 'vehicle-registration-due-soon',
+        message: `${vehicle.name}'s registration expires ${expiry.toLocaleDateString()}`,
+        triggeringRule: `vehicle-registration:${vehicle.id}`
+      });
+    }
+  }
+
+  for (const record of records) {
+    const vehicle = vehicles.find(v => v.id === record.vehicleId);
+    if (!vehicle) continue;
+
+    const dueByDate = record.nextDueDate ? new Date(record.nextDueDate) : null;
+    const dueByMileage = record.nextDueMileage != null && vehicle.currentMileage >= record.nextDueMileage;
+    if (!((dueByDate && dueByDate <= thirtyDaysOut) || dueByMileage)) continue;
+
+    const overdue = (dueByDate && dueByDate < now) || dueByMileage;
+    const label = (record.type || 'maintenance').replace('_', ' ');
+    await upsertSmartAlert(db, {
+      alertType: overdue ? 'vehicle-maintenance-overdue' : 'vehicle-maintenance-due-soon',
+      message: overdue
+        ? `${vehicle.name} is overdue for ${label}`
+        : `${vehicle.name} will be due for ${label} soon`,
+      triggeringRule: `vehicle-maintenance:${record.id}`
+    });
+  }
+}
+
+/** A field trip on tomorrow's calendar, when tomorrow is otherwise a hot-lunch school day. */
+async function evaluateFieldTripLunchAlert(db) {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const dateStr = toDateStr(tomorrow);
+
+  const schedule = await resolveScheduleForDate(db, dateStr);
+  if (schedule.schoolStatus !== 'school' || schedule.lunchPlan !== 'hot') return;
+
+  const activities = await fetchActivitiesForDate(schedule.icalUrls, dateStr);
+  const fieldTrip = activities.find(a => /field trip/i.test(a.title));
+  if (!fieldTrip) return;
+
+  await upsertSmartAlert(db, {
+    alertType: 'field-trip-pack-lunch',
+    message: `"${fieldTrip.title}" tomorrow — consider packing a lunch instead of hot lunch`,
+    triggeringRule: `field-trip-lunch:${dateStr}`
+  });
+}
+
+async function evaluateSmartAlerts() {
+  const db = admin.firestore();
+  await evaluateVehicleAlerts(db);
+  await evaluateFieldTripLunchAlert(db);
+}
+
+/** Runs every evening so alerts about tomorrow (and ongoing vehicle upkeep) are ready by morning. */
+exports.nightlySmartAlerts = onSchedule(
+  { schedule: '0 20 * * *', timeZone: 'America/Chicago' },
+  async () => {
+    await evaluateSmartAlerts();
+  }
+);
+
+/** Manual trigger for testing the same rules on demand, without waiting for the nightly run. */
+exports.runSmartAlertsNow = onCall(
+  { invoker: 'public' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    try {
+      await evaluateSmartAlerts();
+      return { success: true };
+    } catch (err) {
+      console.error('runSmartAlertsNow error:', err);
+      throw new HttpsError('internal', err.message || 'Failed to evaluate smart alerts');
+    }
   }
 );

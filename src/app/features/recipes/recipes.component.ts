@@ -1,4 +1,4 @@
-import { Component, signal, OnInit, inject } from '@angular/core';
+import { Component, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -10,25 +10,13 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { LocalStorageService } from '../../services/local-storage.service';
-import { GithubAiService, RecipeSuggestion } from '../../services/github-ai.service';
+import { RecipeService, Recipe, RecipeSuggestion } from '../../services/recipe.service';
+import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
-export interface Recipe {
-  id: string;
-  name: string;
-  description: string;
-  prepTime: number;
-  cookTime: number;
-  servings: number;
-  ingredients: string[];
-  instructions: string[];
-  tags: string[];
-  imageUrl?: string;
-  favorite: boolean;
-}
+export type { Recipe };
 
 @Component({
   selector: 'app-recipes',
@@ -52,93 +40,22 @@ export interface Recipe {
   templateUrl: './recipes.component.html',
   styleUrls: ['./recipes.component.scss']
 })
-export class RecipesComponent implements OnInit {
-  private readonly STORAGE_KEY = 'family-command-center-recipes';
-  private localStorageService = inject(LocalStorageService);
-  private githubAi = inject(GithubAiService);
+export class RecipesComponent {
+  recipeService = inject(RecipeService);
+  private aiOrchestrator = inject(AiOrchestratorService);
   private snackBar = inject(MatSnackBar);
-
-  recipes = signal<Recipe[]>([
-    {
-      id: '1',
-      name: 'Spaghetti Carbonara',
-      description: 'Classic Italian pasta dish with eggs, cheese, and bacon',
-      prepTime: 10,
-      cookTime: 20,
-      servings: 4,
-      ingredients: [
-        '400g spaghetti',
-        '200g bacon or pancetta',
-        '4 eggs',
-        '100g Parmesan cheese',
-        'Black pepper',
-        'Salt'
-      ],
-      instructions: [
-        'Cook pasta according to package directions',
-        'Fry bacon until crispy',
-        'Beat eggs with grated cheese',
-        'Drain pasta and mix with bacon',
-        'Remove from heat and stir in egg mixture',
-        'Season with pepper and serve'
-      ],
-      tags: ['Italian', 'Pasta', 'Quick'],
-      favorite: true
-    },
-    {
-      id: '2',
-      name: 'Chicken Stir Fry',
-      description: 'Quick and healthy Asian-inspired dish',
-      prepTime: 15,
-      cookTime: 15,
-      servings: 4,
-      ingredients: [
-        '500g chicken breast',
-        'Mixed vegetables',
-        'Soy sauce',
-        'Garlic',
-        'Ginger',
-        'Rice'
-      ],
-      instructions: [
-        'Cut chicken into bite-sized pieces',
-        'Heat wok with oil',
-        'Cook chicken until golden',
-        'Add vegetables and stir fry',
-        'Add soy sauce and seasonings',
-        'Serve over rice'
-      ],
-      tags: ['Asian', 'Healthy', 'Quick'],
-      favorite: false
-    }
-  ]);
 
   searchTerm = '';
   filterTag = '';
   showAddForm = false;
   editingRecipeId: string | null = null;
-  
+
   // AI features
   showAiPrompt = false;
   aiPrompt = '';
   isGeneratingAi = false;
   aiSuggestions = signal<RecipeSuggestion[]>([]);
 
-  ngOnInit(): void {
-    this.loadRecipes();
-  }
-
-  private loadRecipes(): void {
-    const savedRecipes = this.localStorageService.getItem<Recipe[]>(this.STORAGE_KEY);
-    if (savedRecipes && savedRecipes.length > 0) {
-      this.recipes.set(savedRecipes);
-    }
-  }
-
-  private saveRecipes(): void {
-    this.localStorageService.setItem(this.STORAGE_KEY, this.recipes());
-  }
-  
   newRecipe = {
     name: '',
     description: '',
@@ -151,33 +68,27 @@ export class RecipesComponent implements OnInit {
   };
 
   getFilteredRecipes(): Recipe[] {
-    return this.recipes().filter(recipe => {
-      const matchesSearch = !this.searchTerm || 
+    return this.recipeService.recipes().filter(recipe => {
+      const matchesSearch = !this.searchTerm ||
         recipe.name.toLowerCase().includes(this.searchTerm.toLowerCase());
-      const matchesTag = !this.filterTag || 
+      const matchesTag = !this.filterTag ||
         recipe.tags.some(tag => tag.toLowerCase() === this.filterTag.toLowerCase());
       return matchesSearch && matchesTag;
     });
   }
 
   getFavoriteRecipes(): Recipe[] {
-    return this.recipes().filter(r => r.favorite);
+    return this.recipeService.getFavorites();
   }
 
   getAllTags(): string[] {
-    const tags = new Set<string>();
-    this.recipes().forEach(recipe => {
-      recipe.tags.forEach(tag => tags.add(tag));
-    });
-    return Array.from(tags).sort();
+    return this.recipeService.getAllTags();
   }
 
-  toggleFavorite(recipeId: string): void {
-    const updatedRecipes = this.recipes().map(recipe =>
-      recipe.id === recipeId ? { ...recipe, favorite: !recipe.favorite } : recipe
-    );
-    this.recipes.set(updatedRecipes);
-    this.saveRecipes();
+  async toggleFavorite(recipeId: string): Promise<void> {
+    const recipe = this.recipeService.recipes().find(r => r.id === recipeId);
+    if (!recipe) return;
+    await this.recipeService.updateRecipe(recipeId, { favorite: !recipe.favorite });
   }
 
   getTotalTime(recipe: Recipe): number {
@@ -191,11 +102,10 @@ export class RecipesComponent implements OnInit {
     }
   }
 
-  addRecipe(): void {
+  async addRecipe(): Promise<void> {
     if (!this.newRecipe.name.trim()) return;
 
-    const recipe: Recipe = {
-      id: Date.now().toString(),
+    await this.recipeService.addRecipe({
       name: this.newRecipe.name,
       description: this.newRecipe.description,
       prepTime: this.newRecipe.prepTime || 0,
@@ -205,10 +115,8 @@ export class RecipesComponent implements OnInit {
       instructions: this.newRecipe.instructions.split('\n').filter(i => i.trim()),
       tags: this.newRecipe.tags.split(',').map(t => t.trim()).filter(t => t),
       favorite: false
-    };
+    });
 
-    this.recipes.set([...this.recipes(), recipe]);
-    this.saveRecipes();
     this.showAddForm = false;
     this.resetForm();
   }
@@ -246,11 +154,10 @@ export class RecipesComponent implements OnInit {
     }, 100);
   }
 
-  updateRecipe(): void {
+  async updateRecipe(): Promise<void> {
     if (!this.newRecipe.name.trim() || !this.editingRecipeId) return;
 
-    const updatedRecipe: Recipe = {
-      id: this.editingRecipeId,
+    await this.recipeService.updateRecipe(this.editingRecipeId, {
       name: this.newRecipe.name,
       description: this.newRecipe.description,
       prepTime: this.newRecipe.prepTime || 0,
@@ -258,20 +165,16 @@ export class RecipesComponent implements OnInit {
       servings: this.newRecipe.servings || 4,
       ingredients: this.newRecipe.ingredients.split('\n').filter(i => i.trim()),
       instructions: this.newRecipe.instructions.split('\n').filter(i => i.trim()),
-      tags: this.newRecipe.tags.split(',').map(t => t.trim()).filter(t => t),
-      favorite: this.recipes().find(r => r.id === this.editingRecipeId)?.favorite || false
-    };
+      tags: this.newRecipe.tags.split(',').map(t => t.trim()).filter(t => t)
+    });
 
-    this.recipes.set(this.recipes().map(r => r.id === this.editingRecipeId ? updatedRecipe : r));
-    this.saveRecipes();
     this.showAddForm = false;
     this.resetForm();
   }
 
-  deleteRecipe(recipeId: string): void {
+  async deleteRecipe(recipeId: string): Promise<void> {
     if (confirm('Are you sure you want to delete this recipe?')) {
-      this.recipes.set(this.recipes().filter(r => r.id !== recipeId));
-      this.saveRecipes();
+      await this.recipeService.deleteRecipe(recipeId);
     }
   }
 
@@ -285,14 +188,6 @@ export class RecipesComponent implements OnInit {
 
   // AI Features
   toggleAiPrompt(): void {
-    if (!this.githubAi.isConfigured()) {
-      this.snackBar.open(
-        'GitHub AI not configured. Please add your token to the environment file.',
-        'Close',
-        { duration: 5000 }
-      );
-      return;
-    }
     this.showAiPrompt = !this.showAiPrompt;
     if (!this.showAiPrompt) {
       this.aiPrompt = '';
@@ -310,11 +205,11 @@ export class RecipesComponent implements OnInit {
     this.aiSuggestions.set([]);
 
     try {
-      const suggestions = await this.githubAi.suggestRecipes(
-        this.aiPrompt,
-        'You are a helpful cooking assistant for a family. Provide practical, family-friendly recipes.'
+      const suggestions = await this.aiOrchestrator.generate<RecipeSuggestion[]>(
+        'recipe-suggestions',
+        { prompt: this.aiPrompt }
       );
-      
+
       this.aiSuggestions.set(suggestions);
       this.snackBar.open(`Generated ${suggestions.length} recipe suggestions!`, 'Close', { duration: 3000 });
     } catch (error: any) {
@@ -329,9 +224,8 @@ export class RecipesComponent implements OnInit {
     }
   }
 
-  addAiSuggestion(suggestion: RecipeSuggestion): void {
-    const recipe: Recipe = {
-      id: Date.now().toString(),
+  async addAiSuggestion(suggestion: RecipeSuggestion): Promise<void> {
+    await this.recipeService.addRecipe({
       name: suggestion.name,
       description: suggestion.description,
       prepTime: suggestion.prepTime,
@@ -341,14 +235,12 @@ export class RecipesComponent implements OnInit {
       instructions: suggestion.instructions,
       tags: suggestion.tags,
       favorite: false
-    };
+    });
 
-    this.recipes.set([...this.recipes(), recipe]);
-    this.saveRecipes();
-    this.snackBar.open(`Added "${recipe.name}" to your recipes!`, 'Close', { duration: 3000 });
-    
+    this.snackBar.open(`Added "${suggestion.name}" to your recipes!`, 'Close', { duration: 3000 });
+
     // Remove from suggestions
-    this.aiSuggestions.update(suggestions => 
+    this.aiSuggestions.update(suggestions =>
       suggestions.filter(s => s.name !== suggestion.name)
     );
   }

@@ -91,15 +91,15 @@ The build artifacts will be stored in the `dist/` directory.
 
 ## Configuration
 
-### Google Gemini AI (Optional but Recommended)
-For AI-powered recipe suggestions and meal planning:
-1. Get your free API key from [Google AI Studio](https://aistudio.google.com/app/apikey)
-2. Add it to `src/environments/environment.ts`:
-   ```typescript
-   geminiApiKey: 'YOUR_API_KEY_HERE'
-   ```
-3. See [GEMINI_SETUP.md](GEMINI_SETUP.md) for detailed setup instructions
-4. See [AI_FEATURES.md](AI_FEATURES.md) for complete feature documentation
+### AI features
+AI-powered recipe suggestions, grocery aisle hints, Remi's World quiz questions, the family
+chat assistant, and Remi's daily briefing (outfit/breakfast/lunch/dinner ideas) are all served
+by Claude, called from Firebase Cloud Functions — never directly from the client. To enable
+them, set the `CLAUDE_API_KEY` secret on your Firebase project and deploy `functions/`:
+```bash
+firebase functions:secrets:set CLAUDE_API_KEY
+firebase deploy --only functions
+```
 
 ### Google Calendar Integration (Optional)
 For family calendar features:

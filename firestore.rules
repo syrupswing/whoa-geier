@@ -77,6 +77,81 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // Single household doc holding the family member profiles array
+    match /household/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Explicit facts stated by a family member ("Remi is allergic to shellfish")
+    match /explicitFacts/{factId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Patterns inferred from the AI suggestion feedback log — written only by the
+    // smart-alerts Cloud Function via the Admin SDK, read-only from the client
+    match /learnedPatterns/{patternId} {
+      allow read: if isAuthenticated();
+      allow write: if false;
+    }
+
+    // Short-term, time-bound context ("grandma visiting Saturday")
+    match /recentContext/{contextId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Log of every AI-generated suggestion and its accepted/edited/rejected outcome.
+    // Suggestions themselves are created server-side (Admin SDK); the client only
+    // updates status when a family member acts on one.
+    match /aiSuggestions/{suggestionId} {
+      allow read: if isAuthenticated();
+      allow create: if false;
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // Saved recipes (migrated from device-local storage so they sync across devices and
+    // are readable by future meal-suggestion grounding)
+    match /recipes/{recipeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Vehicles and their maintenance records (migrated from device-local storage so a
+    // nightly smart-alerts job can see mileage/due-date data)
+    match /vehicles/{vehicleId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    match /maintenanceRecords/{recordId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
+    // Smart alerts computed by the nightly smart-alerts Cloud Function. Created server-side
+    // only; the client will update status (dismissed/acted_on) once a UI exists for that.
+    match /smartAlerts/{alertId} {
+      allow read: if isAuthenticated();
+      allow create: if false;
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
     // Default: deny all access unless explicitly granted above
     match /{document=**} {
       allow read, write: if false;
