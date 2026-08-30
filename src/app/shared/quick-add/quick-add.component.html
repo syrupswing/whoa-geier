@@ -1,0 +1,116 @@
+<button
+  mat-fab
+  color="accent"
+  class="quick-add-fab"
+  (click)="togglePanel()"
+  matTooltip="Quick add">
+  <mat-icon>{{ isOpen() ? 'close' : 'add' }}</mat-icon>
+</button>
+
+<div class="quick-add-panel" *ngIf="isOpen()" [@slideUp]>
+  <div class="panel-header">
+    <mat-icon>bolt</mat-icon>
+    <h3>Quick add</h3>
+    <button mat-icon-button (click)="togglePanel()" matTooltip="Close">
+      <mat-icon>close</mat-icon>
+    </button>
+  </div>
+
+  <div class="panel-body">
+    <div class="entry-row">
+      <mat-form-field appearance="outline" class="entry-field">
+        <mat-label>Type or say what's going on...</mat-label>
+        <input
+          matInput
+          [(ngModel)]="statement"
+          placeholder="Remi has soccer Tuesday at 4, remind me to bring snacks"
+          [disabled]="isParsing()"
+          (keydown.enter)="submitStatement()">
+      </mat-form-field>
+      <button
+        mat-mini-fab
+        color="primary"
+        (click)="submitStatement()"
+        [disabled]="!statement.trim() || isParsing()"
+        matTooltip="Parse">
+        <mat-icon *ngIf="!isParsing()">send</mat-icon>
+        <app-loading-animation *ngIf="isParsing()" [size]="20"></app-loading-animation>
+      </button>
+    </div>
+
+    <div class="cards-list" *ngIf="cards().length">
+      <div class="quick-add-card"
+           *ngFor="let card of cards()"
+           [class.confirmed]="card.status === 'confirmed'"
+           [class.discarded]="card.status === 'discarded'"
+           [class.warning]="card.status === 'pending' && (card.isLowConfidence || card.duplicateNote)">
+
+        <div class="card-main">
+          <mat-icon class="type-icon">{{ typeIcons[card.item.type] }}</mat-icon>
+
+          <div class="card-details" *ngIf="!card.isEditing">
+            <div class="card-title-row">
+              <span class="card-title">{{ card.item.title || card.item.factText }}</span>
+              <span class="type-label">{{ typeLabels[card.item.type] }}</span>
+            </div>
+            <div class="card-meta" *ngIf="card.item.date || card.item.person">
+              <span *ngIf="card.item.date">{{ card.item.date }}</span>
+              <span *ngIf="card.item.time"> · {{ card.item.time }}</span>
+              <span *ngIf="card.item.person"> · {{ card.item.person }}</span>
+            </div>
+            <div class="card-note" *ngIf="card.item.inferredNote">
+              <mat-icon>info</mat-icon>{{ card.item.inferredNote }}
+            </div>
+            <div class="card-note duplicate-note" *ngIf="card.duplicateNote">
+              <mat-icon>content_copy</mat-icon>{{ card.duplicateNote }}
+            </div>
+          </div>
+
+          <div class="card-edit-fields" *ngIf="card.isEditing">
+            <mat-form-field appearance="outline">
+              <mat-label>{{ card.item.type === 'fact' ? 'Fact' : 'Title' }}</mat-label>
+              <input
+                matInput
+                [ngModel]="card.item.type === 'fact' ? card.item.factText : card.item.title"
+                (ngModelChange)="updateCardField(card, card.item.type === 'fact' ? 'factText' : 'title', $event)">
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="card.item.type !== 'fact'">
+              <mat-label>Date</mat-label>
+              <input matInput type="date" [ngModel]="card.item.date" (ngModelChange)="updateCardField(card, 'date', $event)">
+            </mat-form-field>
+            <mat-form-field appearance="outline" *ngIf="card.item.type === 'event' || card.item.type === 'reminder'">
+              <mat-label>Time</mat-label>
+              <input matInput type="time" [ngModel]="card.item.time" (ngModelChange)="updateCardField(card, 'time', $event)">
+            </mat-form-field>
+            <mat-form-field appearance="outline">
+              <mat-label>Person</mat-label>
+              <input matInput [ngModel]="card.item.person" (ngModelChange)="updateCardField(card, 'person', $event)">
+            </mat-form-field>
+          </div>
+        </div>
+
+        <div class="card-actions" *ngIf="card.status === 'pending'">
+          <button mat-button (click)="toggleEdit(card)">{{ card.isEditing ? 'Done' : 'Edit' }}</button>
+          <button mat-button color="warn" (click)="discardCard(card)">Discard</button>
+          <button mat-raised-button color="primary" (click)="confirmCard(card)">Confirm</button>
+        </div>
+        <div class="card-status" *ngIf="card.status !== 'pending'">
+          <mat-icon>{{ card.status === 'confirmed' ? 'check_circle' : 'cancel' }}</mat-icon>
+          {{ card.status === 'confirmed' ? 'Added' : 'Discarded' }}
+        </div>
+      </div>
+
+      <div class="cards-footer">
+        <button
+          mat-stroked-button
+          *ngIf="hasConfirmableHighConfidence()"
+          (click)="confirmAllHighConfidence()">
+          Confirm all clean ones
+        </button>
+        <button mat-stroked-button *ngIf="allResolved()" (click)="startNew()">
+          Add another
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

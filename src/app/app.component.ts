@@ -14,6 +14,7 @@ import { LoadingAnimationComponent } from './components/loading-animation/loadin
 import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
 import { TypewriterDirective } from './shared/typewriter/typewriter.directive';
+import { QuickAddComponent } from './shared/quick-add/quick-add.component';
 
 interface ChatMessage {
   text: string;
@@ -35,7 +36,8 @@ interface ChatMessage {
     MatFormFieldModule,
     MatInputModule,
     FormsModule,
-    TypewriterDirective
+    TypewriterDirective,
+    QuickAddComponent
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],

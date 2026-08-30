@@ -48,12 +48,13 @@
     <mat-icon>info</mat-icon>
     <div>
       <p><strong>Connect your Google Calendar</strong></p>
-      <p>Sign in with your Google account to view your family calendar events.</p>
+      <p>Sign in with your Google account to also see your synced calendar events here.</p>
     </div>
   </div>
 
-  <!-- Timeline View -->
-  <div *ngIf="calendarService.isSignedIn()" class="timeline-wrapper">
+  <!-- Timeline View: shown once initialized, independent of Google sign-in, since
+       app-native events (e.g. from quick-add) don't require a Google connection -->
+  <div *ngIf="calendarService.isInitialized()" class="timeline-wrapper">
     <!-- Navigation -->
     <div class="timeline-nav">
       <button mat-icon-button (click)="previousDay()" matTooltip="Previous day">
@@ -193,7 +194,7 @@
     </div>
 
     <!-- No events message -->
-    <div *ngIf="calendarService.events().length === 0" class="no-events">
+    <div *ngIf="getAllEvents().length === 0" class="no-events">
       <mat-icon>event_available</mat-icon>
       <p>No events for this period</p>
     </div>

@@ -21,6 +21,7 @@ export interface CalendarEvent {
   htmlLink?: string;
   colorId?: string;
   calendarId?: string;
+  source?: 'google' | 'app';
 }
 
 export interface CalendarInfo {

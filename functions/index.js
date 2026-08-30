@@ -229,6 +229,58 @@ const ORCHESTRATOR_TEMPLATES = {
       );
     },
     parseResponse: (raw) => ({ text: raw.trim() })
+  },
+  'quick-add-parse': {
+    // Powers the free-text "quick add" entry point (see AI_MEMORY_ORCHESTRATION_PLAN.md §8):
+    // one statement can classify into multiple typed items, each logged as its own
+    // aiSuggestions doc (logSuggestion: 'per-item', handled below) so it can be independently
+    // accepted/edited/rejected from its own confirmation card rather than as one batch.
+    usesMemory: true,
+    logSuggestion: 'per-item',
+    maxTokens: 1500,
+    buildPrompt: (payload, context) => {
+      const factsClause = context.facts.length
+        ? ` Household facts to keep in mind: ${context.facts.join('; ')}.`
+        : '';
+      const contextClause = context.recentContext.length
+        ? ` Recent household context: ${context.recentContext.join('; ')}.`
+        : '';
+      const peopleClause = (payload.knownPeople || []).length
+        ? ` Known family member names: ${payload.knownPeople.join(', ')}. If a mentioned person matches ` +
+          `one of these, use that exact name.`
+        : '';
+      return (
+        `You are a parser for a family organizer app's "quick add" free-text entry point. Today is ` +
+        `${payload.referenceWeekday || ''} ${payload.referenceDate}.${peopleClause}${factsClause}${contextClause}\n\n` +
+        `Parse the following statement into one or more structured items. A single statement can yield ` +
+        `multiple items — split them.\n\nStatement: "${payload.statement}"\n\n` +
+        `For each item, classify it as exactly one of these types:\n` +
+        `- "event": has a specific date/time and describes something happening (e.g. "soccer practice Tuesday at 4")\n` +
+        `- "reminder": a task tied to a specific date/time, phrased as a reminder (e.g. "remind me to bring snacks tomorrow")\n` +
+        `- "todo": a task with no fixed time, or only a due date with no time\n` +
+        `- "shopping_item": something to buy or add to the shopping list (e.g. "we need milk", "add paper towels to the list")\n` +
+        `- "fact": a persistent statement about a person or household rule, not a scheduled item (e.g. ` +
+        `"Remi is allergic to shellfish", "oil change every 5000 miles")\n\n` +
+        `Respond with ONLY a JSON array, no other text. Each item has this shape (omit fields that don't ` +
+        `apply to its type):\n` +
+        `{\n` +
+        `  "type": "event" | "reminder" | "todo" | "shopping_item" | "fact",\n` +
+        `  "title": "short title (for event/reminder/todo/shopping_item)",\n` +
+        `  "factText": "the fact, verbatim or lightly cleaned up (for fact only)",\n` +
+        `  "category": "dietary | preference | maintenance | medical | schedule | other (for fact only)",\n` +
+        `  "date": "YYYY-MM-DD (for event/reminder/todo, resolved from today's date above)",\n` +
+        `  "time": "HH:mm 24-hour, or null if no time was given (for event/reminder)",\n` +
+        `  "person": "a name from the known list above, or the mentioned name/pronoun as written, or null",\n` +
+        `  "confidence": { "date": "high"|"low", "time": "high"|"low", "person": "high"|"low" },\n` +
+        `  "inferredNote": "a short note explaining any default you applied (e.g. 'No time given — defaulted ` +
+        `to 9:00 AM'), or null if nothing was inferred"\n` +
+        `}\n\n` +
+        `Only mark a field "high" confidence if the statement stated it explicitly or it follows unambiguously ` +
+        `(e.g. "tomorrow" resolved from today's date is high confidence). Never silently guess a "high" ` +
+        `confidence — when you apply a default, mark that field "low" and explain it in inferredNote.`
+      );
+    },
+    parseResponse: extractJsonArray
   }
 };
 
@@ -283,7 +335,18 @@ exports.orchestratedGenerate = onCall(
       const result = template.parseResponse(raw);
 
       let suggestionId = null;
-      if (template.logSuggestion !== false) {
+      let suggestionIds = null;
+      if (template.logSuggestion === 'per-item') {
+        if (!Array.isArray(result)) {
+          throw new Error(`Expected an array result for per-item suggestion logging (${featureType})`);
+        }
+        suggestionIds = await Promise.all(result.map(item => logAiSuggestion(db, {
+          featureType,
+          memberId,
+          generatedContent: item,
+          contextSnapshot: { payload: payload || {}, memory: context }
+        })));
+      } else if (template.logSuggestion !== false) {
         suggestionId = await logAiSuggestion(db, {
           featureType,
           memberId,
@@ -292,7 +355,7 @@ exports.orchestratedGenerate = onCall(
         });
       }
 
-      return { success: true, result, suggestionId };
+      return { success: true, result, suggestionId, suggestionIds };
     } catch (err) {
       console.error(`orchestratedGenerate error (${featureType}):`, err);
       throw new HttpsError('internal', err.message || 'Failed to generate suggestion');

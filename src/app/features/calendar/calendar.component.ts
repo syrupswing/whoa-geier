@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
+import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
@@ -42,7 +43,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   
   hours = Array.from({ length: 24 }, (_, i) => i);
 
-  constructor(public calendarService: GoogleCalendarService) {}
+  constructor(
+    public calendarService: GoogleCalendarService,
+    public appCalendarEventService: AppCalendarEventService
+  ) {}
 
   ngOnInit(): void {
     // Update current time every minute
@@ -158,14 +162,21 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     return days;
   }
 
+  /** Google-synced events plus app-native events (see AppCalendarEventService), merged for display. */
+  getAllEvents(): CalendarEvent[] {
+    return [
+      ...this.calendarService.events().map(event => ({ ...event, source: event.source ?? 'google' as const })),
+      ...this.appCalendarEventService.events()
+    ];
+  }
+
   getEventsForDay(date: Date): TimelineEvent[] {
     const dayStart = new Date(date);
     dayStart.setHours(0, 0, 0, 0);
     const dayEnd = new Date(date);
     dayEnd.setHours(23, 59, 59, 999);
 
-    // Filter from cached events - no API call needed
-    return this.calendarService.events()
+    return this.getAllEvents()
       .filter(event => {
         const eventStart = this.getEventStartDate(event);
         const eventEnd = this.getEventEndDate(event);
@@ -279,6 +290,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   getEventColor(event: CalendarEvent): string {
+    // App-native events (created in-app, e.g. via quick-add) get a fixed distinct color
+    // rather than a Google colorId, so they're visually told apart from synced events.
+    if (event.source === 'app') {
+      return '#8E6BC9';
+    }
     const colorMap: { [key: string]: string } = {
       '1': '#a4bdfc', '2': '#7ae7bf', '3': '#dbadff',
       '4': '#ff887c', '5': '#fbd75b', '6': '#ffb878',

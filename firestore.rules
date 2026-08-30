@@ -143,6 +143,15 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // App-native calendar events (Google Calendar itself stays read-only via OAuth;
+    // this is the write path for events created in-app, e.g. via quick-add)
+    match /calendarEvents/{eventId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
     // Smart alerts computed by the nightly smart-alerts Cloud Function. Created server-side
     // only; the client will update status (dismissed/acted_on) once a UI exists for that.
     match /smartAlerts/{alertId} {
