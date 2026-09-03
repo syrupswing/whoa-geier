@@ -28,6 +28,16 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
     
+    // Grocery / shopping list items
+    match /groceryItems/{itemId} {
+      // Anyone authenticated can read all grocery items
+      allow read: if isAuthenticated();
+      // Anyone authenticated can create, update, or delete grocery items
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
     // Reading entries collection
     match /reading-entries/{entryId} {
       // Anyone authenticated can read all reading entries

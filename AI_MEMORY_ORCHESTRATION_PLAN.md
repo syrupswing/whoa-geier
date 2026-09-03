@@ -96,7 +96,7 @@ Same pattern as the original doc: `alert = (calendar/recent-context signal) + (l
 
 Two general principles carry over from the original doc and aren't stack-dependent: fragments over sentences in AI-generated text, and color reserved for "needs a decision" rather than decoration.
 
-**Unified day view: dropped for now.** The original doc's all-day-strip/timeline/meal-markers/anytime-tray/person-switcher concept isn't locked in and isn't currently planned — not convinced it's the right direction yet. Don't build toward it; if a better concept for consolidating the dashboard/calendar/todo views emerges later, it replaces this section rather than extending it.
+**Unified day view: shelved, not dropped.** The original doc's all-day-strip/timeline/meal-markers/anytime-tray/person-switcher concept isn't locked in and isn't currently planned for implementation — Nathan wants it fleshed out further in dedicated design discussion before any build work touches it. Don't build toward it yet, and don't treat the absence of a section here as a decision against it — this is intentionally on hold, not off the table.
 
 ## 6. Existing features — how they connect (revised)
 
@@ -193,7 +193,7 @@ Before a parsed item is confirmed, check it against existing records for a likel
 - `dailyTodoReminder`'s `todos`/`todoItems` mismatch: fixed (`functions/index.js` now queries `todoItems`).
 - Client-side AI call sites: migrate onto a generalized orchestrator callable, one feature at a time, as its own phase (step 6) — see rationale under §1.
 - Natural-language quick-add (§8) is now build order step 7, ahead of any UI-consolidation work — it depends on step 6's orchestrator callable, not on a redesigned dashboard.
-- Unified day view (previously §5/old step 7): dropped, not just deferred with a placeholder — no replacement concept adopted yet. Don't resurrect the all-day-strip/timeline/tray/person-switcher design without a fresh discussion.
+- Unified day view (previously §5/old step 7): **shelved, not dropped** — Nathan wants it fleshed out in further design discussion before any implementation. No replacement concept adopted yet, and this section's silence on it should not be read as a decision against it. Don't resurrect the all-day-strip/timeline/tray/person-switcher design without a fresh discussion, but don't treat it as rejected either.
 - Calendar events: no Google Calendar write access. New app-native `calendarEvents` Firestore collection merged into the existing calendar view instead, distinguished by color (§8a).
 - Quick-add suggestion logging: one `aiSuggestions` doc per extracted item, not per raw statement (§8b) — reuses the existing per-id accept/edit/reject API unchanged.
 - Build order step 7 (quick-add, all four sub-steps): done as of 2026-08-29, not yet deployed or tested against the live Claude API.
