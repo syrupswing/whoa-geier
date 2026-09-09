@@ -1,8 +1,13 @@
-import { Directive, ElementRef, Input, NgZone, OnDestroy, inject } from '@angular/core';
+import { Directive, ElementRef, Input, NgZone, OnDestroy, SecurityContext, inject } from '@angular/core';
+import { DomSanitizer } from '@angular/platform-browser';
+import { marked } from 'marked';
 
 /**
  * Reveals AI-generated text one character at a time.
  * Usage: <p [appTypewriter]="aiText()"></p>
+ * Pass [typewriterMarkdown]="true" to render the revealed text as sanitized
+ * markdown (bold, lists, paragraphs) instead of plain text — use this only for
+ * open-ended chat prose, not the short single-phrase usages of this directive.
  */
 @Directive({
   selector: '[appTypewriter]',
@@ -11,6 +16,7 @@ import { Directive, ElementRef, Input, NgZone, OnDestroy, inject } from '@angula
 export class TypewriterDirective implements OnDestroy {
   private readonly el: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly zone = inject(NgZone);
+  private readonly sanitizer = inject(DomSanitizer);
   private timer?: number;
   private currentText: string | null = null;
   /** Words left to reveal before the current no-pause burst ends. */
@@ -21,6 +27,9 @@ export class TypewriterDirective implements OnDestroy {
 
   /** Milliseconds to pause on a space, so words reveal one at a time. */
   @Input() typewriterSpacePause = 55;
+
+  /** Render the revealed text as sanitized markdown instead of plain text. */
+  @Input() typewriterMarkdown = false;
 
   @Input()
   set appTypewriter(value: string | null | undefined) {
@@ -37,11 +46,11 @@ export class TypewriterDirective implements OnDestroy {
   private reveal(text: string): void {
     this.stop();
     const node = this.el.nativeElement;
-    node.textContent = '';
+    this.render(node, '');
     if (!text) return;
 
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      node.textContent = text;
+      this.render(node, text);
       return;
     }
 
@@ -50,7 +59,7 @@ export class TypewriterDirective implements OnDestroy {
     this.zone.runOutsideAngular(() => {
       const step = () => {
         index++;
-        node.textContent = text.slice(0, index);
+        this.render(node, text.slice(0, index));
         if (index >= text.length) return;
         // Pause on the space itself so the next word starts after a beat, not mid-reveal.
         const delay = text[index - 1] === ' ' ? this.spaceDelay() : this.typewriterSpeed;
@@ -58,6 +67,18 @@ export class TypewriterDirective implements OnDestroy {
       };
       this.timer = window.setTimeout(step, this.typewriterSpeed);
     });
+  }
+
+  private render(node: HTMLElement, text: string): void {
+    if (!this.typewriterMarkdown) {
+      node.textContent = text;
+      return;
+    }
+    // Partial markdown mid-reveal (e.g. an unclosed "**") renders as literal
+    // characters until the closing token arrives — self-corrects, same as any
+    // streaming markdown renderer.
+    const html = marked.parse(text, { breaks: true, async: false }) as string;
+    node.innerHTML = this.sanitizer.sanitize(SecurityContext.HTML, html) ?? '';
   }
 
   /**

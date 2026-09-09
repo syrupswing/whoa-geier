@@ -733,6 +733,26 @@
           max-width: 75%;
           word-wrap: break-word;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+
+          // Markdown-rendered agent replies (bold, lists, paragraphs).
+          p, ul, ol {
+            margin: 0 0 8px;
+
+            &:last-child {
+              margin-bottom: 0;
+            }
+          }
+
+          ul, ol {
+            padding-left: 20px;
+          }
+
+          code {
+            background: rgba(0, 0, 0, 0.08);
+            border-radius: 4px;
+            padding: 1px 4px;
+            font-size: 0.82em;
+          }
         }
       }
       

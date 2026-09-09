@@ -37,7 +37,7 @@
       <div class="home-chat-messages" #chatContainer *ngIf="chatMessages().length">
         <div class="chat-message" *ngFor="let message of chatMessages()" [class.user]="message.isUser">
           <p *ngIf="message.isUser">{{ message.text }}</p>
-          <p *ngIf="!message.isUser" [appTypewriter]="message.text"></p>
+          <div *ngIf="!message.isUser" [appTypewriter]="message.text" [typewriterMarkdown]="true"></div>
         </div>
         <div class="chat-message" *ngIf="isChatLoading()">
           <app-loading-animation [size]="14"></app-loading-animation>

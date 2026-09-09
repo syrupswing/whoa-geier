@@ -345,8 +345,25 @@
       text-align: left;
       color: var(--color-text-primary);
 
-      p {
-        margin: 0;
+      // Markdown-rendered agent replies: paragraphs/lists beyond the first need
+      // spacing, but the block shouldn't carry extra margin above/below itself.
+      p, ul, ol {
+        margin: 0 0 8px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      ul, ol {
+        padding-left: 20px;
+      }
+
+      code {
+        background: rgba(61, 53, 80, 0.08);
+        border-radius: 4px;
+        padding: 1px 4px;
+        font-size: 0.82em;
       }
 
       &.user {
