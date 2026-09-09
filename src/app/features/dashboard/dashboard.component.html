@@ -9,10 +9,27 @@
 
     <!-- At-a-glance highlights -->
     <div class="home-highlights" *ngIf="homeHighlights().length">
-      <div class="highlight-item" *ngFor="let highlight of homeHighlights()">
-        <mat-icon>{{ highlight.icon }}</mat-icon>
-        <span>{{ highlight.text }}</span>
-      </div>
+      <ng-container *ngFor="let highlight of homeHighlights()">
+        <a *ngIf="highlight.route" class="highlight-item" [routerLink]="highlight.route">
+          <mat-icon>{{ highlight.icon }}</mat-icon>
+          <span>{{ highlight.text }}</span>
+          <mat-icon class="highlight-chevron">chevron_right</mat-icon>
+        </a>
+        <div *ngIf="!highlight.route" class="highlight-item">
+          <mat-icon>{{ highlight.icon }}</mat-icon>
+          <span>{{ highlight.text }}</span>
+        </div>
+        <div class="highlight-quick-prompts" *ngIf="highlight.quickPrompts?.length">
+          <button
+            type="button"
+            class="quick-prompt-chip"
+            *ngFor="let prompt of highlight.quickPrompts"
+            [disabled]="isChatLoading()"
+            (click)="sendQuickPrompt(prompt)">
+            {{ prompt }}
+          </button>
+        </div>
+      </ng-container>
     </div>
 
     <!-- Ask Remi -->
@@ -29,42 +46,18 @@
 
       <form class="home-chat-input" (ngSubmit)="sendChatMessage()">
         <textarea
+          #chatTextarea
           name="chatInput"
-          rows="1"
+          rows="2"
           placeholder="Ask about your family's schedule, todos, or anything else..."
           [(ngModel)]="chatInput"
+          (input)="autoResizeChatInput()"
           (keydown.enter)="onChatEnter($event)">
         </textarea>
         <button mat-icon-button type="submit" [disabled]="!chatInput.trim() || isChatLoading()" aria-label="Send">
           <mat-icon>send</mat-icon>
         </button>
       </form>
-    </div>
-
-    <div class="dashboard-summary-grid">
-      <a class="summary-card summary-link" [routerLink]="'/grocery-list'" aria-label="Open shopping list">
-        <div class="summary-icon event">
-          <mat-icon>shopping_cart</mat-icon>
-        </div>
-        <p class="summary-kicker">Shopping list</p>
-        <p class="summary-main">{{ getTotalActiveCount() }} {{ getTotalActiveCount() === 1 ? 'item' : 'items' }}</p>
-      </a>
-
-      <a class="summary-card summary-link" [routerLink]="'/todos'" aria-label="Open to-do list">
-        <div class="summary-icon todo">
-          <mat-icon>checklist</mat-icon>
-        </div>
-        <p class="summary-kicker">To-do list</p>
-        <p class="summary-main">View to-do list</p>
-      </a>
-
-      <a class="summary-card summary-card-wide summary-link" [routerLink]="'/quick-links'" aria-label="Open quick links">
-        <div class="summary-icon notification">
-          <mat-icon>link</mat-icon>
-        </div>
-        <p class="summary-kicker">Quick links</p>
-        <p class="summary-main">View all links</p>
-      </a>
     </div>
   </section>
 

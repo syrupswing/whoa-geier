@@ -18,6 +18,7 @@ import { WeatherService } from '../../services/weather.service';
 import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
+import { RemiScheduleService } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
@@ -25,6 +26,10 @@ import { TypewriterDirective } from '../../shared/typewriter/typewriter.directiv
 interface HomeHighlight {
   icon: string;
   text: string;
+  /** Route to navigate to when this highlight references something actionable elsewhere in the app. */
+  route?: string;
+  /** Suggested chat questions relevant to this highlight (e.g. school -> "What should Remi wear?"). */
+  quickPrompts?: string[];
 }
 
 interface TimelineEvent extends CalendarEvent {
@@ -97,11 +102,17 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const highlights: HomeHighlight[] = [];
     const now = this.currentTime();
 
+    const remiHighlight = this.getRemiNextEventHighlight(now);
+    if (remiHighlight) {
+      highlights.push(remiHighlight);
+    }
+
     const overdueCount = this.todoService.getOverdueItems().length;
     if (overdueCount > 0) {
       highlights.push({
         icon: 'checklist',
-        text: `${overdueCount} to-do${overdueCount === 1 ? '' : 's'} overdue`
+        text: `${overdueCount} to-do${overdueCount === 1 ? '' : 's'} overdue`,
+        route: '/todos'
       });
     }
 
@@ -110,7 +121,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     for (const event of upcomingEvents.slice(0, maxEvents)) {
       highlights.push({
         icon: 'event',
-        text: `${event.summary} at ${this.formatTime(event.startDate)}`
+        text: `${event.summary} at ${this.formatTime(event.startDate)}`,
+        route: '/calendar'
       });
     }
 
@@ -127,6 +139,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
+  @ViewChild('chatTextarea', { read: ElementRef }) chatTextarea?: ElementRef<HTMLTextAreaElement>;
+  private readonly CHAT_INPUT_MAX_HEIGHT = 300;
 
   constructor(
     public calendarService: GoogleCalendarService,
@@ -136,6 +150,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public todoService: TodoService,
     public firestoreService: FirestoreService,
     public pushNotificationService: PushNotificationService,
+    public remiScheduleService: RemiScheduleService,
     private snackBar: MatSnackBar
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
@@ -176,6 +191,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // Capture phase, since scroll events from the timeline container don't bubble.
     window.addEventListener('scroll', this.closePopoverOnScroll, true);
+
+    // Read-only — just fetches today's cached briefing doc if one exists, so
+    // homeHighlights can surface Remi's next event. Never triggers regeneration.
+    void this.remiScheduleService.loadTodayBriefing();
   }
 
   ngAfterViewInit(): void {
@@ -582,6 +601,71 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${hours}:${minutes}${ampm}`;
   }
 
+  /**
+   * The single nearest not-yet-passed item from Remi's schedule today — school
+   * start, or the next activity, whichever comes first — for the top homepage
+   * highlight. Returns null once there's nothing left today, rather than
+   * fabricating one from an out-of-date briefing.
+   */
+  private getRemiNextEventHighlight(now: Date): HomeHighlight | null {
+    const briefing = this.remiScheduleService.todayBriefing();
+    if (!briefing) return null;
+
+    const nowMinutes = now.getHours() * 60 + now.getMinutes();
+    const candidates: { minutes: number; highlight: HomeHighlight }[] = [];
+
+    if ((briefing.schoolStatus === 'school' || briefing.schoolStatus === 'early-release') && briefing.startTime) {
+      const startMinutes = this.parseHHmmToMinutes(briefing.startTime);
+      if (startMinutes !== null && startMinutes >= nowMinutes) {
+        candidates.push({
+          minutes: startMinutes,
+          highlight: {
+            icon: 'school',
+            text: `School starts at ${this.formatClockTime(briefing.startTime)}`,
+            quickPrompts: ['What should Remi wear to school?', "What's for lunch?", "What's for dinner?"]
+          }
+        });
+      }
+    }
+
+    for (const activity of briefing.activities || []) {
+      const minutes = this.parseClockLabelToMinutes(activity.time);
+      if (minutes !== null && minutes >= nowMinutes) {
+        candidates.push({
+          minutes,
+          highlight: { icon: 'event', text: `${activity.title} at ${activity.time}` }
+        });
+      }
+    }
+
+    if (!candidates.length) return null;
+    candidates.sort((a, b) => a.minutes - b.minutes);
+    return candidates[0].highlight;
+  }
+
+  /** Formats a stored "HH:mm" schedule time as "8:00 AM". */
+  private formatClockTime(hhmm: string): string {
+    const [hours, minutes] = hhmm.split(':').map(Number);
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
+    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
+  }
+
+  private parseHHmmToMinutes(hhmm: string | null): number | null {
+    if (!hhmm) return null;
+    const [hour, minute] = hhmm.split(':').map(Number);
+    return hour * 60 + minute;
+  }
+
+  /** Parses a displayed "H:MM AM/PM" activity time into minutes since midnight. */
+  private parseClockLabelToMinutes(label: string | null): number | null {
+    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((label || '').trim());
+    if (!match) return null;
+    let hour = Number(match[1]) % 12;
+    if (match[3].toUpperCase() === 'PM') hour += 12;
+    return hour * 60 + Number(match[2]);
+  }
+
   getEventColor(event: CalendarEvent): string {
     // First try to get calendar's color
     const calendarColor = this.calendarService.getCalendarColor(event.calendarId || 'primary');
@@ -615,10 +699,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   toggleCalendarVisibility(calendarId: string, event: Event): void {
     const checkbox = event.target as HTMLInputElement;
     this.calendarService.toggleCalendar(calendarId, checkbox.checked);
-  }
-
-  getTotalActiveCount(): number {
-    return this.groceryService.getActiveItems().length;
   }
 
   async toggleGroceryItem(id: string): Promise<void> {
@@ -687,6 +767,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
   }
 
+  /** Sends a suggested prompt (e.g. from a highlight's quick-prompt chips) as-is. */
+  async sendQuickPrompt(prompt: string): Promise<void> {
+    if (this.isChatLoading()) return;
+    this.chatInput = prompt;
+    await this.sendChatMessage();
+  }
+
   // AI Chat methods
   async sendChatMessage(): Promise<void> {
     if (!this.chatInput.trim() || this.isChatLoading()) {
@@ -695,6 +782,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     const userMessage = this.chatInput.trim();
     this.chatInput = '';
+    setTimeout(() => this.autoResizeChatInput(), 0);
 
     // Add user message
     this.chatMessages.update(messages => [...messages, {
@@ -723,6 +811,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.isChatLoading.set(false);
       setTimeout(() => this.scrollChatToBottom(), 100);
     }
+  }
+
+  /** Grows the chat textarea to fit its content, up to CHAT_INPUT_MAX_HEIGHT, then lets it scroll. */
+  autoResizeChatInput(): void {
+    const el = this.chatTextarea?.nativeElement;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, this.CHAT_INPUT_MAX_HEIGHT)}px`;
   }
 
   /** Enter sends the message; Shift+Enter inserts a newline in the textarea. */
