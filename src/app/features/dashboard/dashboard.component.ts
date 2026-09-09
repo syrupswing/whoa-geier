@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, signal, ViewChild, ElementRef, inject, effect, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, ViewChild, ElementRef, inject, effect, HostListener, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -18,10 +18,14 @@ import { WeatherService } from '../../services/weather.service';
 import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
-import { RemiScheduleService, RemiBriefingWeather } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
+
+interface HomeHighlight {
+  icon: string;
+  text: string;
+}
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -39,8 +43,6 @@ interface ChatMessage {
 }
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
-const REMI_DAY_SHOWN_KEY = 'remiDayShown';
-const WEATHER_STALE_MS = 2 * 60 * 60 * 1000;
 
 @Component({
   selector: 'app-dashboard',
@@ -88,10 +90,40 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   minutesToAdd = signal<number | null>(null);
   private readingUnsubscribe: any = null;
 
-  // Remi's Day widget
-  showRemiDay = signal<boolean>(localStorage.getItem(REMI_DAY_SHOWN_KEY) === 'true');
-
   notificationPromptDismissed = signal<boolean>(localStorage.getItem(NOTIFICATION_PROMPT_KEY) === 'true');
+
+  // Short, at-a-glance highlights shown above the chat — next events, overdue todos, weather.
+  homeHighlights = computed<HomeHighlight[]>(() => {
+    const highlights: HomeHighlight[] = [];
+    const now = this.currentTime();
+
+    const overdueCount = this.todoService.getOverdueItems().length;
+    if (overdueCount > 0) {
+      highlights.push({
+        icon: 'checklist',
+        text: `${overdueCount} to-do${overdueCount === 1 ? '' : 's'} overdue`
+      });
+    }
+
+    const upcomingEvents = this.getTodayEvents().filter(e => e.endDate >= now);
+    const maxEvents = Math.max(0, 3 - highlights.length);
+    for (const event of upcomingEvents.slice(0, maxEvents)) {
+      highlights.push({
+        icon: 'event',
+        text: `${event.summary} at ${this.formatTime(event.startDate)}`
+      });
+    }
+
+    const weather = this.weatherService.weather();
+    if (weather && highlights.length < 4) {
+      highlights.push({
+        icon: 'wb_sunny',
+        text: `${weather.temperature}°F and ${weather.description}`
+      });
+    }
+
+    return highlights;
+  });
   
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
@@ -104,7 +136,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public todoService: TodoService,
     public firestoreService: FirestoreService,
     public pushNotificationService: PushNotificationService,
-    public remiScheduleService: RemiScheduleService,
     private snackBar: MatSnackBar
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
@@ -145,10 +176,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // Capture phase, since scroll events from the timeline container don't bubble.
     window.addEventListener('scroll', this.closePopoverOnScroll, true);
-
-    if (this.showRemiDay()) {
-      void this.ensureBriefingLoaded();
-    }
   }
 
   ngAfterViewInit(): void {
@@ -555,32 +582,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${hours}:${minutes}${ampm}`;
   }
 
-  /** Formats a stored "HH:mm" schedule time as "8:00 AM". */
-  formatClockTime(time: string | null): string {
-    if (!time) return '';
-    const [hours, minutes] = time.split(':').map(Number);
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const hour12 = hours % 12 === 0 ? 12 : hours % 12;
-    return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  }
-
-  /** Formats the outfit card's weather freshness badge, e.g. "3:45pm". */
-  formatWeatherFetchedAt(fetchedAt: string): string {
-    return this.formatTime(new Date(fetchedAt));
-  }
-
-  formatWeatherSummary(weather: RemiBriefingWeather): string {
-    // Older briefings predate the forecast fields and only have a point-in-time temp.
-    const temps = weather.highF != null && weather.lowF != null
-      ? `${weather.highF}° / ${weather.lowF}°`
-      : `${weather.tempF}°F`;
-    const parts = [temps, weather.description];
-    if (weather.maxPrecipChance) {
-      parts.push(`${weather.maxPrecipChance}% chance of rain`);
-    }
-    return parts.join(', ');
-  }
-
   getEventColor(event: CalendarEvent): string {
     // First try to get calendar's color
     const calendarColor = this.calendarService.getCalendarColor(event.calendarId || 'primary');
@@ -724,15 +725,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
   }
 
+  /** Enter sends the message; Shift+Enter inserts a newline in the textarea. */
+  onChatEnter(event: Event): void {
+    const keyboardEvent = event as KeyboardEvent;
+    if (!keyboardEvent.shiftKey) {
+      keyboardEvent.preventDefault();
+      void this.sendChatMessage();
+    }
+  }
+
   scrollChatToBottom(): void {
     if (this.chatContainer?.nativeElement) {
       const container = this.chatContainer.nativeElement;
       container.scrollTop = container.scrollHeight;
     }
-  }
-
-  clearChat(): void {
-    this.chatMessages.set([]);
   }
 
   getMoonPhase(): string {
@@ -805,37 +811,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (condition === 'stormy') return 'heavy-rain';
     if (condition === 'rainy') return 'rain';
     return 'none';
-  }
-
-  async toggleRemiDay(): Promise<void> {
-    if (this.showRemiDay()) {
-      this.showRemiDay.set(false);
-      localStorage.setItem(REMI_DAY_SHOWN_KEY, 'false');
-      return;
-    }
-
-    this.showRemiDay.set(true);
-    localStorage.setItem(REMI_DAY_SHOWN_KEY, 'true');
-    await this.ensureBriefingLoaded();
-  }
-
-  private async ensureBriefingLoaded(): Promise<void> {
-    if (this.remiScheduleService.todayBriefing()) return;
-    await this.remiScheduleService.loadTodayBriefing();
-    if (!this.remiScheduleService.todayBriefing()) {
-      await this.remiScheduleService.regenerateBriefing();
-    }
-    this.refreshWeatherIfStale();
-  }
-
-  /** Keeps the outfit widget's weather from going stale while the tab stays open. */
-  private refreshWeatherIfStale(): void {
-    const fetchedAt = this.remiScheduleService.todayBriefing()?.weather?.fetchedAt;
-    if (!fetchedAt) return;
-    const ageMs = Date.now() - new Date(fetchedAt).getTime();
-    if (ageMs > WEATHER_STALE_MS) {
-      void this.remiScheduleService.regenerateFacet('clothing');
-    }
   }
 
   async generateClothingRecommendation(): Promise<void> {

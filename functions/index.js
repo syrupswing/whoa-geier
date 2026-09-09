@@ -219,13 +219,34 @@ const ORCHESTRATOR_TEMPLATES = {
     usesMemory: true,
     logSuggestion: false,
     maxTokens: 1024,
+    buildContext: buildFamilyChatContext,
     buildPrompt: (payload, context) => {
       const factsClause = context.facts.length
         ? ` Household facts to keep in mind: ${context.facts.join('; ')}.`
         : '';
+      const recentClause = context.recentContext.length
+        ? ` Recent household context: ${context.recentContext.join('; ')}.`
+        : '';
+      const scheduleClause = context.scheduleSummary
+        ? `\nToday's schedule: ${context.scheduleSummary}.`
+        : '';
+      const calendarClause = context.calendarEvents.length
+        ? `\nUpcoming calendar events: ${context.calendarEvents.join('; ')}.`
+        : '';
+      const todosClause = context.todos.length
+        ? `\nOpen to-do items: ${context.todos.join('; ')}.`
+        : '';
+      const groceryClause = context.groceryItems.length
+        ? `\nShopping list: ${context.groceryItems.join(', ')}.`
+        : '';
+      const alertsClause = context.alerts.length
+        ? `\nActive alerts: ${context.alerts.join('; ')}.`
+        : '';
       return (
         `You are a helpful family assistant for a family command center app. Be friendly, concise, and ` +
-        `helpful.${factsClause}\n\nThe user asked: ${payload.message}`
+        `helpful. Use the household information below when it's relevant to the question — don't recite ` +
+        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${calendarClause}` +
+        `${todosClause}${groceryClause}${alertsClause}\n\nThe user asked: ${payload.message}`
       );
     },
     parseResponse: (raw) => ({ text: raw.trim() })
@@ -305,6 +326,145 @@ async function buildOrchestratorMemoryContext(db, memberId) {
   return { facts, recentContext };
 }
 
+/** Minutes since midnight for a moment, read in the family's time zone. */
+function nowMinutesInTz(date) {
+  const label = date.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hourCycle: 'h23', timeZone: TIME_ZONE });
+  const [hour, minute] = label.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+/** Parses a stored "HH:mm" 24-hour schedule time (e.g. school startTime) into minutes since midnight. */
+function parseHHmmToMinutes(hhmm) {
+  if (!hhmm) return null;
+  const [hour, minute] = hhmm.split(':').map(Number);
+  return hour * 60 + minute;
+}
+
+/** Parses a displayed "H:MM AM/PM" activity time (as produced by fetchActivitiesForDate) into minutes since midnight. */
+function parseClockLabelToMinutes(label) {
+  const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((label || '').trim());
+  if (!match) return null;
+  let hour = Number(match[1]) % 12;
+  if (match[3].toUpperCase() === 'PM') hour += 12;
+  return hour * 60 + Number(match[2]);
+}
+
+/**
+ * Gathers a snapshot of household data for family-chat: the client's last-synced
+ * Google Calendar events (app-cache/calendar-events, written by GoogleCalendarService
+ * on every load), Remi's schedule for today (from the cached daily briefing, or
+ * computed live if no briefing exists yet), open to-dos, the shopping list, and any
+ * pending smart alerts. Anything tied to a specific time of day — calendar events,
+ * today's activities, meal plans — is dropped once that time has passed, even
+ * earlier the same day, since it's no longer actionable for the person asking.
+ */
+async function buildFamilyChatContext(db) {
+  const now = new Date();
+  const today = toDateStr(now);
+  const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
+
+  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap] = await Promise.all([
+    db.collection('app-cache').doc('calendar-events').get(),
+    db.collection('remi-daily-briefing').doc(today).get(),
+    db.collection('todoItems').where('completed', '==', false).get(),
+    db.collection('groceryItems').where('completed', '==', false).get(),
+    db.collection('smartAlerts').where('status', '==', 'pending').get()
+  ]);
+
+  const cachedEvents = calendarCacheDoc.exists ? (calendarCacheDoc.data().events || []) : [];
+  const calendarEvents = cachedEvents
+    .map(e => {
+      const startStr = e.start?.dateTime || e.start?.date;
+      const endStr = e.end?.dateTime || e.end?.date || startStr;
+      if (!startStr) return null;
+      return {
+        title: e.summary || 'Event',
+        start: new Date(startStr),
+        end: new Date(endStr),
+        allDay: !e.start?.dateTime
+      };
+    })
+    .filter(e => e && e.end >= now && e.start <= horizon)
+    .sort((a, b) => a.start - b.start)
+    .slice(0, 20)
+    .map(e => {
+      const dateLabel = toDateStr(e.start);
+      const timeLabel = e.allDay ? '' : ` at ${e.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE })}`;
+      return `${e.title} on ${dateLabel}${timeLabel}`;
+    });
+
+  const nowMin = nowMinutesInTz(now);
+  // Fixed cutoffs since meal plans carry no specific time of their own — once the
+  // day has moved past when a meal would happen, it's no longer actionable info.
+  const MEAL_CUTOFF_MIN = { breakfast: 10 * 60, lunch: 14 * 60, dinner: 21 * 60 };
+
+  let scheduleSummary = null;
+  try {
+    let schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea;
+    if (briefingDoc.exists) {
+      ({ schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea } = briefingDoc.data());
+    } else {
+      const schedule = await resolveScheduleForDate(db, today);
+      ({ schoolStatus, scheduleNote, startTime, endTime, lunchPlan } = schedule);
+      activities = await fetchActivitiesForDate(schedule.icalUrls, today);
+    }
+
+    const endMin = parseHHmmToMinutes(endTime);
+    const schoolEnded = endMin !== null && nowMin >= endMin;
+
+    const parts = [];
+    if (schoolStatus === 'no-school') {
+      parts.push(`No school today${scheduleNote ? ` (${scheduleNote})` : ''}`);
+    } else if (schoolStatus === 'early-release') {
+      parts.push(schoolEnded
+        ? `Early release today — school has already let out${scheduleNote ? ` (${scheduleNote})` : ''}`
+        : `Early release today, starts ${formatTime12h(startTime)}${scheduleNote ? ` (${scheduleNote})` : ''}`);
+    } else {
+      parts.push(schoolEnded
+        ? 'School already let out for today'
+        : `School today ${formatTime12h(startTime)}-${formatTime12h(endTime)}`);
+    }
+
+    // Drop activities whose start time has already passed — an event earlier today
+    // is no longer upcoming info, same as a fully past calendar event.
+    const upcomingActivities = (activities || []).filter(a => {
+      const activityMin = parseClockLabelToMinutes(a.time);
+      return activityMin === null || activityMin >= nowMin;
+    });
+    if (upcomingActivities.length) {
+      parts.push(`Activities: ${upcomingActivities.map(a => (a.time ? `${a.title} at ${a.time}` : a.title)).join(', ')}`);
+    }
+
+    if (nowMin < MEAL_CUTOFF_MIN.breakfast && breakfastIdea) {
+      parts.push(`Breakfast: ${breakfastIdea}`);
+    }
+    if (nowMin < MEAL_CUTOFF_MIN.lunch) {
+      parts.push(lunchPlan === 'hot'
+        ? `Lunch: ${lunchMenuText || 'hot lunch, menu not entered yet'}`
+        : `Lunch: packed${packedLunchIdea ? ` — ${packedLunchIdea}` : ''}`);
+    }
+    if (nowMin < MEAL_CUTOFF_MIN.dinner && dinnerIdea) {
+      parts.push(`Dinner: ${dinnerIdea}`);
+    }
+
+    scheduleSummary = parts.join('. ');
+  } catch (err) {
+    console.error('buildFamilyChatContext schedule error:', err);
+  }
+
+  const todos = todosSnap.docs
+    .map(d => d.data())
+    .filter(t => !t.snoozedUntil || new Date(t.snoozedUntil) <= now)
+    .map(t => (t.dueDate ? `${t.title} (due ${t.dueDate.split('T')[0]})` : t.title))
+    .slice(0, 20);
+
+  const groceryItems = grocerySnap.docs.map(d => d.data().name).filter(Boolean).slice(0, 30);
+
+  const alerts = alertsSnap.docs.map(d => d.data().message).filter(Boolean).slice(0, 10);
+
+  return { calendarEvents, scheduleSummary, todos, groceryItems, alerts };
+}
+
 exports.orchestratedGenerate = onCall(
   { secrets: ['CLAUDE_API_KEY'] },
   async (request) => {
@@ -329,6 +489,10 @@ exports.orchestratedGenerate = onCall(
       const context = template.usesMemory === false
         ? { facts: [], recentContext: [] }
         : await buildOrchestratorMemoryContext(db, memberId);
+
+      if (template.buildContext) {
+        Object.assign(context, await template.buildContext(db, payload || {}));
+      }
 
       const prompt = template.buildPrompt(payload || {}, context);
       const raw = await callClaude(token, prompt, template.maxTokens || 1024);

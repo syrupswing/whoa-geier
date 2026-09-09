@@ -7,172 +7,38 @@
       <app-global-nav-menu></app-global-nav-menu>
     </div>
 
-    <!-- Remi's Day -->
-    <button
-      *ngIf="!showRemiDay()"
-      type="button"
-      class="remi-day-trigger"
-      (click)="toggleRemiDay()">
-      <mat-icon>auto_awesome</mat-icon>
-      Remi's day
-    </button>
+    <!-- At-a-glance highlights -->
+    <div class="home-highlights" *ngIf="homeHighlights().length">
+      <div class="highlight-item" *ngFor="let highlight of homeHighlights()">
+        <mat-icon>{{ highlight.icon }}</mat-icon>
+        <span>{{ highlight.text }}</span>
+      </div>
+    </div>
 
-    <div class="remi-day-section" *ngIf="showRemiDay()">
-      <div class="remi-day-header">
-        <div class="remi-day-title">
-          <mat-icon>wb_sunny</mat-icon>
-          <h2>Remi's day</h2>
+    <!-- Ask Remi -->
+    <div class="home-chat">
+      <div class="home-chat-messages" #chatContainer *ngIf="chatMessages().length">
+        <div class="chat-message" *ngFor="let message of chatMessages()" [class.user]="message.isUser">
+          <p *ngIf="message.isUser">{{ message.text }}</p>
+          <p *ngIf="!message.isUser" [appTypewriter]="message.text"></p>
         </div>
-        <div class="remi-day-actions">
-          <button mat-icon-button [routerLink]="'/settings'" matTooltip="Settings">
-            <mat-icon>settings</mat-icon>
-          </button>
-          <button mat-icon-button (click)="toggleRemiDay()" matTooltip="Hide">
-            <mat-icon>close</mat-icon>
-          </button>
+        <div class="chat-message" *ngIf="isChatLoading()">
+          <app-loading-animation [size]="14"></app-loading-animation>
         </div>
       </div>
 
-      <div class="remi-day-loading" *ngIf="remiScheduleService.isLoadingBriefing() || remiScheduleService.isRegeneratingBriefing()">
-        <app-loading-animation [size]="16"></app-loading-animation>
-        <span>{{ remiScheduleService.isRegeneratingBriefing() ? 'Generating...' : 'Loading...' }}</span>
-      </div>
-
-      <ng-container *ngIf="!remiScheduleService.isLoadingBriefing() && !remiScheduleService.isRegeneratingBriefing()">
-        <ng-container *ngIf="remiScheduleService.todayBriefing() as briefing; else noRemiBriefing">
-          <div class="remi-day-grid">
-
-            <!-- Schedule / activities card -->
-            <div class="remi-day-card schedule">
-              <div class="remi-day-card-header">
-                <div class="remi-day-card-icon"><mat-icon>event</mat-icon></div>
-                <h3>Schedule</h3>
-              </div>
-              <div class="remi-day-card-body" [ngSwitch]="briefing.schoolStatus">
-                <p *ngSwitchCase="'no-school'">No school today{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</p>
-                <p *ngSwitchCase="'early-release'">Early release — starts {{ formatClockTime(briefing.startTime) }}{{ briefing.scheduleNote ? ' — ' + briefing.scheduleNote : '' }}</p>
-                <p *ngSwitchDefault>School {{ formatClockTime(briefing.startTime) }}–{{ formatClockTime(briefing.endTime) }}</p>
-
-                <ul class="remi-day-activity-list" *ngIf="briefing.activities.length">
-                  <li *ngFor="let activity of briefing.activities">
-                    {{ activity.title }}{{ activity.time ? ' at ' + activity.time : '' }}
-                  </li>
-                </ul>
-                <p class="remi-day-muted" *ngIf="!briefing.activities.length">No other activities today.</p>
-              </div>
-            </div>
-
-            <!-- Outfit & accessories card -->
-            <div class="remi-day-card outfit">
-              <div class="remi-day-card-header">
-                <div class="remi-day-card-icon"><mat-icon>checkroom</mat-icon></div>
-                <h3>Outfit &amp; accessories</h3>
-                <span
-                  class="remi-day-timestamp"
-                  *ngIf="briefing.weather?.fetchedAt"
-                  matTooltip="When the weather was last checked">
-                  {{ formatWeatherFetchedAt(briefing.weather!.fetchedAt!) }}
-                </span>
-                <button
-                  mat-icon-button
-                  class="remi-day-refresh"
-                  (click)="remiScheduleService.regenerateFacet('clothing')"
-                  [disabled]="remiScheduleService.regeneratingFacet() === 'clothing'"
-                  matTooltip="Different suggestion">
-                  <mat-icon>refresh</mat-icon>
-                </button>
-              </div>
-              <div class="remi-day-card-body">
-                <p class="remi-day-muted" *ngIf="briefing.weather">{{ formatWeatherSummary(briefing.weather) }}</p>
-                <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'clothing'">
-                  <app-loading-animation [size]="14"></app-loading-animation>
-                </div>
-                <p *ngIf="remiScheduleService.regeneratingFacet() !== 'clothing'" [appTypewriter]="briefing.clothingIdea || 'No suggestion yet.'"></p>
-              </div>
-            </div>
-
-            <!-- Breakfast card -->
-            <div class="remi-day-card breakfast">
-              <div class="remi-day-card-header">
-                <div class="remi-day-card-icon"><mat-icon>free_breakfast</mat-icon></div>
-                <h3>Breakfast</h3>
-                <button
-                  mat-icon-button
-                  class="remi-day-refresh"
-                  (click)="remiScheduleService.regenerateFacet('breakfast')"
-                  [disabled]="remiScheduleService.regeneratingFacet() === 'breakfast'"
-                  matTooltip="Different idea">
-                  <mat-icon>refresh</mat-icon>
-                </button>
-              </div>
-              <div class="remi-day-card-body">
-                <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'breakfast'">
-                  <app-loading-animation [size]="14"></app-loading-animation>
-                </div>
-                <p *ngIf="remiScheduleService.regeneratingFacet() !== 'breakfast'" [appTypewriter]="briefing.breakfastIdea || 'No idea yet.'"></p>
-              </div>
-            </div>
-
-            <!-- Lunch card -->
-            <div class="remi-day-card lunch">
-              <div class="remi-day-card-header">
-                <div class="remi-day-card-icon"><mat-icon>lunch_dining</mat-icon></div>
-                <h3>Lunch</h3>
-                <button
-                  *ngIf="briefing.lunchPlan === 'pack'"
-                  mat-icon-button
-                  class="remi-day-refresh"
-                  (click)="remiScheduleService.regenerateFacet('lunch')"
-                  [disabled]="remiScheduleService.regeneratingFacet() === 'lunch'"
-                  matTooltip="Different idea">
-                  <mat-icon>refresh</mat-icon>
-                </button>
-              </div>
-              <div class="remi-day-card-body">
-                <ng-container *ngIf="briefing.lunchPlan === 'hot'; else packLunch">
-                  <p>{{ briefing.lunchMenuText || 'Hot lunch — menu not entered yet' }}</p>
-                </ng-container>
-                <ng-template #packLunch>
-                  <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'lunch'">
-                    <app-loading-animation [size]="14"></app-loading-animation>
-                  </div>
-                  <p *ngIf="remiScheduleService.regeneratingFacet() !== 'lunch'" [appTypewriter]="briefing.packedLunchIdea || 'No idea yet.'"></p>
-                </ng-template>
-              </div>
-            </div>
-
-            <!-- Dinner card -->
-            <div class="remi-day-card dinner">
-              <div class="remi-day-card-header">
-                <div class="remi-day-card-icon"><mat-icon>dinner_dining</mat-icon></div>
-                <h3>Dinner</h3>
-                <button
-                  mat-icon-button
-                  class="remi-day-refresh"
-                  (click)="remiScheduleService.regenerateFacet('dinner')"
-                  [disabled]="remiScheduleService.regeneratingFacet() === 'dinner'"
-                  matTooltip="Different idea">
-                  <mat-icon>refresh</mat-icon>
-                </button>
-              </div>
-              <div class="remi-day-card-body">
-                <div class="remi-day-card-loading" *ngIf="remiScheduleService.regeneratingFacet() === 'dinner'">
-                  <app-loading-animation [size]="14"></app-loading-animation>
-                </div>
-                <p *ngIf="remiScheduleService.regeneratingFacet() !== 'dinner'" [appTypewriter]="briefing.dinnerIdea || 'No idea yet.'"></p>
-              </div>
-            </div>
-
-          </div>
-          <p class="remi-day-updated">Updated {{ briefing.generatedAt | date:'shortTime' }}</p>
-        </ng-container>
-        <ng-template #noRemiBriefing>
-          <div class="remi-day-empty">
-            <span>Couldn't generate today's briefing.</span>
-            <button mat-stroked-button (click)="remiScheduleService.regenerateBriefing()">Try again</button>
-          </div>
-        </ng-template>
-      </ng-container>
+      <form class="home-chat-input" (ngSubmit)="sendChatMessage()">
+        <textarea
+          name="chatInput"
+          rows="1"
+          placeholder="Ask about your family's schedule, todos, or anything else..."
+          [(ngModel)]="chatInput"
+          (keydown.enter)="onChatEnter($event)">
+        </textarea>
+        <button mat-icon-button type="submit" [disabled]="!chatInput.trim() || isChatLoading()" aria-label="Send">
+          <mat-icon>send</mat-icon>
+        </button>
+      </form>
     </div>
 
     <div class="dashboard-summary-grid">

@@ -318,199 +318,120 @@
   }
 }
 
-// Reading Counter Widget
-.remi-day-trigger {
+.home-highlights {
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  width: fit-content;
-  margin: 0 auto;
-  padding: 14px 16px;
-  box-sizing: border-box;
-  border: 1px solid transparent;
-  border-radius: 22px;
-  background: color-mix(in srgb, var(--color-aura-sage) 20%, white);
-  color: var(--color-aura-sage);
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 2px 8px rgba(26, 10, 46, 0.12);
-  transition: transform 0.32s ease,
-    background-color 0.32s ease,
-    color 0.32s ease,
-    border-color 0.32s ease;
+  flex-direction: column;
+  gap: 6px;
 
-  mat-icon {
-    color: inherit;
-  }
+  .highlight-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    border-radius: 16px;
+    background: var(--color-surface);
+    box-shadow: 0 2px 8px rgba(26, 10, 46, 0.08);
+    font-size: 0.85rem;
+    color: var(--color-text-primary);
 
-  &:hover,
-  &:active {
-    background: #ffffff;
-    color: var(--color-aura-sage);
-    border-color: transparent;
+    mat-icon {
+      color: var(--color-aura-sage);
+      flex-shrink: 0;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    span {
+      flex: 1;
+      min-width: 0;
+    }
   }
 }
 
-.remi-day-section {
-  .remi-day-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 12px;
+.home-chat {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 
-    .remi-day-title {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-
-      mat-icon {
-        color: var(--color-primary);
-      }
-
-      h2 {
-        margin: 0;
-        font-size: 1.1rem;
-        color: var(--color-text-primary);
-      }
-    }
-
-    .remi-day-actions {
-      display: flex;
-      gap: 4px;
-    }
-  }
-
-  .remi-day-loading {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 0;
-    font-size: 0.85rem;
-    color: var(--color-text-secondary);
-  }
-
-  .remi-day-grid {
+  .home-chat-messages {
     display: flex;
     flex-direction: column;
-  }
+    gap: 12px;
+    padding: 0 4px;
+    max-height: 320px;
+    overflow-y: auto;
 
-  .remi-day-card {
-    padding: 8px 0;
-    display: grid;
-    gap: 8px;
-    align-content: start;
-
-    .remi-day-card-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-
-      h3 {
-        margin: 0;
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: var(--color-text-primary);
-        flex: 1;
-      }
-
-      .remi-day-timestamp {
-        font-size: 0.72rem;
-        color: var(--color-text-secondary);
-        white-space: nowrap;
-      }
-
-      .remi-day-refresh {
-        width: 32px;
-        height: 32px;
-        color: var(--color-text-secondary);
-
-        mat-icon {
-          font-size: 18px;
-          width: 18px;
-          height: 18px;
-        }
-
-        &:disabled {
-          opacity: 0.4;
-        }
-      }
-    }
-
-    .remi-day-card-icon {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      display: grid;
-      place-items: center;
-      flex-shrink: 0;
-      color: #fff;
-      background: var(--color-primary);
-
-      mat-icon {
-        font-size: 18px;
-        width: 18px;
-        height: 18px;
-        color: #fff;
-      }
-    }
-
-    &.schedule .remi-day-card-icon { background: var(--color-electric-cobalt); }
-    &.outfit .remi-day-card-icon { background: var(--color-glacial-blue); }
-    &.breakfast .remi-day-card-icon { background: var(--color-dusk-rose); }
-    &.lunch .remi-day-card-icon { background: var(--color-aura-sage); }
-    &.dinner .remi-day-card-icon { background: var(--color-iris-bloom); }
-
-    .remi-day-card-body {
+    .chat-message {
       font-size: 0.85rem;
-      line-height: 1.4;
+      line-height: 1.45;
+      text-align: left;
       color: var(--color-text-primary);
-      margin-left: 44px;
 
       p {
-        margin: 0 0 4px;
-
-        &:last-child {
-          margin-bottom: 0;
-        }
+        margin: 0;
       }
 
-      .remi-day-muted {
+      &.user {
+        text-align: right;
+        font-weight: 600;
         color: var(--color-text-secondary);
-        font-size: 0.78rem;
       }
-
-      .remi-day-activity-list {
-        margin: 4px 0 0;
-        padding-left: 18px;
-
-        li {
-          margin-bottom: 2px;
-        }
-      }
-    }
-
-    .remi-day-card-loading {
-      display: flex;
-      align-items: center;
-      padding: 4px 0;
     }
   }
 
-  .remi-day-updated {
-    margin: 10px 0 0;
-    font-size: 0.7rem;
-    color: var(--color-text-secondary);
-  }
-
-  .remi-day-empty {
+  .home-chat-input {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
+    align-items: flex-end;
     gap: 8px;
-    padding: 8px 0;
-    font-size: 0.85rem;
+    padding: 10px 16px;
+    border-radius: 24px;
+    background: var(--color-surface);
+    animation: home-chat-glow 6s ease-in-out infinite;
+
+    &:focus-within {
+      animation-duration: 2.6s;
+    }
+
+    textarea {
+      flex: 1;
+      resize: none;
+      border: none;
+      outline: none;
+      background: transparent;
+      font: inherit;
+      color: var(--color-text-primary);
+      max-height: 100px;
+      padding: 8px 4px;
+
+      &::placeholder {
+        color: var(--color-text-secondary);
+      }
+    }
+  }
+}
+
+// A slow, cycling glow around the chat input — a subtle "listening" cue borrowed
+// from modern AI assistant UIs, using the app's own accent palette.
+@keyframes home-chat-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-electric-cobalt) 35%, transparent);
+  }
+  25% {
+    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-dusk-rose) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-iris-bloom) 35%, transparent);
+  }
+  75% {
+    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-aura-sage) 35%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-chat-input {
+    animation: none;
+    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 12px 1px color-mix(in srgb, var(--color-electric-cobalt) 25%, transparent);
   }
 }
 

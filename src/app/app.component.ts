@@ -1,5 +1,5 @@
 import { Component, OnInit, signal, effect, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
-import { RouterOutlet, Router } from '@angular/router';
+import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -55,9 +55,10 @@ interface ChatMessage {
 })
 export class AppComponent implements OnInit, AfterViewChecked {
   @ViewChild('floatingChatContainer') private chatContainer!: ElementRef<HTMLDivElement>;
+  @ViewChild('appContainer') private appContainer?: ElementRef<HTMLDivElement>;
   private shouldScrollChat = false;
   private wasPortrait = window.matchMedia('(orientation: portrait)').matches;
-  
+
   // Floating chat
   showChat = signal<boolean>(false);
   chatMessages = signal<ChatMessage[]>([]);
@@ -74,6 +75,15 @@ export class AppComponent implements OnInit, AfterViewChecked {
     effect(() => {
       if (this.authService.isAuthenticated() && this.router.url === '/login') {
         this.router.navigate(['/']);
+      }
+    });
+
+    // .app-container (not window) is the actual scrolling box — see its `overflow-y: auto`
+    // in app.component.scss — so it's what needs resetting on every navigation, otherwise
+    // a new page loads already scrolled to wherever the previous page left off.
+    this.router.events.subscribe(event => {
+      if (event instanceof NavigationEnd) {
+        this.appContainer?.nativeElement.scrollTo({ top: 0 });
       }
     });
   }

@@ -9,7 +9,7 @@
 </div>
 
 <!-- Show main app when authenticated and not loading -->
-<div class="app-container" *ngIf="authService.isAuthenticated() && !authService.isLoading()">
+<div class="app-container" #appContainer *ngIf="authService.isAuthenticated() && !authService.isLoading()">
   <div class="content">
     <router-outlet></router-outlet>
   </div>
