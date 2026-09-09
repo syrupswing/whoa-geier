@@ -75,6 +75,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   chatInput = '';;
   isChatLoading = signal(false);
   apiCallCount = signal<number>(0);
+  readonly chatSuggestions: string[] = [
+    "What's Remi's full day look like?",
+    'Generate a to-do list for me today',
+    "What's for dinner tonight?",
+    'Any alerts I should know about?'
+  ];
   
   // Welcome message properties
   welcomeMessage = signal<string>('Welcome to your Family Command Center!');

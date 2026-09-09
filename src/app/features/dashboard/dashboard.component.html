@@ -44,12 +44,23 @@
         </div>
       </div>
 
+      <div class="home-chat-suggestions" *ngIf="!chatMessages().length">
+        <button
+          type="button"
+          class="quick-prompt-chip"
+          *ngFor="let suggestion of chatSuggestions"
+          [disabled]="isChatLoading()"
+          (click)="sendQuickPrompt(suggestion)">
+          {{ suggestion }}
+        </button>
+      </div>
+
       <form class="home-chat-input" (ngSubmit)="sendChatMessage()">
         <textarea
           #chatTextarea
           name="chatInput"
           rows="2"
-          placeholder="Ask about your family's schedule, todos, or anything else..."
+          placeholder="Ask about schedule, todos, or anything else..."
           [(ngModel)]="chatInput"
           (input)="autoResizeChatInput()"
           (keydown.enter)="onChatEnter($event)">

@@ -300,27 +300,29 @@
     flex-wrap: wrap;
     gap: 6px;
     padding: 2px 4px 10px 34px;
+  }
+}
 
-    .quick-prompt-chip {
-      border: 1px solid rgba(61, 53, 80, 0.14);
-      border-radius: 999px;
-      background: transparent;
-      padding: 5px 12px;
-      font-size: 0.76rem;
-      color: var(--color-text-primary);
-      cursor: pointer;
-      transition: background-color 0.15s ease, opacity 0.15s ease;
+// Shared pill-shaped suggestion button — used both for a highlight's own quick
+// prompts and the chat window's general suggestions.
+.quick-prompt-chip {
+  border: 1px solid rgba(61, 53, 80, 0.14);
+  border-radius: 999px;
+  background: transparent;
+  padding: 5px 12px;
+  font-size: 0.76rem;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background-color 0.15s ease, opacity 0.15s ease;
 
-      &:hover,
-      &:active {
-        background: rgba(61, 53, 80, 0.06);
-      }
+  &:hover,
+  &:active {
+    background: rgba(61, 53, 80, 0.06);
+  }
 
-      &:disabled {
-        opacity: 0.5;
-        cursor: default;
-      }
-    }
+  &:disabled {
+    opacity: 0.5;
+    cursor: default;
   }
 }
 
@@ -353,6 +355,16 @@
         color: var(--color-text-secondary);
       }
     }
+  }
+
+  .home-chat-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    width: 92%;
+    max-width: 560px;
+    align-self: center;
   }
 
   .home-chat-input {
