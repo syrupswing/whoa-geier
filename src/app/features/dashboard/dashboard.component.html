@@ -248,21 +248,25 @@
             [class.has-popover]="selectedEvent()?.id === event.id"
             (click)="selectEvent(event, $event)">
             <span class="cal-event-title">{{ event.summary }}</span>
-            <div
-              class="cal-popover"
-              *ngIf="selectedEvent()?.id === event.id"
-              [class.cal-popover--above]="popoverAbove"
-              [style.top.px]="popoverTop"
-              (click)="$event.stopPropagation()">
-              <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(event)"></div>
-              <div class="cal-popover-body">
-                <p class="cal-popover-title">{{ event.summary }}</p>
-                <p class="cal-popover-time">{{ formatEventTime(event) }}</p>
-                <p class="cal-popover-location" *ngIf="event.location"><mat-icon>location_on</mat-icon>{{ event.location }}</p>
-                <p class="cal-popover-desc" *ngIf="event.description">{{ event.description }}</p>
-              </div>
-              <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
+          </div>
+
+          <!-- Rendered as a sibling rather than nested in the event block above, since an
+               approximate event's mask-image would otherwise clip this fixed-position
+               popover (it renders far outside that block's own small box). -->
+          <div
+            class="cal-popover"
+            *ngIf="selectedTimedEvent() as sel"
+            [class.cal-popover--above]="popoverAbove"
+            [style.top.px]="popoverTop"
+            (click)="$event.stopPropagation()">
+            <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(sel)"></div>
+            <div class="cal-popover-body">
+              <p class="cal-popover-title">{{ sel.summary }}</p>
+              <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
+              <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
+              <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
             </div>
+            <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
           </div>
 
           <!-- Empty state -->

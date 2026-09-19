@@ -625,6 +625,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.selectedEvent.set(null);
   }
 
+  /** The selected event, only when it's a timed (non-all-day) event — used to gate the
+   * hoisted timed-event popover so it doesn't double up with the all-day chip's own. */
+  selectedTimedEvent(): TimelineEvent | null {
+    const event = this.selectedEvent();
+    return event && event.start.dateTime ? event : null;
+  }
+
   private readonly closePopoverOnScroll = (): void => {
     if (this.selectedEvent()) {
       this.clearSelectedEvent();
