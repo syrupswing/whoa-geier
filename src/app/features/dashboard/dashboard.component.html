@@ -38,7 +38,7 @@
         <div class="chat-message" *ngFor="let message of chatMessages()" [class.user]="message.isUser">
           <p *ngIf="message.isUser">{{ message.text }}</p>
           <ng-container *ngIf="!message.isUser">
-            <div [appTypewriter]="message.text" [typewriterMarkdown]="true"></div>
+            <div [appTypewriter]="message.text" [typewriterMarkdown]="true" [typewriterInstant]="!!message.instant"></div>
             <div class="chat-message-cards" *ngIf="message.cards?.length">
               <app-quick-add-card
                 *ngFor="let card of message.cards"

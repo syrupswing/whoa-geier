@@ -55,6 +55,8 @@ interface ChatMessage {
   timestamp: Date;
   /** Data-creation suggestions parsed from the assistant's reply, reviewable inline. */
   cards?: QuickAddCard[];
+  /** True once the user has already seen this message typed out — skips the typewriter animation on reload. */
+  instant?: boolean;
 }
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
@@ -66,7 +68,8 @@ function loadPersistedChatMessages(): ChatMessage[] {
     const raw = localStorage.getItem(CHAT_MESSAGES_KEY);
     if (!raw) return [];
     const parsed = JSON.parse(raw) as { text: string; isUser: boolean; timestamp: string }[];
-    return parsed.map(message => ({ ...message, timestamp: new Date(message.timestamp) }));
+    // Already shown in a previous visit — render instantly rather than replaying the typewriter.
+    return parsed.map(message => ({ ...message, timestamp: new Date(message.timestamp), instant: true }));
   } catch {
     return [];
   }

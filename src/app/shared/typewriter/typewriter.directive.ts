@@ -1,4 +1,4 @@
-import { Directive, ElementRef, Input, NgZone, OnDestroy, SecurityContext, inject } from '@angular/core';
+import { Directive, ElementRef, Input, NgZone, OnChanges, OnDestroy, SecurityContext, SimpleChanges, inject } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import { marked } from 'marked';
 
@@ -8,12 +8,16 @@ import { marked } from 'marked';
  * Pass [typewriterMarkdown]="true" to render the revealed text as sanitized
  * markdown (bold, lists, paragraphs) instead of plain text — use this only for
  * open-ended chat prose, not the short single-phrase usages of this directive.
+ * Pass [typewriterInstant]="true" to render the full text immediately with no
+ * animation — use this for text the user has already seen typed out before
+ * (e.g. chat history restored from persistence), so it doesn't replay on
+ * every reload.
  */
 @Directive({
   selector: '[appTypewriter]',
   standalone: true
 })
-export class TypewriterDirective implements OnDestroy {
+export class TypewriterDirective implements OnChanges, OnDestroy {
   private readonly el: ElementRef<HTMLElement> = inject(ElementRef);
   private readonly zone = inject(NgZone);
   private readonly sanitizer = inject(DomSanitizer);
@@ -21,6 +25,8 @@ export class TypewriterDirective implements OnDestroy {
   private currentText: string | null = null;
   /** Words left to reveal before the current no-pause burst ends. */
   private wordsUntilPause = 0;
+
+  @Input() appTypewriter: string | null | undefined;
 
   /** Milliseconds between characters. */
   @Input() typewriterSpeed = 8;
@@ -31,9 +37,12 @@ export class TypewriterDirective implements OnDestroy {
   /** Render the revealed text as sanitized markdown instead of plain text. */
   @Input() typewriterMarkdown = false;
 
-  @Input()
-  set appTypewriter(value: string | null | undefined) {
-    const text = value ?? '';
+  /** Skip the animation and render the full text immediately. */
+  @Input() typewriterInstant = false;
+
+  ngOnChanges(changes: SimpleChanges): void {
+    if (!changes['appTypewriter']) return;
+    const text = this.appTypewriter ?? '';
     if (text === this.currentText) return;
     this.currentText = text;
     this.reveal(text);
@@ -49,7 +58,7 @@ export class TypewriterDirective implements OnDestroy {
     this.render(node, '');
     if (!text) return;
 
-    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
+    if (this.typewriterInstant || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
       this.render(node, text);
       return;
     }
