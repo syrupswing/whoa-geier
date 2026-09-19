@@ -407,18 +407,24 @@ async function buildFamilyChatContext(db) {
   // day has moved past when a meal would happen, it's no longer actionable info.
   const MEAL_CUTOFF_MIN = { breakfast: 10 * 60, lunch: 14 * 60, dinner: 21 * 60 };
 
-  let scheduleSummary = null;
+  // Fetched fresh on every chat turn (not just read from the once-daily 6am briefing
+  // cache) so "what should I wear" reflects right-now conditions — the cached snapshot
+  // can be hours stale by the time someone asks later in the day.
   let weatherSummary = null;
+  try {
+    weatherSummary = formatWeatherSummary(await fetchWeatherSnapshot(openWeatherApiKey.value()));
+  } catch (err) {
+    console.error('buildFamilyChatContext live weather error:', err);
+  }
+
+  let scheduleSummary = null;
   try {
     let schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather;
     if (briefingDoc.exists) {
       ({ schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather } = briefingDoc.data());
-      if (weather) {
-        const rangeText = (weather.highF !== undefined && weather.lowF !== undefined)
-          ? ` (high ${weather.highF}°F, low ${weather.lowF}°F)`
-          : '';
-        const precipText = weather.maxPrecipChance ? `, ${weather.maxPrecipChance}% chance of precipitation` : '';
-        weatherSummary = `${weather.tempF}°F and ${weather.description}, feels like ${weather.feelsLike}°F${rangeText}${precipText}`;
+      // Fall back to this morning's cached reading only if the live fetch above failed.
+      if (!weatherSummary && weather) {
+        weatherSummary = formatWeatherSummary(weather);
       }
     } else {
       const schedule = await resolveScheduleForDate(db, today);
@@ -485,7 +491,7 @@ async function buildFamilyChatContext(db) {
 }
 
 exports.orchestratedGenerate = onCall(
-  { secrets: ['CLAUDE_API_KEY'] },
+  { secrets: ['CLAUDE_API_KEY', 'OPEN_WEATHER_API_KEY'] },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Sign-in required');
@@ -764,6 +770,16 @@ async function resolveScheduleForDate(db, dateStr) {
     lunchPlan: exception.packLunch ? 'pack' : defaultLunchPlan,
     icalUrls: Array.from(new Set(icalUrls))
   };
+}
+
+/** Turns a fetchWeatherSnapshot() (or cached briefing) weather object into a short prompt-ready summary. */
+function formatWeatherSummary(weather) {
+  if (!weather) return null;
+  const rangeText = (weather.highF !== undefined && weather.lowF !== undefined)
+    ? ` (high ${weather.highF}°F, low ${weather.lowF}°F)`
+    : '';
+  const precipText = weather.maxPrecipChance ? `, ${weather.maxPrecipChance}% chance of precipitation` : '';
+  return `${weather.tempF}°F and ${weather.description}, feels like ${weather.feelsLike}°F${rangeText}${precipText}`;
 }
 
 async function fetchWeatherSnapshot(apiKey) {
