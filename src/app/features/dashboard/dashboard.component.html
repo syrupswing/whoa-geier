@@ -250,7 +250,7 @@
             class="cal-event-block"
             *ngFor="let event of getTimedEvents(); trackBy: trackByEventId"
             [style.top.px]="event.topPosition * scaleFactor"
-            [style.height.px]="event.height * scaleFactor"
+            [style.height.px]="event.isPointInTime ? null : event.height * scaleFactor"
             [style.--event-color]="getEventColor(event)"
             [ngStyle]="getEventLayoutStyle(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"

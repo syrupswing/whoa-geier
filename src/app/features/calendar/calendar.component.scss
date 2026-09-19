@@ -351,6 +351,10 @@
   &.is-point-in-time {
     margin-left: 16px;
     position: relative;
+    // No duration to size against — fit the text exactly instead of the block's
+    // usual duration-derived (or minimum) height, which would either clip the
+    // label or leave dead space.
+    height: auto;
 
     &::before {
       content: '';
@@ -366,24 +370,45 @@
   }
 
   // Approximate start centers the label instead of top-aligning it, and fades the
-  // approximate edge(s) toward transparency to visually read as an estimate.
+  // approximate edge(s) toward transparency to visually read as an estimate. The left
+  // and right edges fade the same way on any approximate event — layered as a second
+  // mask and intersected with the vertical one, so a corner only stays opaque where
+  // both say it should.
   &.is-approximate-start {
     justify-content: center;
   }
 
+  &.is-approximate-start,
+  &.is-approximate-end {
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
+  }
+
   &.is-approximate-start:not(.is-approximate-end) {
-    mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+    mask-image:
+      linear-gradient(to bottom, transparent 0%, black 30%),
+      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+    -webkit-mask-image:
+      linear-gradient(to bottom, transparent 0%, black 30%),
+      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
   }
 
   &.is-approximate-end:not(.is-approximate-start) {
-    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    mask-image:
+      linear-gradient(to bottom, black 70%, transparent 100%),
+      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+    -webkit-mask-image:
+      linear-gradient(to bottom, black 70%, transparent 100%),
+      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
   }
 
   &.is-approximate-start.is-approximate-end {
-    mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
-    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+    mask-image:
+      linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%),
+      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+    -webkit-mask-image:
+      linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%),
+      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
   }
 }
 
