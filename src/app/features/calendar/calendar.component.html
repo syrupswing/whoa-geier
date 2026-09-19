@@ -4,16 +4,9 @@
     <h1>Family calendar</h1>
     <app-global-nav-menu></app-global-nav-menu>
   </div>
-  <div class="actions">
+
+  <div class="actions" *ngIf="!calendarService.isSignedIn()">
     <button
-      mat-raised-button
-      color="accent"
-      (click)="openAddEventDialog()">
-      <mat-icon>add</mat-icon>
-      Add Event
-    </button>
-    <button
-      *ngIf="!calendarService.isSignedIn()"
       mat-raised-button
       color="primary"
       (click)="signIn()"
@@ -21,21 +14,6 @@
       <mat-icon>login</mat-icon>
       Sign In with Google
     </button>
-    <div *ngIf="calendarService.isSignedIn()" class="signed-in-actions">
-      <button
-        mat-raised-button
-        color="accent"
-        (click)="loadEventsForCurrentView()">
-        <mat-icon>refresh</mat-icon>
-        Refresh
-      </button>
-      <button
-        mat-stroked-button
-        (click)="signOut()">
-        <mat-icon>logout</mat-icon>
-        Sign Out
-      </button>
-    </div>
   </div>
 
   <!-- Loading State -->
@@ -50,7 +28,8 @@
     <p>{{ calendarService.error() }}</p>
   </div>
 
-  <!-- Not Signed In State -->
+  <!-- Not Signed In hint: the timeline itself still works without Google, since
+       app-native events don't require a connection -->
   <div *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn() && !calendarService.error()" class="info-box">
     <mat-icon>info</mat-icon>
     <div>
@@ -59,167 +38,219 @@
     </div>
   </div>
 
-  <!-- Timeline View: shown once initialized, independent of Google sign-in, since
-       app-native events (e.g. from quick-add) don't require a Google connection -->
-  <div *ngIf="calendarService.isInitialized()" class="timeline-wrapper">
-    <!-- Navigation -->
-    <div class="timeline-nav">
-      <button mat-icon-button (click)="previousDay()" matTooltip="Previous day">
+  <!-- Same nav/timeline/popover structure as the dashboard's home calendar widget,
+       extended with a Sunday–Saturday week view for wide viewports. -->
+  <section class="day-calendar" *ngIf="calendarService.isInitialized()">
+    <div class="cal-nav">
+      <button mat-icon-button (click)="previousPeriod()" aria-label="Previous">
         <mat-icon>chevron_left</mat-icon>
       </button>
-      <div class="current-date">
-        <h2>{{ currentDate() | date:'EEEE, MMMM d' }}</h2>
-        <button mat-button (click)="today()" *ngIf="!isToday(currentDate())">
-          <mat-icon>event_upcoming</mat-icon>
-          Today
+      <div class="cal-nav-center">
+        <span class="cal-today-badge" *ngIf="!isViewingToday" (click)="goToToday()">Back to today</span>
+        <span class="cal-today-badge cal-today-badge--today" *ngIf="isViewingToday">Today</span>
+        <span class="cal-date-text">{{ formatViewLabel() }}</span>
+      </div>
+      <div class="cal-nav-actions">
+        <button
+          mat-icon-button
+          (click)="openAddEventDialog()"
+          matTooltip="Add event"
+          aria-label="Add event">
+          <mat-icon>add</mat-icon>
+        </button>
+        <a
+          mat-icon-button
+          [href]="googleCalendarUrl()"
+          target="_blank"
+          rel="noopener"
+          matTooltip="Edit in Google Calendar"
+          aria-label="Edit in Google Calendar">
+          <mat-icon>open_in_new</mat-icon>
+        </a>
+        <button
+          mat-icon-button
+          *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0"
+          [matMenuTriggerFor]="calendarMenu"
+          matTooltip="Choose calendars"
+          aria-label="Choose calendars">
+          <mat-icon>settings</mat-icon>
+        </button>
+        <button
+          mat-icon-button
+          *ngIf="calendarService.isSignedIn()"
+          (click)="refreshEvents()"
+          matTooltip="Refresh"
+          aria-label="Refresh">
+          <mat-icon>refresh</mat-icon>
+        </button>
+        <button mat-icon-button (click)="nextPeriod()" aria-label="Next">
+          <mat-icon>chevron_right</mat-icon>
         </button>
       </div>
-      <button mat-icon-button (click)="nextDay()" matTooltip="Next day">
-        <mat-icon>chevron_right</mat-icon>
+    </div>
+
+    <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
+      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars()" (click)="$event.stopPropagation()">
+        <input
+          type="checkbox"
+          [checked]="calendarService.isCalendarVisible(cal.id)"
+          (change)="toggleCalendarVisibility(cal.id, $event)">
+        <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
+        <span class="cal-selector-name">{{ cal.summary }}</span>
+      </label>
+    </mat-menu>
+
+    <!-- Sign-out action, tucked below the main nav row -->
+    <div class="cal-signed-in-footer" *ngIf="calendarService.isSignedIn()">
+      <button mat-stroked-button (click)="signOut()">
+        <mat-icon>logout</mat-icon>
+        Sign Out of Google
       </button>
     </div>
 
-    <!-- Day View (Mobile) -->
-    <div class="timeline-day-view">
-      <div class="timeline-container" #timelineContainerDay>
-        <!-- All-day events section -->
-        <div class="all-day-events" *ngIf="getAllDayEventsForDay(currentDate()).length > 0">
-          <div class="all-day-label">All Day</div>
-          <div class="all-day-events-list">
-            <div
-              *ngFor="let event of getAllDayEventsForDay(currentDate())"
-              class="all-day-event"
-              [class.is-editable]="event.source === 'app'"
-              [style.background-color]="getEventColor(event)"
-              [matTooltip]="event.summary"
-              (click)="openEditEventDialog(event)">
-              <strong>{{ event.summary }}</strong>
-            </div>
-          </div>
-        </div>
-
-        <!-- Time labels -->
-        <div class="time-labels">
-          <div *ngFor="let hour of hours" class="time-label">
-            {{ formatHour(hour) }}
-          </div>
-        </div>
-
-        <!-- Timeline grid -->
-        <div class="timeline-grid">
-          <!-- Hour lines -->
-          <div *ngFor="let hour of hours" class="hour-line"></div>
-
-          <!-- Current time indicator -->
-          <div 
-            *ngIf="isToday(currentDate())"
-            class="current-time-indicator"
-            [style.top.px]="getCurrentTimePosition()">
-            <div class="time-marker"></div>
-            <div class="time-line"></div>
-          </div>
-
-          <!-- Events (timed events only) -->
+    <!-- Day view -->
+    <ng-container *ngIf="!isWideViewport()">
+      <div class="cal-allday" *ngIf="getAllDayEventsForDay(currentDate()).length > 0">
+        <span class="cal-allday-label">All day</span>
+        <div class="cal-allday-events">
           <div
-            *ngFor="let event of getTimedEventsForDay(currentDate())"
-            class="timeline-event"
-            [class.is-point-in-time]="event.isPointInTime"
-            [class.is-approximate-start]="event.startApproximate"
-            [class.is-approximate-end]="event.endApproximate"
-            [class.is-editable]="event.source === 'app'"
-            [style.top.px]="event.topPosition"
-            [style.height.px]="event.height"
-            [style.background-color]="getEventColor(event)"
+            *ngFor="let event of getAllDayEventsForDay(currentDate())"
+            class="cal-allday-chip"
             [style.--event-color]="getEventColor(event)"
-            [matTooltip]="formatEventTime(event)"
-            (click)="openEditEventDialog(event)">
-            <div class="event-content">
-              <strong>{{ event.summary }}</strong>
-              <div class="event-time-small">{{ formatEventTime(event) }}</div>
-              <div *ngIf="event.location" class="event-location-small">
-                <mat-icon>place</mat-icon>
-                {{ event.location }}
-              </div>
-            </div>
+            [class.has-popover]="selectedEvent()?.id === event.id"
+            (click)="selectEvent(event, $event)">
+            <mat-icon>event</mat-icon>
+            {{ event.summary }}
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Week View (Desktop) -->
-    <div class="timeline-week-view">
-      <div class="week-container" #timelineContainerWeek>
-        <!-- Time labels column -->
-        <div class="time-labels">
-          <div class="week-header-spacer"></div>
-          <div *ngFor="let hour of hours" class="time-label">
-            {{ formatHour(hour) }}
+      <div class="cal-timeline-scroll" #timelineScroll (click)="clearSelectedEvent()">
+        <div class="cal-timeline-inner">
+          <div class="cal-hour-row" *ngFor="let hour of allHours">
+            <span class="cal-hour-label">{{ formatHour(hour) }}</span>
           </div>
-        </div>
 
-        <!-- Day columns -->
-        <div class="week-days">
-          <div *ngFor="let day of getWeekDays()" class="day-column" [class.today]="isToday(day)">
-            <!-- Day header -->
-            <div class="day-header">
-              <div class="day-name">{{ day | date:'EEE' }}</div>
-              <div class="day-number" [class.today-number]="isToday(day)">{{ day | date:'d' }}</div>
-            </div>
-
-            <!-- All-day events for this day -->
-            <div class="all-day-events-compact" *ngIf="getAllDayEventsForDay(day).length > 0">
+          <div class="cal-events-layer">
+            <div
+              class="cal-event-block"
+              *ngFor="let event of getTimedEventsForDay(currentDate())"
+              [style.top.px]="event.topPosition"
+              [style.height.px]="event.height"
+              [style.--event-color]="getEventColor(event)"
+              [ngStyle]="getEventLayoutStyle(event)"
+              [class.has-popover]="selectedEvent()?.id === event.id"
+              (click)="selectEvent(event, $event)">
               <div
-                *ngFor="let event of getAllDayEventsForDay(day)"
-                class="all-day-event-compact"
-                [class.is-editable]="event.source === 'app'"
-                [style.background-color]="getEventColor(event)"
-                [matTooltip]="event.summary"
-                (click)="openEditEventDialog(event)">
-                {{ event.summary }}
-              </div>
-            </div>
-
-            <!-- Timeline grid for this day -->
-            <div class="day-timeline">
-              <!-- Hour lines -->
-              <div *ngFor="let hour of hours" class="hour-line"></div>
-
-              <!-- Current time indicator -->
-              <div 
-                *ngIf="isToday(day)"
-                class="current-time-indicator"
-                [style.top.px]="getCurrentTimePosition()">
-                <div class="time-line"></div>
-              </div>
-
-              <!-- Events for this day (timed events only) -->
-              <div
-                *ngFor="let event of getTimedEventsForDay(day)"
-                class="timeline-event"
+                class="cal-event-body"
                 [class.is-point-in-time]="event.isPointInTime"
                 [class.is-approximate-start]="event.startApproximate"
-                [class.is-approximate-end]="event.endApproximate"
-                [class.is-editable]="event.source === 'app'"
+                [class.is-approximate-end]="event.endApproximate">
+                <span class="cal-event-title">{{ event.summary }}</span>
+                <span class="cal-event-time">{{ formatEventTime(event) }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="cal-playhead" *ngIf="isToday(currentDate())" [style.top.px]="getCurrentTimePosition()">
+            <span class="cal-playhead-dot"></span>
+            <div class="cal-playhead-line"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="cal-no-events" *ngIf="getTimedEventsForDay(currentDate()).length === 0 && getAllDayEventsForDay(currentDate()).length === 0">
+        <mat-icon>event_available</mat-icon>
+        <p>No events scheduled</p>
+      </div>
+    </ng-container>
+
+    <!-- Week view -->
+    <ng-container *ngIf="isWideViewport()">
+      <div class="cal-week-header">
+        <div class="cal-week-header-spacer"></div>
+        <div class="cal-week-day-header" *ngFor="let day of getWeekDays()" [class.today]="isToday(day)">
+          <span class="cal-week-day-name">{{ day | date:'EEE' }}</span>
+          <span class="cal-week-day-number" [class.today-number]="isToday(day)">{{ day | date:'d' }}</span>
+        </div>
+      </div>
+
+      <div class="cal-week-allday">
+        <div class="cal-week-allday-spacer"></div>
+        <div class="cal-week-allday-col" *ngFor="let day of getWeekDays()">
+          <div
+            *ngFor="let event of getAllDayEventsForDay(day)"
+            class="cal-allday-chip cal-allday-chip--compact"
+            [style.--event-color]="getEventColor(event)"
+            [class.has-popover]="selectedEvent()?.id === event.id"
+            (click)="selectEvent(event, $event)">
+            {{ event.summary }}
+          </div>
+        </div>
+      </div>
+
+      <div class="cal-timeline-scroll cal-timeline-scroll--week" #timelineScroll (click)="clearSelectedEvent()">
+        <div class="cal-week-grid">
+          <div class="cal-timeline-inner cal-week-hours">
+            <div class="cal-hour-row" *ngFor="let hour of allHours">
+              <span class="cal-hour-label">{{ formatHour(hour) }}</span>
+            </div>
+          </div>
+
+          <div class="cal-timeline-inner cal-week-day-col" *ngFor="let day of getWeekDays()" [class.today]="isToday(day)">
+            <div class="cal-hour-row" *ngFor="let hour of allHours"></div>
+
+            <div class="cal-events-layer">
+              <div
+                class="cal-event-block"
+                *ngFor="let event of getTimedEventsForDay(day)"
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.height"
-                [style.background-color]="getEventColor(event)"
                 [style.--event-color]="getEventColor(event)"
-                [matTooltip]="event.summary + ' - ' + formatEventTime(event)"
-                (click)="openEditEventDialog(event)">
-                <div class="event-content">
-                  <strong>{{ event.summary }}</strong>
+                [ngStyle]="getEventLayoutStyle(event)"
+                [class.has-popover]="selectedEvent()?.id === event.id"
+                (click)="selectEvent(event, $event)">
+                <div
+                  class="cal-event-body"
+                  [class.is-point-in-time]="event.isPointInTime"
+                  [class.is-approximate-start]="event.startApproximate"
+                  [class.is-approximate-end]="event.endApproximate">
+                  <span class="cal-event-title">{{ event.summary }}</span>
                 </div>
               </div>
             </div>
+
+            <div class="cal-playhead" *ngIf="isToday(day)" [style.top.px]="getCurrentTimePosition()">
+              <div class="cal-playhead-line"></div>
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </ng-container>
 
-    <!-- No events message -->
-    <div *ngIf="getAllEvents().length === 0" class="no-events">
-      <mat-icon>event_available</mat-icon>
-      <p>No events for this period</p>
+    <!-- Shared popover -->
+    <div
+      class="cal-popover"
+      *ngIf="selectedEvent() as sel"
+      [class.cal-popover--above]="popoverAbove"
+      [style.top.px]="popoverTop"
+      (click)="$event.stopPropagation()">
+      <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(sel)"></div>
+      <div class="cal-popover-body">
+        <p class="cal-popover-title">{{ sel.summary }}</p>
+        <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
+        <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
+        <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
+      </div>
+      <button
+        mat-icon-button
+        *ngIf="sel.source === 'app'"
+        class="cal-popover-edit"
+        (click)="openEditEventDialog(sel)"
+        aria-label="Edit event">
+        <mat-icon>edit</mat-icon>
+      </button>
+      <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
     </div>
-  </div>
+  </section>
 </div>
