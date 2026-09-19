@@ -2453,6 +2453,42 @@
     background: color-mix(in srgb, var(--event-color, #a4bdfc) 28%, white);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
+
+  // A specific moment with no duration (flight departure, call reminder) — an overhanging
+  // corner bracket pinpoints the exact time rather than implying a time range.
+  &.is-point-in-time::before {
+    content: '';
+    position: absolute;
+    top: -3px;
+    left: -3px;
+    width: 10px;
+    height: 10px;
+    border-top: 3px solid var(--event-color, #a4bdfc);
+    border-left: 3px solid var(--event-color, #a4bdfc);
+    border-radius: 3px 0 0 0;
+    pointer-events: none;
+  }
+
+  // Approximate start centers the label instead of top-aligning it, and fades the
+  // approximate edge(s) toward transparency to visually read as an estimate.
+  &.is-approximate-start {
+    justify-content: center;
+  }
+
+  &.is-approximate-start:not(.is-approximate-end) {
+    mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+  }
+
+  &.is-approximate-end:not(.is-approximate-start) {
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  }
+
+  &.is-approximate-start.is-approximate-end {
+    mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+  }
 }
 
 .cal-event-time {

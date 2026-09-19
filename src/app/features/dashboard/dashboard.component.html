@@ -122,6 +122,13 @@
         <span class="cal-date-text">{{ formatViewDate() }}</span>
       </div>
       <div class="cal-nav-actions">
+        <button
+          mat-icon-button
+          (click)="openAddEventDialog()"
+          matTooltip="Add event"
+          aria-label="Add event">
+          <mat-icon>add</mat-icon>
+        </button>
         <a
           mat-icon-button
           [href]="googleCalendarUrl()"
@@ -231,6 +238,9 @@
           <div
             class="cal-event-block"
             *ngFor="let event of getTimedEvents()"
+            [class.is-point-in-time]="event.isPointInTime"
+            [class.is-approximate-start]="event.startApproximate"
+            [class.is-approximate-end]="event.endApproximate"
             [style.top.px]="event.topPosition * scaleFactor"
             [style.height.px]="event.height * scaleFactor"
             [style.--event-color]="getEventColor(event)"

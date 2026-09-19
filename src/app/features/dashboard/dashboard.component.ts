@@ -9,8 +9,11 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
+import { AppCalendarEventService } from '../../services/app-calendar-event.service';
+import { CalendarEventDialogComponent } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GroceryService } from '../../services/grocery.service';
 import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
@@ -193,7 +196,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     private snackBar: MatSnackBar,
     private quickAddCreation: QuickAddCreationService,
     private aiSuggestionService: AiSuggestionService,
-    private householdService: HouseholdService
+    private householdService: HouseholdService,
+    public appCalendarEventService: AppCalendarEventService,
+    private dialog: MatDialog
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
 
@@ -342,12 +347,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `https://calendar.google.com/calendar/r/day/${year}/${month}/${day}`;
   }
 
+  /** Google-synced events plus app-native events (see AppCalendarEventService), merged for display. */
+  getAllEvents(): CalendarEvent[] {
+    return [
+      ...this.calendarService.events().map(event => ({ ...event, source: event.source ?? 'google' as const })),
+      ...this.appCalendarEventService.events()
+    ];
+  }
+
   getViewDayEvents(): TimelineEvent[] {
     const day = this.viewDate();
     const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0);
     const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
     const seenIds = new Set<string>();
-    return this.calendarService.events()
+    return this.getAllEvents()
       .filter(event => {
         if (seenIds.has(event.id)) return false;
         const start = this.getEventStartDate(event);
@@ -368,21 +381,30 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const effectiveEnd = endDate > dayEnd ? dayEnd : endDate;
     const startMin = effectiveStart.getHours() * 60 + effectiveStart.getMinutes();
     const endMin = effectiveEnd.getHours() * 60 + effectiveEnd.getMinutes();
+    // A point-in-time event has zero duration by definition — give it a small fixed
+    // height so it's still visible as a marker rather than collapsing to nothing.
+    const height = event.isPointInTime
+      ? 10
+      : Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14);
     return {
       ...event, startDate, endDate,
       topPosition: (startMin / 60) * this.HOUR_PX,
-      height: Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14),
+      height,
       columnIndex: 0,
       columnCount: 1
     };
   }
 
   getAllDayEvents(): TimelineEvent[] {
-    return this.getViewDayEvents().filter(e => !e.start.dateTime && this.calendarService.isCalendarVisible(e.calendarId || 'primary'));
+    return this.getViewDayEvents().filter(e =>
+      !e.start.dateTime && (e.source === 'app' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
+    );
   }
 
   getTimedEvents(): TimelineEvent[] {
-    const events = this.getViewDayEvents().filter(e => !!e.start.dateTime && this.calendarService.isCalendarVisible(e.calendarId || 'primary'));
+    const events = this.getViewDayEvents().filter(e =>
+      !!e.start.dateTime && (e.source === 'app' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
+    );
     return this.assignOverlapColumns(events);
   }
 
@@ -496,8 +518,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // Use a Set to track event IDs and prevent duplicates
     const seenEventIds = new Set<string>();
-    
-    return this.calendarService.events()
+
+    return this.getAllEvents()
       .filter(event => {
         // Skip if we've already processed this event
         if (seenEventIds.has(event.id)) {
@@ -647,12 +669,17 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   formatEventTime(event: CalendarEvent): string {
     if (event.start.dateTime) {
       const start = new Date(event.start.dateTime);
+      if (event.isPointInTime) {
+        return this.formatTime(start);
+      }
       const end = new Date(event.end.dateTime || event.start.dateTime);
+      const startLabel = `${event.startApproximate ? '~' : ''}${this.formatTime(start)}`;
+      const endLabel = `${event.endApproximate ? '~' : ''}${this.formatTime(end)}`;
       const sameDay = start.toDateString() === end.toDateString();
       if (sameDay) {
-        return `${this.formatTime(start)} – ${this.formatTime(end)}`;
+        return `${startLabel} – ${endLabel}`;
       }
-      return `${this.formatShortDate(start)} ${this.formatTime(start)} – ${this.formatShortDate(end)} ${this.formatTime(end)}`;
+      return `${this.formatShortDate(start)} ${startLabel} – ${this.formatShortDate(end)} ${endLabel}`;
     }
     // Parse date-only strings as local midnight to avoid UTC timezone shift
     const start = this.parseDateLocal(event.start.date!);
@@ -755,6 +782,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getEventColor(event: CalendarEvent): string {
+    // App-native events (created in-app) get a fixed distinct color rather than a Google
+    // colorId, so they're visually told apart from synced events — same color the
+    // dedicated /calendar page uses for the same purpose.
+    if (event.source === 'app') {
+      return '#8E6BC9';
+    }
     // First try to get calendar's color
     const calendarColor = this.calendarService.getCalendarColor(event.calendarId || 'primary');
     if (calendarColor && calendarColor !== '#2196F3') {
@@ -802,6 +835,25 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   signInToCalendar(): void {
     this.calendarService.signIn();
+  }
+
+  /** Opens the add-event form, pre-filled to whatever day the timeline is currently showing. */
+  openAddEventDialog(): void {
+    const dialogRef = this.dialog.open(CalendarEventDialogComponent, {
+      width: '500px',
+      data: { defaultDate: this.viewDate() }
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (!result) return;
+      try {
+        await this.appCalendarEventService.addEvent(result);
+        this.snackBar.open('Event added', 'Close', { duration: 3000 });
+      } catch (error) {
+        console.error('Error adding calendar event:', error);
+        this.snackBar.open('Failed to add event', 'Close', { duration: 3000 });
+      }
+    });
   }
 
   cards = [

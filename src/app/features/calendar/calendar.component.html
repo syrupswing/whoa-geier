@@ -6,6 +6,13 @@
   </div>
   <div class="actions">
     <button
+      mat-raised-button
+      color="accent"
+      (click)="openAddEventDialog()">
+      <mat-icon>add</mat-icon>
+      Add Event
+    </button>
+    <button
       *ngIf="!calendarService.isSignedIn()"
       mat-raised-button
       color="primary"
@@ -111,12 +118,16 @@
           </div>
 
           <!-- Events (timed events only) -->
-          <div 
+          <div
             *ngFor="let event of getTimedEventsForDay(currentDate())"
             class="timeline-event"
+            [class.is-point-in-time]="event.isPointInTime"
+            [class.is-approximate-start]="event.startApproximate"
+            [class.is-approximate-end]="event.endApproximate"
             [style.top.px]="event.topPosition"
             [style.height.px]="event.height"
             [style.background-color]="getEventColor(event)"
+            [style.--event-color]="getEventColor(event)"
             [matTooltip]="formatEventTime(event)">
             <div class="event-content">
               <strong>{{ event.summary }}</strong>
@@ -176,12 +187,16 @@
               </div>
 
               <!-- Events for this day (timed events only) -->
-              <div 
+              <div
                 *ngFor="let event of getTimedEventsForDay(day)"
                 class="timeline-event"
+                [class.is-point-in-time]="event.isPointInTime"
+                [class.is-approximate-start]="event.startApproximate"
+                [class.is-approximate-end]="event.endApproximate"
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.height"
                 [style.background-color]="getEventColor(event)"
+                [style.--event-color]="getEventColor(event)"
                 [matTooltip]="event.summary + ' - ' + formatEventTime(event)">
                 <div class="event-content">
                   <strong>{{ event.summary }}</strong>

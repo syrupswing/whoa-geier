@@ -204,6 +204,9 @@
   color: white;
   overflow: hidden;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   transition: transform 0.2s, box-shadow 0.2s;
   z-index: 1;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
@@ -243,6 +246,46 @@
       width: 14px;
       height: 14px;
     }
+  }
+
+  // A specific moment with no duration (flight departure, call reminder) — an overhanging
+  // corner bracket pinpoints the exact time rather than implying a time range.
+  &.is-point-in-time {
+    overflow: visible;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      width: 12px;
+      height: 12px;
+      border-top: 3px solid var(--event-color, #2196F3);
+      border-left: 3px solid var(--event-color, #2196F3);
+      border-radius: 3px 0 0 0;
+      pointer-events: none;
+    }
+  }
+
+  // Approximate start centers the label instead of top-aligning it, and fades the
+  // approximate edge(s) toward transparency to visually read as an estimate.
+  &.is-approximate-start {
+    justify-content: center;
+  }
+
+  &.is-approximate-start:not(.is-approximate-end) {
+    mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 30%);
+  }
+
+  &.is-approximate-end:not(.is-approximate-start) {
+    mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 70%, transparent 100%);
+  }
+
+  &.is-approximate-start.is-approximate-end {
+    mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%);
   }
 }
 

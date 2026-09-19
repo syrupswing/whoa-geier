@@ -5,11 +5,14 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
+import { CalendarEventDialogComponent } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -28,6 +31,7 @@ interface TimelineEvent extends CalendarEvent {
     MatButtonModule,
     LoadingAnimationComponent,
     MatTooltipModule,
+    MatSnackBarModule,
     GlobalNavMenuComponent,
     HomeLogoBtnComponent
   ],
@@ -47,7 +51,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
   constructor(
     public calendarService: GoogleCalendarService,
-    public appCalendarEventService: AppCalendarEventService
+    public appCalendarEventService: AppCalendarEventService,
+    private dialog: MatDialog,
+    private snackBar: MatSnackBar
   ) {}
 
   ngOnInit(): void {
@@ -127,6 +133,25 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   async refreshEvents(): Promise<void> {
     // Force refresh from API
     await this.loadEventsForCurrentView();
+  }
+
+  /** Opens the add-event form, pre-filled to whatever day is currently in view. */
+  openAddEventDialog(): void {
+    const dialogRef = this.dialog.open(CalendarEventDialogComponent, {
+      width: '500px',
+      data: { defaultDate: this.currentDate() }
+    });
+
+    dialogRef.afterClosed().subscribe(async (result) => {
+      if (!result) return;
+      try {
+        await this.appCalendarEventService.addEvent(result);
+        this.snackBar.open('Event added', 'Close', { duration: 3000 });
+      } catch (error) {
+        console.error('Error adding calendar event:', error);
+        this.snackBar.open('Failed to add event', 'Close', { duration: 3000 });
+      }
+    });
   }
 
   previousDay(): void {
@@ -233,15 +258,17 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   calculateEventPosition(event: CalendarEvent): TimelineEvent {
     const startDate = this.getEventStartDate(event);
     const endDate = this.getEventEndDate(event);
-    
+
     // Calculate position based on time (60px per hour)
     const startMinutes = startDate.getHours() * 60 + startDate.getMinutes();
     const endMinutes = endDate.getHours() * 60 + endDate.getMinutes();
     const durationMinutes = endMinutes - startMinutes;
-    
+
     const topPosition = (startMinutes / 60) * 60; // 60px per hour
-    const height = Math.max((durationMinutes / 60) * 60, 30); // Minimum 30px height
-    
+    // A point-in-time event has zero duration by definition — give it a small fixed
+    // height so it's still visible as a marker rather than collapsing to nothing.
+    const height = event.isPointInTime ? 18 : Math.max((durationMinutes / 60) * 60, 30);
+
     return {
       ...event,
       startDate,
@@ -302,8 +329,13 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   formatEventTime(event: CalendarEvent): string {
     if (event.start.dateTime) {
       const start = new Date(event.start.dateTime);
+      if (event.isPointInTime) {
+        return this.formatTime(start);
+      }
       const end = new Date(event.end.dateTime || event.start.dateTime);
-      return `${this.formatTime(start)} - ${this.formatTime(end)}`;
+      const startLabel = `${event.startApproximate ? '~' : ''}${this.formatTime(start)}`;
+      const endLabel = `${event.endApproximate ? '~' : ''}${this.formatTime(end)}`;
+      return `${startLabel} - ${endLabel}`;
     }
     return 'All day';
   }

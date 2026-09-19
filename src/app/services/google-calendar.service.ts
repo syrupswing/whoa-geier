@@ -22,6 +22,12 @@ export interface CalendarEvent {
   colorId?: string;
   calendarId?: string;
   source?: 'google' | 'app';
+  /** A specific moment with no duration (a flight departure, a call reminder) — start/end dateTime are equal. */
+  isPointInTime?: boolean;
+  /** Marks the start time as an estimate rather than exact — only meaningful on a timed (non-point, non-all-day) event. */
+  startApproximate?: boolean;
+  /** Marks the end time as an estimate rather than exact — only meaningful on a timed (non-point, non-all-day) event. */
+  endApproximate?: boolean;
 }
 
 export interface CalendarInfo {
