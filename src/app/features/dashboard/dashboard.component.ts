@@ -989,6 +989,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.chatHistoryDraft = '';
     setTimeout(() => this.autoResizeChatInput(), 0);
 
+    // Recent turns, before the new user message is appended below, so the AI can resolve
+    // a reply like "Yes" against the question it just asked.
+    const conversationHistory = this.chatMessages()
+      .slice(-10)
+      .map(m => ({ role: m.isUser ? 'user' : 'assistant', content: m.text }));
+
     // Add user message
     this.chatMessages.update(messages => [...messages, {
       text: userMessage,
@@ -1003,7 +1009,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       const knownPeople = this.householdService.members().map(m => m.name);
       const { result, suggestionIds } = await this.aiOrchestrator.generateWithSuggestionIds<
         { text: string; items: ParsedQuickAddItem[] }
-      >('family-chat', { message: userMessage, knownPeople });
+      >('family-chat', { message: userMessage, knownPeople, conversationHistory });
 
       const items = result.items || [];
       const ids = suggestionIds || [];

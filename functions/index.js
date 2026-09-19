@@ -15,7 +15,7 @@ const openWeatherApiKey = defineSecret('OPEN_WEATHER_API_KEY');
  * Pick the cheapest available Claude model (haiku preferred) and call it with a prompt.
  * Shared by the aiProxy callable and the daily briefing generator so both stay in sync.
  */
-async function callClaude(token, prompt, maxTokens = 1024) {
+async function callClaude(token, prompt, maxTokens = 1024, history = []) {
   const modelsResponse = await fetch('https://api.anthropic.com/v1/models', {
     headers: { 'x-api-key': token, 'anthropic-version': '2023-06-01' }
   });
@@ -38,7 +38,7 @@ async function callClaude(token, prompt, maxTokens = 1024) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      messages: [{ role: 'user', content: prompt }]
+      messages: [...history, { role: 'user', content: prompt }]
     })
   });
 
@@ -53,6 +53,19 @@ async function callClaude(token, prompt, maxTokens = 1024) {
     throw new Error('Invalid response format from Claude API');
   }
   return result.content[0].text.trim();
+}
+
+/**
+ * Validates and trims a client-supplied prior-turns array before it's forwarded to Claude,
+ * so a reply like "Yes" to the assistant's own previous question can be resolved — untrusted
+ * client input, so shape/role/length are all checked rather than passed through as-is.
+ */
+function sanitizeConversationHistory(history) {
+  if (!Array.isArray(history)) return [];
+  return history
+    .filter(m => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
+    .slice(-10)
+    .map(m => ({ role: m.role, content: m.content.slice(0, 2000) }));
 }
 
 exports.aiProxy = onCall({ secrets: ['CLAUDE_API_KEY'] }, async (request) => {
@@ -522,7 +535,8 @@ exports.orchestratedGenerate = onCall(
       }
 
       const prompt = template.buildPrompt(payload || {}, context);
-      const raw = await callClaude(token, prompt, template.maxTokens || 1024);
+      const history = sanitizeConversationHistory(payload?.conversationHistory);
+      const raw = await callClaude(token, prompt, template.maxTokens || 1024, history);
       const result = template.parseResponse(raw);
 
       let suggestionId = null;
