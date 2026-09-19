@@ -8,6 +8,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
+import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
@@ -65,6 +66,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   constructor(
     public calendarService: GoogleCalendarService,
     public appCalendarEventService: AppCalendarEventService,
+    private householdService: HouseholdService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
@@ -478,5 +480,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
   trackByHour(_index: number, hour: number): number {
     return hour;
+  }
+
+  /** Name of the household member an event is tagged for, or null when it concerns everyone. */
+  memberName(memberId: string | undefined): string | null {
+    if (!memberId) return null;
+    return this.householdService.getMemberById(memberId)?.name ?? null;
   }
 }

@@ -643,6 +643,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return hour;
   }
 
+  /** Name of the household member an event is tagged for, or null when it concerns everyone. */
+  memberName(memberId: string | undefined): string | null {
+    if (!memberId) return null;
+    return this.householdService.getMemberById(memberId)?.name ?? null;
+  }
+
   private readonly closePopoverOnScroll = (): void => {
     if (this.selectedEvent()) {
       this.clearSelectedEvent();

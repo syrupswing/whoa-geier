@@ -2473,11 +2473,12 @@
 
     &::before {
       content: '';
+      border-radius: 2px 2px 0 2px;
       position: absolute;
       top: 0;
       left: -16px;
       width: calc(100% + 16px);
-      height: 3px;
+      height: 4px;
       background: var(--event-color, #a4bdfc);
       pointer-events: none;
     }
@@ -2687,6 +2688,7 @@
   margin: 0 0 6px;
 }
 
+.cal-popover-person,
 .cal-popover-location {
   font-size: 0.78rem;
   color: var(--color-text-secondary);

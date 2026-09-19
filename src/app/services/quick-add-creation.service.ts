@@ -100,11 +100,14 @@ export class QuickAddCreationService {
     switch (item.type) {
       case 'event': {
         const { start, end } = this.buildEventTimes(item);
-        await this.appCalendarEventService.addEvent({
+        const memberId = this.resolvePersonToMemberId(item.person);
+        const event: Parameters<AppCalendarEventService['addEvent']>[0] = {
           summary: item.title || 'Untitled event',
           start,
           end
-        });
+        };
+        if (memberId) event.memberId = memberId;
+        await this.appCalendarEventService.addEvent(event);
         break;
       }
       case 'reminder':

@@ -28,6 +28,8 @@ export interface CalendarEvent {
   startApproximate?: boolean;
   /** Marks the end time as an estimate rather than exact — only meaningful on a timed (non-point, non-all-day) event. */
   endApproximate?: boolean;
+  /** App-native events only — ties the event to one household member (e.g. a personal reminder) rather than the whole family. Unset means it concerns everyone. */
+  memberId?: string;
 }
 
 export interface CalendarInfo {

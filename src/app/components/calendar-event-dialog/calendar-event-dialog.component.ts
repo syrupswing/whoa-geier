@@ -4,11 +4,13 @@ import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { CalendarEvent } from '../../services/google-calendar.service';
+import { HouseholdService } from '../../services/household.service';
 
 export type AppCalendarEventFormResult = Omit<CalendarEvent, 'id' | 'source'>;
 
@@ -45,7 +47,8 @@ type EventKind = 'timed' | 'all-day' | 'point';
     MatButtonModule,
     MatIconModule,
     MatRadioModule,
-    MatCheckboxModule
+    MatCheckboxModule,
+    MatSelectModule
   ],
   template: `
     <h2 mat-dialog-title>
@@ -69,6 +72,17 @@ type EventKind = 'timed' | 'all-day' | 'point';
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Date</mat-label>
           <input matInput type="date" name="date" [(ngModel)]="formData.date" required>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width" *ngIf="householdService.members().length">
+          <mat-label>For</mat-label>
+          <mat-select name="memberId" [(ngModel)]="formData.memberId">
+            <mat-option [value]="null">Whole household</mat-option>
+            <mat-option *ngFor="let member of householdService.members()" [value]="member.id">
+              {{ member.name }}
+            </mat-option>
+          </mat-select>
+          <mat-icon matPrefix>person</mat-icon>
         </mat-form-field>
 
         <mat-radio-group class="kind-group" name="kind" [(ngModel)]="formData.kind">
@@ -191,11 +205,13 @@ export class CalendarEventDialogComponent {
     endTime: string;
     startApproximate: boolean;
     endApproximate: boolean;
+    memberId: string | null;
   };
 
   constructor(
     public dialogRef: MatDialogRef<CalendarEventDialogComponent>,
-    @Inject(MAT_DIALOG_DATA) public data: CalendarEventDialogData
+    @Inject(MAT_DIALOG_DATA) public data: CalendarEventDialogData,
+    public householdService: HouseholdService
   ) {
     const event = data.event;
     if (event) {
@@ -209,7 +225,8 @@ export class CalendarEventDialogComponent {
         startTime: startDate ? this.toTimeInputValue(startDate) : '09:00',
         endTime: endDate ? this.toTimeInputValue(endDate) : '10:00',
         startApproximate: !!event.startApproximate,
-        endApproximate: !!event.endApproximate
+        endApproximate: !!event.endApproximate,
+        memberId: event.memberId ?? null
       };
     } else {
       this.formData = {
@@ -219,7 +236,8 @@ export class CalendarEventDialogComponent {
         startTime: '09:00',
         endTime: '10:00',
         startApproximate: false,
-        endApproximate: false
+        endApproximate: false,
+        memberId: null
       };
     }
   }
@@ -262,23 +280,30 @@ export class CalendarEventDialogComponent {
   }
 
   private buildResult(): AppCalendarEventFormResult {
-    const { title, date, kind, startTime, endTime, startApproximate, endApproximate } = this.formData;
+    const { title, date, kind, startTime, endTime, startApproximate, endApproximate, memberId } = this.formData;
     const summary = title.trim();
 
     if (kind === 'all-day') {
-      return { summary, start: { date }, end: { date } };
+      const result: AppCalendarEventFormResult = { summary, start: { date }, end: { date } };
+      if (memberId) result.memberId = memberId;
+      return result;
     }
 
     const startIso = new Date(`${date}T${startTime}:00`).toISOString();
 
     if (kind === 'point') {
-      return { summary, start: { dateTime: startIso }, end: { dateTime: startIso }, isPointInTime: true };
+      const result: AppCalendarEventFormResult = {
+        summary, start: { dateTime: startIso }, end: { dateTime: startIso }, isPointInTime: true
+      };
+      if (memberId) result.memberId = memberId;
+      return result;
     }
 
     const endIso = new Date(`${date}T${endTime}:00`).toISOString();
     const result: AppCalendarEventFormResult = { summary, start: { dateTime: startIso }, end: { dateTime: endIso } };
     if (startApproximate) result.startApproximate = true;
     if (endApproximate) result.endApproximate = true;
+    if (memberId) result.memberId = memberId;
     return result;
   }
 }
