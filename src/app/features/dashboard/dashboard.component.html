@@ -188,6 +188,14 @@
               <p class="cal-popover-location" *ngIf="event.location"><mat-icon>location_on</mat-icon>{{ event.location }}</p>
               <p class="cal-popover-desc" *ngIf="event.description">{{ event.description }}</p>
             </div>
+            <button
+              mat-icon-button
+              *ngIf="event.source === 'app'"
+              class="cal-popover-edit"
+              (click)="openEditEventDialog(event)"
+              aria-label="Edit event">
+              <mat-icon>edit</mat-icon>
+            </button>
             <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
           </div>
         </div>
@@ -238,16 +246,23 @@
           <div
             class="cal-event-block"
             *ngFor="let event of getTimedEvents()"
-            [class.is-point-in-time]="event.isPointInTime"
-            [class.is-approximate-start]="event.startApproximate"
-            [class.is-approximate-end]="event.endApproximate"
             [style.top.px]="event.topPosition * scaleFactor"
             [style.height.px]="event.height * scaleFactor"
             [style.--event-color]="getEventColor(event)"
             [ngStyle]="getEventLayoutStyle(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
             (click)="selectEvent(event, $event)">
-            <span class="cal-event-title">{{ event.summary }}</span>
+            <!-- Positioning/sizing lives on the outer block (driven by inline styles above,
+                 including column layout for overlapping events); visual treatment lives on
+                 this inner body instead, so a point-in-time event can inset its body without
+                 fighting the outer's inline left/width. -->
+            <div
+              class="cal-event-body"
+              [class.is-point-in-time]="event.isPointInTime"
+              [class.is-approximate-start]="event.startApproximate"
+              [class.is-approximate-end]="event.endApproximate">
+              <span class="cal-event-title">{{ event.summary }}</span>
+            </div>
           </div>
 
           <!-- Rendered as a sibling rather than nested in the event block above, since an
@@ -266,6 +281,14 @@
               <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
               <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
             </div>
+            <button
+              mat-icon-button
+              *ngIf="sel.source === 'app'"
+              class="cal-popover-edit"
+              (click)="openEditEventDialog(sel)"
+              aria-label="Edit event">
+              <mat-icon>edit</mat-icon>
+            </button>
             <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
           </div>
 

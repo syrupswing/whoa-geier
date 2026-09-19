@@ -203,13 +203,18 @@
   padding: 8px;
   color: white;
   overflow: hidden;
-  cursor: pointer;
+  cursor: default;
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   transition: transform 0.2s, box-shadow 0.2s;
   z-index: 1;
   box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+
+  // Only app-native events open the edit dialog on click — Google events are read-only here.
+  &.is-editable {
+    cursor: pointer;
+  }
 
   &:hover {
     transform: scale(1.02);
@@ -248,11 +253,13 @@
     }
   }
 
-  // A specific moment with no duration (flight departure, call reminder) — a top border
-  // overhanging the left edge marks the exact start time; the body otherwise renders
-  // exactly like any other timed event.
+  // A specific moment with no duration (flight departure, call reminder) — the body is
+  // inset 16px from the true time position, leaving a gap that only the top border
+  // (marking that position) extends through; the body otherwise renders exactly like
+  // any other timed event.
   &.is-point-in-time {
     overflow: visible;
+    left: 24px; // base 8px + 16px inset
 
     &::before {
       content: '';
@@ -530,13 +537,18 @@
     border-radius: 4px;
     color: white;
     font-size: 0.85rem;
-    cursor: pointer;
+    cursor: default;
     transition: transform 0.2s, box-shadow 0.2s;
     box-shadow: 0 1px 3px rgba(0,0,0,0.2);
 
-    &:hover {
-      transform: scale(1.02);
-      box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+    // Only app-native events open the edit dialog on click — Google events are read-only here.
+    &.is-editable {
+      cursor: pointer;
+
+      &:hover {
+        transform: scale(1.02);
+        box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+      }
     }
 
     strong {
@@ -558,15 +570,20 @@
     border-radius: 3px;
     color: white;
     font-size: 0.7rem;
-    cursor: pointer;
+    cursor: default;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
     transition: transform 0.2s;
     box-shadow: 0 1px 2px rgba(0,0,0,0.15);
 
-    &:hover {
-      transform: scale(1.05);
+    // Only app-native events open the edit dialog on click — Google events are read-only here.
+    &.is-editable {
+      cursor: pointer;
+
+      &:hover {
+        transform: scale(1.05);
+      }
     }
   }
 }

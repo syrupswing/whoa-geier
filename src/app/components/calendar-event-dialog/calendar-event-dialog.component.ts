@@ -12,8 +12,15 @@ import { CalendarEvent } from '../../services/google-calendar.service';
 
 export type AppCalendarEventFormResult = Omit<CalendarEvent, 'id' | 'source'>;
 
+export type CalendarEventDialogResult =
+  | { action: 'save'; event: AppCalendarEventFormResult }
+  | { action: 'delete' };
+
 export interface CalendarEventDialogData {
-  /** Pre-fills the date field — typically whatever day the calendar widget is currently showing. */
+  mode: 'add' | 'edit';
+  /** Required for 'edit' — the app-native event being edited, used to pre-fill the form. */
+  event?: CalendarEvent;
+  /** Pre-fills the date field on add — typically whatever day the calendar widget is currently showing. */
   defaultDate?: Date;
 }
 
@@ -43,7 +50,7 @@ type EventKind = 'timed' | 'all-day' | 'point';
   template: `
     <h2 mat-dialog-title>
       <mat-icon>event</mat-icon>
-      Add Event
+      {{ data.mode === 'add' ? 'Add Event' : 'Edit Event' }}
     </h2>
 
     <mat-dialog-content>
@@ -97,15 +104,20 @@ type EventKind = 'timed' | 'all-day' | 'point';
       </div>
     </mat-dialog-content>
 
-    <mat-dialog-actions align="end">
+    <mat-dialog-actions class="dialog-actions">
+      <button mat-button color="warn" *ngIf="data.mode === 'edit'" (click)="onDelete()">
+        <mat-icon>delete</mat-icon>
+        Delete
+      </button>
+      <span class="dialog-actions-spacer"></span>
       <button mat-button (click)="onCancel()">Cancel</button>
       <button
         mat-raised-button
         color="primary"
         (click)="onSave()"
         [disabled]="!isValid()">
-        <mat-icon>add</mat-icon>
-        Add Event
+        <mat-icon>{{ data.mode === 'add' ? 'add' : 'save' }}</mat-icon>
+        {{ data.mode === 'add' ? 'Add Event' : 'Save Changes' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -148,6 +160,16 @@ type EventKind = 'timed' | 'all-day' | 'point';
       }
     }
 
+    .dialog-actions {
+      display: flex;
+      align-items: center;
+      width: 100%;
+    }
+
+    .dialog-actions-spacer {
+      flex: 1;
+    }
+
     h2[mat-dialog-title] {
       display: flex;
       align-items: center;
@@ -175,15 +197,31 @@ export class CalendarEventDialogComponent {
     public dialogRef: MatDialogRef<CalendarEventDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: CalendarEventDialogData
   ) {
-    this.formData = {
-      title: '',
-      date: this.toDateInputValue(data.defaultDate || new Date()),
-      kind: 'timed',
-      startTime: '09:00',
-      endTime: '10:00',
-      startApproximate: false,
-      endApproximate: false
-    };
+    const event = data.event;
+    if (event) {
+      const isAllDay = !!event.start.date && !event.start.dateTime;
+      const startDate = event.start.dateTime ? new Date(event.start.dateTime) : null;
+      const endDate = event.end.dateTime ? new Date(event.end.dateTime) : null;
+      this.formData = {
+        title: event.summary,
+        date: isAllDay ? event.start.date! : this.toDateInputValue(startDate!),
+        kind: isAllDay ? 'all-day' : (event.isPointInTime ? 'point' : 'timed'),
+        startTime: startDate ? this.toTimeInputValue(startDate) : '09:00',
+        endTime: endDate ? this.toTimeInputValue(endDate) : '10:00',
+        startApproximate: !!event.startApproximate,
+        endApproximate: !!event.endApproximate
+      };
+    } else {
+      this.formData = {
+        title: '',
+        date: this.toDateInputValue(data.defaultDate || new Date()),
+        kind: 'timed',
+        startTime: '09:00',
+        endTime: '10:00',
+        startApproximate: false,
+        endApproximate: false
+      };
+    }
   }
 
   isValid(): boolean {
@@ -200,7 +238,14 @@ export class CalendarEventDialogComponent {
 
   onSave(): void {
     if (!this.isValid()) return;
-    this.dialogRef.close(this.buildResult());
+    const result: CalendarEventDialogResult = { action: 'save', event: this.buildResult() };
+    this.dialogRef.close(result);
+  }
+
+  onDelete(): void {
+    if (!confirm(`Delete "${this.formData.title || 'this event'}"?`)) return;
+    const result: CalendarEventDialogResult = { action: 'delete' };
+    this.dialogRef.close(result);
   }
 
   private toDateInputValue(d: Date): string {
@@ -208,6 +253,12 @@ export class CalendarEventDialogComponent {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  private toTimeInputValue(d: Date): string {
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+    return `${hours}:${minutes}`;
   }
 
   private buildResult(): AppCalendarEventFormResult {

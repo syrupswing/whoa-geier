@@ -86,11 +86,13 @@
         <div class="all-day-events" *ngIf="getAllDayEventsForDay(currentDate()).length > 0">
           <div class="all-day-label">All Day</div>
           <div class="all-day-events-list">
-            <div 
+            <div
               *ngFor="let event of getAllDayEventsForDay(currentDate())"
               class="all-day-event"
+              [class.is-editable]="event.source === 'app'"
               [style.background-color]="getEventColor(event)"
-              [matTooltip]="event.summary">
+              [matTooltip]="event.summary"
+              (click)="openEditEventDialog(event)">
               <strong>{{ event.summary }}</strong>
             </div>
           </div>
@@ -124,11 +126,13 @@
             [class.is-point-in-time]="event.isPointInTime"
             [class.is-approximate-start]="event.startApproximate"
             [class.is-approximate-end]="event.endApproximate"
+            [class.is-editable]="event.source === 'app'"
             [style.top.px]="event.topPosition"
             [style.height.px]="event.height"
             [style.background-color]="getEventColor(event)"
             [style.--event-color]="getEventColor(event)"
-            [matTooltip]="formatEventTime(event)">
+            [matTooltip]="formatEventTime(event)"
+            (click)="openEditEventDialog(event)">
             <div class="event-content">
               <strong>{{ event.summary }}</strong>
               <div class="event-time-small">{{ formatEventTime(event) }}</div>
@@ -164,11 +168,13 @@
 
             <!-- All-day events for this day -->
             <div class="all-day-events-compact" *ngIf="getAllDayEventsForDay(day).length > 0">
-              <div 
+              <div
                 *ngFor="let event of getAllDayEventsForDay(day)"
                 class="all-day-event-compact"
+                [class.is-editable]="event.source === 'app'"
                 [style.background-color]="getEventColor(event)"
-                [matTooltip]="event.summary">
+                [matTooltip]="event.summary"
+                (click)="openEditEventDialog(event)">
                 {{ event.summary }}
               </div>
             </div>
@@ -193,11 +199,13 @@
                 [class.is-point-in-time]="event.isPointInTime"
                 [class.is-approximate-start]="event.startApproximate"
                 [class.is-approximate-end]="event.endApproximate"
+                [class.is-editable]="event.source === 'app'"
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.height"
                 [style.background-color]="getEventColor(event)"
                 [style.--event-color]="getEventColor(event)"
-                [matTooltip]="event.summary + ' - ' + formatEventTime(event)">
+                [matTooltip]="event.summary + ' - ' + formatEventTime(event)"
+                (click)="openEditEventDialog(event)">
                 <div class="event-content">
                   <strong>{{ event.summary }}</strong>
                 </div>

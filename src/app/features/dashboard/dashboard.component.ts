@@ -13,7 +13,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
-import { CalendarEventDialogComponent } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
+import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GroceryService } from '../../services/grocery.service';
 import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
@@ -847,17 +847,44 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   openAddEventDialog(): void {
     const dialogRef = this.dialog.open(CalendarEventDialogComponent, {
       width: '500px',
-      data: { defaultDate: this.viewDate() }
+      data: { mode: 'add', defaultDate: this.viewDate() }
     });
 
-    dialogRef.afterClosed().subscribe(async (result) => {
-      if (!result) return;
+    dialogRef.afterClosed().subscribe(async (result: CalendarEventDialogResult | undefined) => {
+      if (!result || result.action !== 'save') return;
       try {
-        await this.appCalendarEventService.addEvent(result);
+        await this.appCalendarEventService.addEvent(result.event);
         this.snackBar.open('Event added', 'Close', { duration: 3000 });
       } catch (error) {
         console.error('Error adding calendar event:', error);
         this.snackBar.open('Failed to add event', 'Close', { duration: 3000 });
+      }
+    });
+  }
+
+  /** Opens the edit form for an app-native event (Google-synced events aren't editable here). */
+  openEditEventDialog(event: CalendarEvent): void {
+    if (event.source !== 'app') return;
+    this.clearSelectedEvent();
+
+    const dialogRef = this.dialog.open(CalendarEventDialogComponent, {
+      width: '500px',
+      data: { mode: 'edit', event }
+    });
+
+    dialogRef.afterClosed().subscribe(async (result: CalendarEventDialogResult | undefined) => {
+      if (!result) return;
+      try {
+        if (result.action === 'delete') {
+          await this.appCalendarEventService.deleteEvent(event.id);
+          this.snackBar.open('Event deleted', 'Close', { duration: 3000 });
+        } else {
+          await this.appCalendarEventService.updateEvent(event.id, result.event);
+          this.snackBar.open('Event updated', 'Close', { duration: 3000 });
+        }
+      } catch (error) {
+        console.error('Error updating calendar event:', error);
+        this.snackBar.open('Failed to save event', 'Close', { duration: 3000 });
       }
     });
   }

@@ -2429,43 +2429,58 @@
 }
 
 .cal-event-block {
+  // Pure positioning shell — top/height/left/width come from inline styles (including
+  // per-event column layout for overlapping events); all visual treatment lives on the
+  // inner .cal-event-body instead, so a point-in-time event can inset its body without
+  // fighting those inline styles.
   position: absolute;
   left: 0;
   width: 100%;
-  border-radius: 5px;
-  padding: 1px 5px;
-  overflow: visible; // Lets the point-in-time top-border overhang past the block's edge
+  overflow: visible; // Lets the point-in-time top-border overhang past the body's edge
   pointer-events: auto;
   cursor: pointer;
+  z-index: 1;
+
+  &.has-popover { z-index: 100; }
+}
+
+.cal-event-body {
+  height: 100%;
+  border-radius: 5px;
+  padding: 8px;
   display: flex;
   flex-direction: column;
+  justify-content: flex-start;
   gap: 0;
   // Same lighter tint as the all-day chips, minus their darker bottom-border accent.
   background: color-mix(in srgb, var(--event-color, #a4bdfc) 18%, white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.09);
-  transition: background 0.15s ease, box-shadow 0.2s ease;
+  transition: background 0.15s ease, box-shadow 0.2s ease, margin 0.15s ease;
   will-change: box-shadow;
-  z-index: 1;
 
-  &.has-popover { z-index: 100; }
-
-  &:hover {
+  .cal-event-block:hover & {
     background: color-mix(in srgb, var(--event-color, #a4bdfc) 28%, white);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 
-  // A specific moment with no duration (flight departure, call reminder) — a top border
-  // overhanging the left edge marks the exact start time; the body otherwise renders
-  // exactly like any other timed event.
-  &.is-point-in-time::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -16px;
-    width: calc(100% + 16px);
-    height: 3px;
-    background: var(--event-color, #a4bdfc);
-    pointer-events: none;
+  // A specific moment with no duration (flight departure, call reminder) — the body is
+  // inset 16px from the true time position, leaving a gap that only the top border
+  // (marking that position) extends through; the body otherwise renders exactly like
+  // any other timed event.
+  &.is-point-in-time {
+    margin-left: 16px;
+    position: relative;
+
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -16px;
+      width: calc(100% + 16px);
+      height: 3px;
+      background: var(--event-color, #a4bdfc);
+      pointer-events: none;
+    }
   }
 
   // Approximate start centers the label instead of top-aligning it, and fades the
@@ -2698,6 +2713,7 @@
   margin: 4px 0 0;
 }
 
+.cal-popover-edit,
 .cal-popover-close {
   align-self: flex-start;
   margin: 4px 4px 0 0;
@@ -2711,5 +2727,9 @@
     height: 16px;
     color: var(--color-text-secondary);
   }
+}
+
+.cal-popover-edit {
+  margin-right: 0;
 }
 
