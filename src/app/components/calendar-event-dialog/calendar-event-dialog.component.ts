@@ -299,8 +299,9 @@ export class CalendarEventDialogComponent {
   }
 
   private buildResult(): AppCalendarEventFormResult {
-    const { title, date, kind, startTime, endTime, startApproximate, endApproximate } = this.formData;
+    const { title, date, kind, startTime, endTime, startApproximate, endApproximate, memberId, isPrivate } = this.formData;
     const summary = title.trim();
+    const isEdit = this.data.mode === 'edit';
 
     let result: AppCalendarEventFormResult;
     if (kind === 'all-day') {
@@ -308,19 +309,40 @@ export class CalendarEventDialogComponent {
     } else {
       const startIso = new Date(`${date}T${startTime}:00`).toISOString();
       if (kind === 'point') {
-        result = { summary, start: { dateTime: startIso }, end: { dateTime: startIso }, isPointInTime: true };
+        result = { summary, start: { dateTime: startIso }, end: { dateTime: startIso } };
       } else {
         const endIso = new Date(`${date}T${endTime}:00`).toISOString();
         result = { summary, start: { dateTime: startIso }, end: { dateTime: endIso } };
-        if (startApproximate) result.startApproximate = true;
-        if (endApproximate) result.endApproximate = true;
       }
     }
 
-    if (this.formData.memberId) result.memberId = this.formData.memberId;
+    // Editing must explicitly clear a field that's no longer set, not just omit it —
+    // Firestore's partial update only touches keys present in the payload, and assigning
+    // `undefined` here becomes a real field delete (see FirestoreService.updateDocument).
+    // Adding has nothing to clear yet, and Firestore's create path rejects literal
+    // `undefined` values outright, so a falsy field is simply left off the new document.
+    this.setOptionalField(result, 'isPointInTime', true, kind === 'point', isEdit);
+    this.setOptionalField(result, 'startApproximate', true, kind === 'timed' && !!startApproximate, isEdit);
+    this.setOptionalField(result, 'endApproximate', true, kind === 'timed' && !!endApproximate, isEdit);
+    this.setOptionalField(result, 'memberId', memberId as string, !!memberId, isEdit);
     // Re-check canBePrivate() here rather than trusting formData.isPrivate directly — it's
     // only ever valid when the "For" selection is still yourself at save time.
-    if (this.formData.isPrivate && this.canBePrivate()) result.isPrivate = true;
+    this.setOptionalField(result, 'isPrivate', true, !!isPrivate && this.canBePrivate(), isEdit);
+
     return result;
+  }
+
+  private setOptionalField<K extends keyof AppCalendarEventFormResult>(
+    result: AppCalendarEventFormResult,
+    key: K,
+    value: AppCalendarEventFormResult[K],
+    condition: boolean,
+    isEdit: boolean
+  ): void {
+    if (condition) {
+      result[key] = value;
+    } else if (isEdit) {
+      result[key] = undefined as AppCalendarEventFormResult[K];
+    }
   }
 }

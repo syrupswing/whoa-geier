@@ -382,33 +382,36 @@
   &.is-approximate-end {
     mask-composite: intersect;
     -webkit-mask-composite: source-in;
+    // Keeps the label clear of the horizontal fade zone at the edges.
+    padding-left: 20px;
+    padding-right: 20px;
   }
 
   &.is-approximate-start:not(.is-approximate-end) {
     mask-image:
       linear-gradient(to bottom, transparent 0%, black 30%),
-      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+      linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
     -webkit-mask-image:
       linear-gradient(to bottom, transparent 0%, black 30%),
-      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+      linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
   }
 
   &.is-approximate-end:not(.is-approximate-start) {
     mask-image:
       linear-gradient(to bottom, black 70%, transparent 100%),
-      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+      linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
     -webkit-mask-image:
       linear-gradient(to bottom, black 70%, transparent 100%),
-      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+      linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
   }
 
   &.is-approximate-start.is-approximate-end {
     mask-image:
       linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%),
-      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+      linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
     -webkit-mask-image:
       linear-gradient(to bottom, transparent 0%, black 25%, black 75%, transparent 100%),
-      linear-gradient(to right, transparent 0%, black 15%, black 85%, transparent 100%);
+      linear-gradient(to right, transparent 0%, black 6%, black 94%, transparent 100%);
   }
 }
 
