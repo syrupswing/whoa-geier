@@ -333,6 +333,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
+  /** Deep-links to Google Calendar's own day view for whatever date the widget is showing. */
+  googleCalendarUrl(): string {
+    const d = this.viewDate();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `https://calendar.google.com/calendar/r/day/${year}/${month}/${day}`;
+  }
+
   getViewDayEvents(): TimelineEvent[] {
     const day = this.viewDate();
     const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0);

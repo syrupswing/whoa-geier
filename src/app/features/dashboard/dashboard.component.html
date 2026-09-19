@@ -122,6 +122,15 @@
         <span class="cal-date-text">{{ formatViewDate() }}</span>
       </div>
       <div class="cal-nav-actions">
+        <a
+          mat-icon-button
+          [href]="googleCalendarUrl()"
+          target="_blank"
+          rel="noopener"
+          matTooltip="Edit in Google Calendar"
+          aria-label="Edit in Google Calendar">
+          <mat-icon>open_in_new</mat-icon>
+        </a>
         <button
           mat-icon-button
           *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0"
