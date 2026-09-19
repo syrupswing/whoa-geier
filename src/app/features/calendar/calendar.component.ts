@@ -133,10 +133,6 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     this.calendarService.signIn();
   }
 
-  signOut(): void {
-    this.calendarService.signOut();
-  }
-
   async loadEventsForCurrentView(): Promise<void> {
     if (!this.calendarService.isSignedIn()) return;
 

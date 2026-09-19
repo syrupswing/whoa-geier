@@ -133,13 +133,6 @@
   align-items: center;
 }
 
-.cal-signed-in-footer {
-  display: flex;
-  justify-content: flex-end;
-  padding: 8px 10px;
-  border-bottom: 1px solid rgba(61, 53, 80, 0.07);
-}
-
 // Menu content is rendered in an overlay, outside this component's view encapsulation.
 ::ng-deep .cal-selector-menu {
   .mat-mdc-menu-content {

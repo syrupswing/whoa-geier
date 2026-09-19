@@ -100,14 +100,6 @@
       </label>
     </mat-menu>
 
-    <!-- Sign-out action, tucked below the main nav row -->
-    <div class="cal-signed-in-footer" *ngIf="calendarService.isSignedIn()">
-      <button mat-stroked-button (click)="signOut()">
-        <mat-icon>logout</mat-icon>
-        Sign Out of Google
-      </button>
-    </div>
-
     <!-- Day view -->
     <ng-container *ngIf="!isWideViewport()">
       <div class="cal-allday" *ngIf="getAllDayEventsForDay(currentDate()).length > 0">
