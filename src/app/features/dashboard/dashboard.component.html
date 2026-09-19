@@ -184,15 +184,22 @@
       <p>Initializing calendar…</p>
     </div>
 
-    <!-- Sign-in prompt -->
-    <div class="cal-status" *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn()">
+    <!-- Sign-in prompt: only blocks the timeline when there's truly nothing cached to show yet -->
+    <div class="cal-status" *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn() && !calendarService.events().length">
       <mat-icon>calendar_month</mat-icon>
       <p>Connect Google Calendar to see your events</p>
       <button mat-stroked-button (click)="signInToCalendar()">Sign in with Google</button>
     </div>
 
-    <!-- Timeline -->
-    <div class="cal-timeline-scroll" *ngIf="calendarService.isSignedIn()" (click)="clearSelectedEvent()"
+    <!-- Connection lapsed but we still have cached events — keep showing them instead of walling off the timeline -->
+    <div class="cal-reconnect-banner" *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn() && calendarService.events().length > 0">
+      <mat-icon>sync_problem</mat-icon>
+      <span>Showing your last-synced events.</span>
+      <button type="button" (click)="signInToCalendar()">Reconnect</button>
+    </div>
+
+    <!-- Timeline: shown whenever there's something to display, independent of live sign-in state -->
+    <div class="cal-timeline-scroll" *ngIf="calendarService.isSignedIn() || calendarService.events().length > 0" (click)="clearSelectedEvent()"
       [style.height.px]="TOTAL_TIMELINE_HEIGHT">
       <!-- Out-of-view playhead: dashed line at top edge -->
       <div class="cal-playhead-edge cal-playhead-edge--top" *ngIf="isViewingToday && playheadEdge() === 'above'">

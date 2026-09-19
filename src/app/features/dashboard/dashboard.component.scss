@@ -2342,6 +2342,45 @@
   }
 }
 
+.cal-reconnect-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  background: rgba(239, 108, 0, 0.08);
+  color: var(--color-text-secondary);
+  font-size: 0.8rem;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+    color: #EF6C00;
+    flex-shrink: 0;
+  }
+
+  span {
+    flex: 1;
+  }
+
+  button {
+    border: none;
+    background: transparent;
+    color: var(--color-electric-cobalt, #2196F3);
+    font-weight: 600;
+    font-size: 0.8rem;
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 999px;
+
+    &:hover {
+      background: rgba(61, 53, 80, 0.06);
+    }
+  }
+}
+
 .cal-timeline-scroll {
   position: relative;
   overflow: hidden;
