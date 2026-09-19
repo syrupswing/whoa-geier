@@ -2440,14 +2440,17 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  // Same lighter tint as the all-day chips, minus their darker bottom-border accent.
+  background: color-mix(in srgb, var(--event-color, #a4bdfc) 18%, white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.09);
-  transition: box-shadow 0.2s ease;
+  transition: background 0.15s ease, box-shadow 0.2s ease;
   will-change: box-shadow;
   z-index: 1;
 
   &.has-popover { z-index: 100; }
 
-  &:hover { 
+  &:hover {
+    background: color-mix(in srgb, var(--event-color, #a4bdfc) 28%, white);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 }

@@ -233,7 +233,7 @@
             *ngFor="let event of getTimedEvents()"
             [style.top.px]="event.topPosition * scaleFactor"
             [style.height.px]="event.height * scaleFactor"
-            [style.backgroundColor]="getEventColor(event)"
+            [style.--event-color]="getEventColor(event)"
             [ngStyle]="getEventLayoutStyle(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
             (click)="selectEvent(event, $event)">
