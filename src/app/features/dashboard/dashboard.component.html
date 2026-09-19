@@ -99,7 +99,9 @@
           placeholder="Ask about schedule, todos, or anything else..."
           [(ngModel)]="chatInput"
           (input)="autoResizeChatInput()"
-          (keydown.enter)="onChatEnter($event)">
+          (keydown.enter)="onChatEnter($event)"
+          (keydown.arrowup)="onChatArrowUp($event)"
+          (keydown.arrowdown)="onChatArrowDown($event)">
         </textarea>
         <button mat-icon-button type="submit" [disabled]="!chatInput.trim() || isChatLoading()" aria-label="Send">
           <mat-icon>send</mat-icon>

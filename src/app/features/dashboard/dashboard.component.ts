@@ -101,6 +101,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   chatInput = '';;
   isChatLoading = signal(false);
   isConfirmingClearChat = signal(false);
+  /** Index into chatHistoryList() currently shown in the input, via Up/Down recall; -1 = not browsing. */
+  private chatHistoryIndex = -1;
+  /** What the user had typed before they started browsing history, restored when paging past the newest entry. */
+  private chatHistoryDraft = '';
   apiCallCount = signal<number>(0);
   readonly chatSuggestions: string[] = [
     "What's Remi's full day look like?",
@@ -841,6 +845,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     const userMessage = this.chatInput.trim();
     this.chatInput = '';
+    this.chatHistoryIndex = -1;
+    this.chatHistoryDraft = '';
     setTimeout(() => this.autoResizeChatInput(), 0);
 
     // Add user message
@@ -942,6 +948,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   /** Grows the chat textarea to fit its content, up to CHAT_INPUT_MAX_HEIGHT, then lets it scroll. */
   autoResizeChatInput(): void {
+    // A genuine edit (this only fires on real keystrokes, not our own programmatic
+    // recalls) means the user has moved on from the recalled entry — stop browsing.
+    if (this.chatHistoryIndex !== -1 && this.chatInput !== this.chatHistoryList()[this.chatHistoryIndex]) {
+      this.chatHistoryIndex = -1;
+    }
     const el = this.chatTextarea?.nativeElement;
     if (!el) return;
     el.style.height = 'auto';
@@ -955,6 +966,49 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       keyboardEvent.preventDefault();
       void this.sendChatMessage();
     }
+  }
+
+  private chatHistoryList(): string[] {
+    return this.chatMessages().filter(m => m.isUser).map(m => m.text);
+  }
+
+  /**
+   * Up/Down recall of previously sent prompts, like a terminal or shell history.
+   * Up only takes over when the box is empty (a fresh prompt) or already mid-recall —
+   * otherwise it moves the cursor normally within whatever the user is typing.
+   */
+  onChatArrowUp(event: Event): void {
+    const history = this.chatHistoryList();
+    if (!history.length) return;
+
+    const browsing = this.chatHistoryIndex !== -1;
+    if (!browsing && this.chatInput.trim()) return;
+
+    event.preventDefault();
+    if (!browsing) {
+      this.chatHistoryDraft = this.chatInput;
+      this.chatHistoryIndex = history.length - 1;
+    } else if (this.chatHistoryIndex > 0) {
+      this.chatHistoryIndex--;
+    }
+    this.chatInput = history[this.chatHistoryIndex];
+    setTimeout(() => this.autoResizeChatInput(), 0);
+  }
+
+  /** Down steps forward through history, restoring the original draft once past the newest entry. */
+  onChatArrowDown(event: Event): void {
+    if (this.chatHistoryIndex === -1) return;
+
+    event.preventDefault();
+    const history = this.chatHistoryList();
+    if (this.chatHistoryIndex < history.length - 1) {
+      this.chatHistoryIndex++;
+      this.chatInput = history[this.chatHistoryIndex];
+    } else {
+      this.chatHistoryIndex = -1;
+      this.chatInput = this.chatHistoryDraft;
+    }
+    setTimeout(() => this.autoResizeChatInput(), 0);
   }
 
   scrollChatToBottom(): void {
