@@ -30,6 +30,8 @@ export interface CalendarEvent {
   endApproximate?: boolean;
   /** App-native events only — ties the event to one household member (e.g. a personal reminder) rather than the whole family. Unset means it concerns everyone. */
   memberId?: string;
+  /** App-native events only — restricted by Firestore rules to be readable/writable only by the account linked to memberId. Only ever settable for yourself, never for someone else. */
+  isPrivate?: boolean;
 }
 
 export interface CalendarInfo {

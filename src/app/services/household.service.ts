@@ -1,6 +1,8 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, effect } from '@angular/core';
+import { Unsubscribe } from 'firebase/firestore';
 import { FirestoreService } from './firestore.service';
 import { LocalStorageService } from './local-storage.service';
+import { AuthService } from './auth.service';
 
 export interface FamilyMember {
   id: string;
@@ -15,23 +17,76 @@ export interface Household {
   createdAt?: string;
 }
 
+/** Links one Firebase Auth account to the household member it belongs to — lets security
+ * rules recognize "this login is Remi" for things like private, self-only calendar events.
+ * Keyed by the account's own uid so a person can only ever claim/write their own link. */
+interface MemberLink {
+  memberId: string;
+  linkedAt: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class HouseholdService {
   private firestoreService = inject(FirestoreService);
   private localStorageService = inject(LocalStorageService);
+  private authService = inject(AuthService);
 
   private readonly COLLECTION_NAME = 'household';
   private readonly DOC_ID = 'main';
   private readonly LOCAL_STORAGE_KEY = 'household';
+  private readonly MEMBER_LINKS_COLLECTION = 'memberLinks';
 
   household = signal<Household | null>(null);
   members = computed(() => this.household()?.members ?? []);
   isLoading = signal<boolean>(false);
 
+  /** The household member the currently signed-in account is linked to, if any. */
+  myMemberId = signal<string | null>(null);
+  private memberLinkUnsubscribe: Unsubscribe | null = null;
+
   constructor() {
     this.load();
+    // AuthService.currentUser resolves asynchronously (onAuthStateChanged), so this must
+    // react to it rather than check once — re-subscribing to the right uid's link doc
+    // whenever sign-in state actually changes.
+    effect(() => {
+      const uid = this.authService.currentUser()?.uid;
+      this.watchMyMemberLink(uid);
+    }, { allowSignalWrites: true });
+  }
+
+  private watchMyMemberLink(uid: string | undefined): void {
+    if (this.memberLinkUnsubscribe) {
+      this.memberLinkUnsubscribe();
+      this.memberLinkUnsubscribe = null;
+    }
+    if (!uid || !this.firestoreService.isInitialized()) {
+      this.myMemberId.set(null);
+      return;
+    }
+    this.memberLinkUnsubscribe = this.firestoreService.subscribeToDocument<MemberLink>(
+      this.MEMBER_LINKS_COLLECTION,
+      uid,
+      (link) => this.myMemberId.set(link?.memberId ?? null)
+    );
+  }
+
+  /** Claims a household member profile as "me" for the currently signed-in account. */
+  async linkCurrentUserToMember(memberId: string): Promise<void> {
+    const uid = this.authService.currentUser()?.uid;
+    if (!uid) return;
+    const link: MemberLink = { memberId, linkedAt: new Date().toISOString() };
+    await this.firestoreService.setDocument(this.MEMBER_LINKS_COLLECTION, uid, link);
+    this.myMemberId.set(memberId);
+  }
+
+  async unlinkCurrentUser(): Promise<void> {
+    const uid = this.authService.currentUser()?.uid;
+    if (!uid) return;
+    await this.firestoreService.deleteDocument(this.MEMBER_LINKS_COLLECTION, uid);
+    this.myMemberId.set(null);
   }
 
   private async load(): Promise<void> {

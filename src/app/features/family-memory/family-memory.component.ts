@@ -81,6 +81,15 @@ export class FamilyMemoryComponent {
     await this.householdService.removeMember(member.id);
   }
 
+  /** Links (or unlinks) this login to a household member — enables private, self-only reminders. */
+  async setMyMember(memberId: string | null): Promise<void> {
+    if (memberId) {
+      await this.householdService.linkCurrentUserToMember(memberId);
+    } else {
+      await this.householdService.unlinkCurrentUser();
+    }
+  }
+
   async addFact(): Promise<void> {
     const factText = this.factText.trim();
     if (!factText) return;

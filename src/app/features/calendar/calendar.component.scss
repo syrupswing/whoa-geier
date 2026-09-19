@@ -340,7 +340,6 @@
   flex-direction: column;
   justify-content: flex-start;
   gap: 2px;
-  overflow: hidden;
   // Same lighter tint as the all-day chips, minus their darker bottom-border accent.
   background: color-mix(in srgb, var(--event-color, #a4bdfc) 18%, white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.09);

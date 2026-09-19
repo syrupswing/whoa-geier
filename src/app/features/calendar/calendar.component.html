@@ -239,7 +239,9 @@
       <div class="cal-popover-body">
         <p class="cal-popover-title">{{ sel.summary }}</p>
         <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
-        <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name"><mat-icon>person</mat-icon>For {{ name }}</p>
+        <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name">
+          <mat-icon>{{ sel.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ sel.isPrivate ? 'Private — only you' : 'For ' + name }}
+        </p>
         <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
         <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
       </div>

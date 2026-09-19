@@ -13,12 +13,26 @@
         <mat-chip-set>
           <mat-chip *ngFor="let member of householdService.members()" (removed)="removeMember(member)">
             {{ member.name }}
+            <span *ngIf="householdService.myMemberId() === member.id"> (you)</span>
             <button matChipRemove matTooltip="Remove">
               <mat-icon>cancel</mat-icon>
             </button>
           </mat-chip>
         </mat-chip-set>
       </div>
+
+      <mat-form-field appearance="outline" *ngIf="householdService.members().length">
+        <mat-label>Which member is this login?</mat-label>
+        <mat-select [ngModel]="householdService.myMemberId()" (ngModelChange)="setMyMember($event)">
+          <mat-option [value]="null">Not linked</mat-option>
+          <mat-option *ngFor="let member of householdService.members()" [value]="member.id">
+            {{ member.name }}
+          </mat-option>
+        </mat-select>
+      </mat-form-field>
+      <p class="hint-text" *ngIf="householdService.members().length">
+        Linking your login to a member lets you create private, just-for-you calendar reminders.
+      </p>
 
       <div class="form-grid">
         <mat-form-field appearance="outline">

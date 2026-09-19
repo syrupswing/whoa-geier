@@ -85,6 +85,16 @@ type EventKind = 'timed' | 'all-day' | 'point';
           <mat-icon matPrefix>person</mat-icon>
         </mat-form-field>
 
+        <mat-checkbox
+          *ngIf="canBePrivate()"
+          name="isPrivate"
+          [(ngModel)]="formData.isPrivate">
+          Private — only visible to me
+        </mat-checkbox>
+        <p class="kind-hint" *ngIf="formData.memberId && !canBePrivate()">
+          Only {{ householdService.getMemberById(formData.memberId)?.name }} can make this private.
+        </p>
+
         <mat-radio-group class="kind-group" name="kind" [(ngModel)]="formData.kind">
           <mat-radio-button value="timed">Timed</mat-radio-button>
           <mat-radio-button value="all-day">All day</mat-radio-button>
@@ -206,6 +216,7 @@ export class CalendarEventDialogComponent {
     startApproximate: boolean;
     endApproximate: boolean;
     memberId: string | null;
+    isPrivate: boolean;
   };
 
   constructor(
@@ -226,7 +237,8 @@ export class CalendarEventDialogComponent {
         endTime: endDate ? this.toTimeInputValue(endDate) : '10:00',
         startApproximate: !!event.startApproximate,
         endApproximate: !!event.endApproximate,
-        memberId: event.memberId ?? null
+        memberId: event.memberId ?? null,
+        isPrivate: !!event.isPrivate
       };
     } else {
       this.formData = {
@@ -237,9 +249,16 @@ export class CalendarEventDialogComponent {
         endTime: '10:00',
         startApproximate: false,
         endApproximate: false,
-        memberId: null
+        memberId: this.householdService.myMemberId(),
+        isPrivate: false
       };
     }
+  }
+
+  /** Private is only ever allowed for yourself — never assignable to someone else. */
+  canBePrivate(): boolean {
+    const myId = this.householdService.myMemberId();
+    return !!myId && this.formData.memberId === myId;
   }
 
   isValid(): boolean {
@@ -280,30 +299,28 @@ export class CalendarEventDialogComponent {
   }
 
   private buildResult(): AppCalendarEventFormResult {
-    const { title, date, kind, startTime, endTime, startApproximate, endApproximate, memberId } = this.formData;
+    const { title, date, kind, startTime, endTime, startApproximate, endApproximate } = this.formData;
     const summary = title.trim();
 
+    let result: AppCalendarEventFormResult;
     if (kind === 'all-day') {
-      const result: AppCalendarEventFormResult = { summary, start: { date }, end: { date } };
-      if (memberId) result.memberId = memberId;
-      return result;
+      result = { summary, start: { date }, end: { date } };
+    } else {
+      const startIso = new Date(`${date}T${startTime}:00`).toISOString();
+      if (kind === 'point') {
+        result = { summary, start: { dateTime: startIso }, end: { dateTime: startIso }, isPointInTime: true };
+      } else {
+        const endIso = new Date(`${date}T${endTime}:00`).toISOString();
+        result = { summary, start: { dateTime: startIso }, end: { dateTime: endIso } };
+        if (startApproximate) result.startApproximate = true;
+        if (endApproximate) result.endApproximate = true;
+      }
     }
 
-    const startIso = new Date(`${date}T${startTime}:00`).toISOString();
-
-    if (kind === 'point') {
-      const result: AppCalendarEventFormResult = {
-        summary, start: { dateTime: startIso }, end: { dateTime: startIso }, isPointInTime: true
-      };
-      if (memberId) result.memberId = memberId;
-      return result;
-    }
-
-    const endIso = new Date(`${date}T${endTime}:00`).toISOString();
-    const result: AppCalendarEventFormResult = { summary, start: { dateTime: startIso }, end: { dateTime: endIso } };
-    if (startApproximate) result.startApproximate = true;
-    if (endApproximate) result.endApproximate = true;
-    if (memberId) result.memberId = memberId;
+    if (this.formData.memberId) result.memberId = this.formData.memberId;
+    // Re-check canBePrivate() here rather than trusting formData.isPrivate directly — it's
+    // only ever valid when the "For" selection is still yourself at save time.
+    if (this.formData.isPrivate && this.canBePrivate()) result.isPrivate = true;
     return result;
   }
 }

@@ -5,7 +5,15 @@ service cloud.firestore {
     function isAuthenticated() {
       return request.auth != null;
     }
-    
+
+    // The household member the requesting account is linked to (see /memberLinks/{uid}),
+    // or null if it isn't linked to anyone. Used to gate access to private calendar events.
+    function myMemberId() {
+      return exists(/databases/$(database)/documents/memberLinks/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/memberLinks/$(request.auth.uid)).data.memberId
+        : null;
+    }
+
     // App-wide statistics (API counter, etc.)
     match /app-stats/{docId} {
       // Anyone authenticated can read stats
@@ -154,12 +162,29 @@ service cloud.firestore {
     }
 
     // App-native calendar events (Google Calendar itself stays read-only via OAuth;
-    // this is the write path for events created in-app, e.g. via quick-add)
+    // this is the write path for events created in-app, e.g. via quick-add). A private
+    // event (isPrivate: true) is only ever creatable for yourself — never for someone
+    // else — so it's only readable/writable by the account linked to its memberId.
     match /calendarEvents/{eventId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      // .get(field, default) is required here, not dot access — most events never set
+      // isPrivate/memberId at all, and accessing an absent map field directly throws,
+      // which would fail-closed and hide every non-private event once this deployed.
+      allow read: if isAuthenticated() &&
+        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null));
+      allow create: if isAuthenticated() &&
+        (request.resource.data.get('isPrivate', false) != true || myMemberId() == request.resource.data.get('memberId', null));
+      allow update: if isAuthenticated() &&
+        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null)) &&
+        (request.resource.data.get('isPrivate', false) != true || myMemberId() == request.resource.data.get('memberId', null));
+      allow delete: if isAuthenticated() &&
+        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null));
+    }
+
+    // Links one Firebase Auth account to the household member it belongs to (a
+    // self-service "this is me" claim) — a person may only ever read or write their own
+    // link, keyed by their own uid, so nobody can claim to be someone else.
+    match /memberLinks/{uid} {
+      allow read, create, update, delete: if isAuthenticated() && request.auth.uid == uid;
     }
 
     // User-added quick links (the hardcoded system links never touch Firestore)
