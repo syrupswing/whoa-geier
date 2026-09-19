@@ -31,6 +31,10 @@ export interface TodoItem {
   createdAt?: string;
   updatedAt?: string;
   snoozedUntil?: string; // ISO date string — hide from sort/notifications until this time
+  /** Ties the to-do to one household member (a personal reminder) rather than the whole family. Unset means it concerns everyone. */
+  memberId?: string;
+  /** Restricted by Firestore rules to be readable/writable only by the account linked to memberId. Only ever settable for yourself, never for someone else. */
+  isPrivate?: boolean;
 }
 
 export interface TaskScore {

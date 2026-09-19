@@ -477,7 +477,9 @@ async function buildFamilyChatContext(db) {
 
   const todos = todosSnap.docs
     .map(d => d.data())
-    .filter(t => !t.snoozedUntil || new Date(t.snoozedUntil) <= now)
+    // Private todos are personal to one member — this context is shared with anyone
+    // chatting, so it can't reveal them without knowing who's asking.
+    .filter(t => !t.isPrivate && (!t.snoozedUntil || new Date(t.snoozedUntil) <= now))
     .map(t => (t.dueDate ? `${t.title} (due ${t.dueDate.split('T')[0]})` : t.title))
     .slice(0, 20);
 
@@ -584,6 +586,9 @@ exports.dailyTodoReminder = onSchedule(
   todosSnap.docs.forEach(doc => {
     const todo = doc.data();
     if (!todo.dueDate) return;
+    // Private todos are personal to one member — this push goes to every device, so it
+    // can't include a title that isn't everyone's business.
+    if (todo.isPrivate) return;
     // Skip todos that are currently snoozed
     if (todo.snoozedUntil && new Date(todo.snoozedUntil) > now) return;
     const due = todo.dueDate.split('T')[0];

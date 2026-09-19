@@ -26,14 +26,19 @@ service cloud.firestore {
       allow delete: if false;
     }
     
-    // Todo items collection
+    // Todo items collection. A private todo (isPrivate: true) is only ever creatable for
+    // yourself — never for someone else — so it's only readable/writable by the account
+    // linked to its memberId. Same pattern as calendarEvents below.
     match /todoItems/{todoId} {
-      // Anyone authenticated can read all todos
-      allow read: if isAuthenticated();
-      // Anyone authenticated can create, update, or delete todos
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAuthenticated() &&
+        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null));
+      allow create: if isAuthenticated() &&
+        (request.resource.data.get('isPrivate', false) != true || myMemberId() == request.resource.data.get('memberId', null));
+      allow update: if isAuthenticated() &&
+        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null)) &&
+        (request.resource.data.get('isPrivate', false) != true || myMemberId() == request.resource.data.get('memberId', null));
+      allow delete: if isAuthenticated() &&
+        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null));
     }
     
     // Grocery / shopping list items

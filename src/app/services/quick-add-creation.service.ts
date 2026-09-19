@@ -115,11 +115,13 @@ export class QuickAddCreationService {
         const dueDate = item.date
           ? new Date(`${item.date}T${item.time || '00:00'}:00`).toISOString()
           : undefined;
+        const memberId = this.resolvePersonToMemberId(item.person);
         await this.todoService.addItem({
           title: item.title || 'Untitled',
           completed: false,
           dueDate,
-          urgency: item.type === 'reminder' ? 'hard-deadline' : 'soft-deadline'
+          urgency: item.type === 'reminder' ? 'hard-deadline' : 'soft-deadline',
+          ...(memberId ? { memberId } : {})
         });
         break;
       }

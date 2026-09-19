@@ -142,6 +142,26 @@
             <input matInput [(ngModel)]="newItem.category" placeholder="e.g., Work, Personal, Shopping" autocomplete="new-password">
             <mat-icon matPrefix>label</mat-icon>
           </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width" *ngIf="householdService.members().length">
+            <mat-label>For</mat-label>
+            <mat-select [(ngModel)]="newItem.memberId">
+              <mat-option [value]="null">Whole household</mat-option>
+              <mat-option *ngFor="let member of householdService.members()" [value]="member.id">
+                {{ member.name }}
+              </mat-option>
+            </mat-select>
+            <mat-icon matPrefix>person</mat-icon>
+          </mat-form-field>
+
+          <div class="full-width">
+            <mat-checkbox *ngIf="canBePrivate(newItem.memberId)" [(ngModel)]="newItem.isPrivate">
+              Private — only visible to me
+            </mat-checkbox>
+            <p class="kind-hint" *ngIf="newItem.memberId && !canBePrivate(newItem.memberId)">
+              Only {{ memberName(newItem.memberId) }} can make this private.
+            </p>
+          </div>
         </div>
       </mat-card-content>
       <mat-card-actions>
@@ -230,6 +250,10 @@
                   <mat-chip *ngIf="item.category" class="category-chip">
                     <mat-icon>label</mat-icon>
                     {{ item.category }}
+                  </mat-chip>
+                  <mat-chip *ngIf="memberName(item.memberId) as name" class="member-chip">
+                    <mat-icon>{{ item.isPrivate ? 'lock' : 'person' }}</mat-icon>
+                    {{ item.isPrivate ? 'Private' : 'For ' + name }}
                   </mat-chip>
                 </div>
                 <p *ngIf="item.description" class="description">{{ item.description }}</p>
@@ -389,6 +413,26 @@
                 </mat-form-field>
               </div>
 
+              <mat-form-field appearance="outline" class="full-width" *ngIf="householdService.members().length">
+                <mat-label>For</mat-label>
+                <mat-select [(ngModel)]="editForm.memberId">
+                  <mat-option [value]="null">Whole household</mat-option>
+                  <mat-option *ngFor="let member of householdService.members()" [value]="member.id">
+                    {{ member.name }}
+                  </mat-option>
+                </mat-select>
+                <mat-icon matPrefix>person</mat-icon>
+              </mat-form-field>
+
+              <div class="full-width">
+                <mat-checkbox *ngIf="canBePrivate(editForm.memberId)" [(ngModel)]="editForm.isPrivate">
+                  Private — only visible to me
+                </mat-checkbox>
+                <p class="kind-hint" *ngIf="editForm.memberId && !canBePrivate(editForm.memberId)">
+                  Only {{ memberName(editForm.memberId) }} can make this private.
+                </p>
+              </div>
+
               <div class="edit-actions">
                 <button mat-raised-button color="primary" (click)="saveEdit(item.id)">
                   <mat-icon>save</mat-icon>
@@ -438,6 +482,10 @@
                   <mat-chip *ngIf="item.category" class="category-chip">
                     <mat-icon>label</mat-icon>
                     {{ item.category }}
+                  </mat-chip>
+                  <mat-chip *ngIf="memberName(item.memberId) as name" class="member-chip">
+                    <mat-icon>{{ item.isPrivate ? 'lock' : 'person' }}</mat-icon>
+                    {{ item.isPrivate ? 'Private' : 'For ' + name }}
                   </mat-chip>
                 </div>
               </div>

@@ -21,6 +21,7 @@ import { TodoService, TodoItem } from '../../services/todo.service';
 import { MATERIAL_ICONS } from '../../shared/material-icons';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
+import { HouseholdService } from '../../services/household.service';
 
 type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring';
 
@@ -96,7 +97,9 @@ export class TodosComponent implements OnInit {
     recurrenceWeekInterval: 1,
     recurrenceMonthDay: 1,
     recurrenceDayInterval: 7,
-    category: ''
+    category: '',
+    memberId: null as string | null,
+    isPrivate: false
   };
 
   // Edit form
@@ -113,7 +116,9 @@ export class TodosComponent implements OnInit {
     recurrenceWeekInterval: 1,
     recurrenceMonthDay: 1,
     recurrenceDayInterval: 7,
-    category: ''
+    category: '',
+    memberId: null as string | null,
+    isPrivate: false
   };
 
   urgencyLevels = [
@@ -143,7 +148,7 @@ export class TodosComponent implements OnInit {
 
   iconSuggestions = MATERIAL_ICONS;
 
-  constructor(public todoService: TodoService) {}
+  constructor(public todoService: TodoService, public householdService: HouseholdService) {}
 
   ngOnInit(): void {}
 
@@ -185,6 +190,10 @@ export class TodosComponent implements OnInit {
       recurrenceMonthDay: this.newItem.isRecurring && this.newItem.recurrenceType === 'month-day' ? this.newItem.recurrenceMonthDay : undefined,
       recurrenceDayInterval: this.newItem.isRecurring && this.newItem.recurrenceType === 'day-interval' ? this.newItem.recurrenceDayInterval : undefined,
       category: this.newItem.category.trim() || undefined,
+      memberId: this.newItem.memberId || undefined,
+      // Re-check canBePrivate() here rather than trusting newItem.isPrivate directly — it's
+      // only ever valid when "For" is still set to yourself at save time.
+      isPrivate: !!this.newItem.isPrivate && this.canBePrivate(this.newItem.memberId),
       completed: false
     });
 
@@ -207,8 +216,21 @@ export class TodosComponent implements OnInit {
       recurrenceWeekInterval: item.recurrenceWeekInterval ?? 1,
       recurrenceMonthDay: item.recurrenceMonthDay ?? 1,
       recurrenceDayInterval: item.recurrenceDayInterval ?? 7,
-      category: item.category || ''
+      category: item.category || '',
+      memberId: item.memberId ?? null,
+      isPrivate: !!item.isPrivate
     };
+  }
+
+  /** Private is only ever allowed for yourself — never assignable to someone else. */
+  canBePrivate(memberId: string | null): boolean {
+    const myId = this.householdService.myMemberId();
+    return !!myId && memberId === myId;
+  }
+
+  memberName(memberId?: string | null): string | undefined {
+    if (!memberId) return undefined;
+    return this.householdService.getMemberById(memberId)?.name;
   }
 
   async saveEdit(id: string): Promise<void> {
@@ -234,7 +256,12 @@ export class TodosComponent implements OnInit {
         lastRecurringCompletedByUserId: undefined,
         lastRecurringCompletedByUserName: undefined
       }),
-      category: this.editForm.category.trim() || undefined
+      category: this.editForm.category.trim() || undefined,
+      // Editing must explicitly clear memberId/isPrivate when unset, not just omit them —
+      // Firestore's partial update only touches keys present in the payload (see
+      // FirestoreService.updateDocument), so leaving a stale key off would keep it set.
+      memberId: this.editForm.memberId || undefined,
+      isPrivate: !!this.editForm.isPrivate && this.canBePrivate(this.editForm.memberId)
     });
 
     this.cancelEdit();
@@ -524,7 +551,9 @@ export class TodosComponent implements OnInit {
       recurrenceWeekInterval: 1,
       recurrenceMonthDay: 1,
       recurrenceDayInterval: 7,
-      category: ''
+      category: '',
+      memberId: null,
+      isPrivate: false
     };
   }
 }
