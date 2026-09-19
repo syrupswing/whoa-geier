@@ -262,6 +262,9 @@ const ORCHESTRATOR_TEMPLATES = {
       const scheduleClause = context.scheduleSummary
         ? `\nToday's schedule: ${context.scheduleSummary}.`
         : '';
+      const weatherClause = context.weatherSummary
+        ? `\nCurrent weather: ${context.weatherSummary}.`
+        : '';
       const calendarClause = context.calendarEvents.length
         ? `\nUpcoming calendar events: ${context.calendarEvents.join('; ')}.`
         : '';
@@ -283,7 +286,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `${context.todayWeekday}, ${context.today} — use this as the reference date for "today", ` +
         `"tomorrow", and any other relative dates. Be friendly, concise, and ` +
         `helpful. Use the household information below when it's relevant to the question — don't recite ` +
-        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${calendarClause}` +
+        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${weatherClause}${calendarClause}` +
         `${todosClause}${groceryClause}${alertsClause}${peopleClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
@@ -405,10 +408,18 @@ async function buildFamilyChatContext(db) {
   const MEAL_CUTOFF_MIN = { breakfast: 10 * 60, lunch: 14 * 60, dinner: 21 * 60 };
 
   let scheduleSummary = null;
+  let weatherSummary = null;
   try {
-    let schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea;
+    let schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather;
     if (briefingDoc.exists) {
-      ({ schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea } = briefingDoc.data());
+      ({ schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather } = briefingDoc.data());
+      if (weather) {
+        const rangeText = (weather.highF !== undefined && weather.lowF !== undefined)
+          ? ` (high ${weather.highF}°F, low ${weather.lowF}°F)`
+          : '';
+        const precipText = weather.maxPrecipChance ? `, ${weather.maxPrecipChance}% chance of precipitation` : '';
+        weatherSummary = `${weather.tempF}°F and ${weather.description}, feels like ${weather.feelsLike}°F${rangeText}${precipText}`;
+      }
     } else {
       const schedule = await resolveScheduleForDate(db, today);
       ({ schoolStatus, scheduleNote, startTime, endTime, lunchPlan } = schedule);
@@ -470,7 +481,7 @@ async function buildFamilyChatContext(db) {
 
   const todayWeekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
 
-  return { today, todayWeekday, calendarEvents, scheduleSummary, todos, groceryItems, alerts };
+  return { today, todayWeekday, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, alerts };
 }
 
 exports.orchestratedGenerate = onCall(
