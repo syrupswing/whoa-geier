@@ -381,11 +381,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const effectiveEnd = endDate > dayEnd ? dayEnd : endDate;
     const startMin = effectiveStart.getHours() * 60 + effectiveStart.getMinutes();
     const endMin = effectiveEnd.getHours() * 60 + effectiveEnd.getMinutes();
-    // A point-in-time event has zero duration by definition — give it a small fixed
-    // height so it's still visible as a marker rather than collapsing to nothing.
-    const height = event.isPointInTime
-      ? 10
-      : Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14);
+    // A point-in-time event has zero duration, so this naturally falls back to the
+    // same minimum height as any other very short timed event — it renders like a
+    // normal event block, just with the top-border marker added in CSS.
+    const height = Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14);
     return {
       ...event, startDate, endDate,
       topPosition: (startMin / 60) * this.HOUR_PX,

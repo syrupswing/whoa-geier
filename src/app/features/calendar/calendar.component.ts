@@ -265,9 +265,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     const durationMinutes = endMinutes - startMinutes;
 
     const topPosition = (startMinutes / 60) * 60; // 60px per hour
-    // A point-in-time event has zero duration by definition — give it a small fixed
-    // height so it's still visible as a marker rather than collapsing to nothing.
-    const height = event.isPointInTime ? 18 : Math.max((durationMinutes / 60) * 60, 30);
+    // A point-in-time event has zero duration, so this naturally falls back to the
+    // same minimum height as any other very short timed event — it renders like a
+    // normal event block, just with the top-border marker added in CSS.
+    const height = Math.max((durationMinutes / 60) * 60, 30);
 
     return {
       ...event,

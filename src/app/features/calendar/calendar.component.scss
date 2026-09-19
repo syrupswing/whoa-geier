@@ -248,21 +248,20 @@
     }
   }
 
-  // A specific moment with no duration (flight departure, call reminder) — an overhanging
-  // corner bracket pinpoints the exact time rather than implying a time range.
+  // A specific moment with no duration (flight departure, call reminder) — a top border
+  // overhanging the left edge marks the exact start time; the body otherwise renders
+  // exactly like any other timed event.
   &.is-point-in-time {
     overflow: visible;
 
     &::before {
       content: '';
       position: absolute;
-      top: -3px;
-      left: -3px;
-      width: 12px;
-      height: 12px;
-      border-top: 3px solid var(--event-color, #2196F3);
-      border-left: 3px solid var(--event-color, #2196F3);
-      border-radius: 3px 0 0 0;
+      top: 0;
+      left: -4px;
+      width: calc(100% + 4px);
+      height: 3px;
+      background: var(--event-color, #2196F3);
       pointer-events: none;
     }
   }
