@@ -22,6 +22,14 @@ import { RemiScheduleService } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
+import { QuickAddCardComponent } from '../../shared/quick-add-card/quick-add-card.component';
+import {
+  QuickAddCreationService,
+  QuickAddCard,
+  ParsedQuickAddItem
+} from '../../services/quick-add-creation.service';
+import { AiSuggestionService } from '../../services/ai-suggestion.service';
+import { HouseholdService } from '../../services/household.service';
 
 interface HomeHighlight {
   icon: string;
@@ -45,14 +53,29 @@ interface ChatMessage {
   text: string;
   isUser: boolean;
   timestamp: Date;
+  /** Data-creation suggestions parsed from the assistant's reply, reviewable inline. */
+  cards?: QuickAddCard[];
 }
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
+const CHAT_MESSAGES_KEY = 'dashboardChatMessages';
+
+/** Restores chat history saved by a previous visit so navigating away and back doesn't lose it. */
+function loadPersistedChatMessages(): ChatMessage[] {
+  try {
+    const raw = localStorage.getItem(CHAT_MESSAGES_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw) as { text: string; isUser: boolean; timestamp: string }[];
+    return parsed.map(message => ({ ...message, timestamp: new Date(message.timestamp) }));
+  } catch {
+    return [];
+  }
+}
 
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -71,9 +94,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   showWeatherWidget = false;
   
   // AI Chat properties
-  chatMessages = signal<ChatMessage[]>([]);
+  chatMessages = signal<ChatMessage[]>(loadPersistedChatMessages());
   chatInput = '';;
   isChatLoading = signal(false);
+  isConfirmingClearChat = signal(false);
   apiCallCount = signal<number>(0);
   readonly chatSuggestions: string[] = [
     "What's Remi's full day look like?",
@@ -157,9 +181,22 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public firestoreService: FirestoreService,
     public pushNotificationService: PushNotificationService,
     public remiScheduleService: RemiScheduleService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private quickAddCreation: QuickAddCreationService,
+    private aiSuggestionService: AiSuggestionService,
+    private householdService: HouseholdService
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
+
+    // Persist chat history so it survives navigating away and back.
+    effect(() => {
+      const messages = this.chatMessages();
+      try {
+        localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(messages));
+      } catch {
+        // localStorage unavailable (e.g. private browsing) — chat still works in-memory
+      }
+    });
   }
 
   ngOnInit(): void {
@@ -773,6 +810,19 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
   }
 
+  requestClearChat(): void {
+    this.isConfirmingClearChat.set(true);
+  }
+
+  cancelClearChat(): void {
+    this.isConfirmingClearChat.set(false);
+  }
+
+  confirmClearChat(): void {
+    this.chatMessages.set([]);
+    this.isConfirmingClearChat.set(false);
+  }
+
   /** Sends a suggested prompt (e.g. from a highlight's quick-prompt chips) as-is. */
   async sendQuickPrompt(prompt: string): Promise<void> {
     if (this.isChatLoading()) return;
@@ -801,11 +851,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.scrollChatToBottom();
 
     try {
-      const result = await this.aiOrchestrator.generate<{ text: string }>('family-chat', { message: userMessage });
+      const knownPeople = this.householdService.members().map(m => m.name);
+      const { result, suggestionIds } = await this.aiOrchestrator.generateWithSuggestionIds<
+        { text: string; items: ParsedQuickAddItem[] }
+      >('family-chat', { message: userMessage, knownPeople });
+
+      const items = result.items || [];
+      const ids = suggestionIds || [];
+      const cards = items.map((item, i) => this.quickAddCreation.buildCard(item, ids[i] ?? null));
+
       this.chatMessages.update(messages => [...messages, {
         text: result.text,
         isUser: false,
-        timestamp: new Date()
+        timestamp: new Date(),
+        cards: cards.length ? cards : undefined
       }]);
     } catch (error: any) {
       this.chatMessages.update(messages => [...messages, {
@@ -817,6 +876,65 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.isChatLoading.set(false);
       setTimeout(() => this.scrollChatToBottom(), 100);
     }
+  }
+
+  toggleCardEdit(message: ChatMessage, card: QuickAddCard): void {
+    this.updateMessageCards(message, cards =>
+      cards.map(c => c === card ? { ...c, isEditing: !c.isEditing } : c)
+    );
+  }
+
+  updateCardField(message: ChatMessage, card: QuickAddCard, field: keyof ParsedQuickAddItem, value: any): void {
+    this.updateMessageCards(message, cards =>
+      cards.map(c => c === card ? this.quickAddCreation.updateField(c, field, value) : c)
+    );
+  }
+
+  async confirmCard(message: ChatMessage, card: QuickAddCard): Promise<void> {
+    try {
+      await this.quickAddCreation.createRecord(card.item);
+      if (card.suggestionId) {
+        const wasEdited = JSON.stringify(card.item) !== JSON.stringify(card.original);
+        if (wasEdited) {
+          await this.aiSuggestionService.markEdited(card.suggestionId, card.item as Record<string, any>);
+        } else {
+          await this.aiSuggestionService.markAccepted(card.suggestionId);
+        }
+      }
+      this.setCardStatus(message, card, 'confirmed');
+    } catch (err: any) {
+      this.snackBar.open(err?.message || 'Failed to add — try again', 'Close', { duration: 3000 });
+    }
+  }
+
+  async discardCard(message: ChatMessage, card: QuickAddCard): Promise<void> {
+    if (card.suggestionId) {
+      await this.aiSuggestionService.markRejected(card.suggestionId);
+    }
+    this.setCardStatus(message, card, 'discarded');
+  }
+
+  hasConfirmableHighConfidence(message: ChatMessage): boolean {
+    return !!message.cards?.some(c => c.status === 'pending' && !c.isLowConfidence);
+  }
+
+  async confirmAllHighConfidence(message: ChatMessage): Promise<void> {
+    const targets = (message.cards || []).filter(c => c.status === 'pending' && !c.isLowConfidence);
+    for (const card of targets) {
+      await this.confirmCard(message, card);
+    }
+  }
+
+  private setCardStatus(message: ChatMessage, card: QuickAddCard, status: QuickAddCard['status']): void {
+    this.updateMessageCards(message, cards =>
+      cards.map(c => c === card ? { ...c, status } : c)
+    );
+  }
+
+  private updateMessageCards(message: ChatMessage, updateFn: (cards: QuickAddCard[]) => QuickAddCard[]): void {
+    this.chatMessages.update(messages => messages.map(m =>
+      m === message && m.cards ? { ...m, cards: updateFn(m.cards) } : m
+    ));
   }
 
   /** Grows the chat textarea to fit its content, up to CHAT_INPUT_MAX_HEIGHT, then lets it scroll. */

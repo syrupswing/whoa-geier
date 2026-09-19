@@ -1,0 +1,113 @@
+.quick-add-card {
+  background: var(--color-surface);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  padding: 12px;
+
+  &.warning {
+    border-color: #EF6C00;
+    background: rgba(239, 108, 0, 0.08);
+  }
+
+  &.confirmed {
+    opacity: 0.6;
+    border-color: #51b749;
+  }
+
+  &.discarded {
+    opacity: 0.5;
+  }
+
+  .card-main {
+    display: flex;
+    gap: 10px;
+    align-items: flex-start;
+  }
+
+  .type-icon {
+    color: var(--color-accent, #8E6BC9);
+    margin-top: 2px;
+  }
+
+  .card-details {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .card-title-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 8px;
+
+    .card-title {
+      font-weight: 600;
+      color: var(--color-text-primary);
+      overflow-wrap: break-word;
+    }
+
+    .type-label {
+      font-size: 11px;
+      color: var(--color-text-disabled);
+      white-space: nowrap;
+    }
+  }
+
+  .card-meta {
+    font-size: 12px;
+    color: var(--color-text-secondary);
+    margin-top: 2px;
+  }
+
+  .card-note {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+    color: #EF6C00;
+    margin-top: 6px;
+
+    mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    &.duplicate-note {
+      color: var(--color-text-secondary);
+    }
+  }
+
+  .card-edit-fields {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    mat-form-field {
+      width: 100%;
+    }
+  }
+
+  .card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 4px;
+    margin-top: 8px;
+  }
+
+  .card-status {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+    margin-top: 8px;
+
+    mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+  }
+}

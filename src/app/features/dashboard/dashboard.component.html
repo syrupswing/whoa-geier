@@ -37,10 +37,46 @@
       <div class="home-chat-messages" #chatContainer *ngIf="chatMessages().length">
         <div class="chat-message" *ngFor="let message of chatMessages()" [class.user]="message.isUser">
           <p *ngIf="message.isUser">{{ message.text }}</p>
-          <div *ngIf="!message.isUser" [appTypewriter]="message.text" [typewriterMarkdown]="true"></div>
+          <ng-container *ngIf="!message.isUser">
+            <div [appTypewriter]="message.text" [typewriterMarkdown]="true"></div>
+            <div class="chat-message-cards" *ngIf="message.cards?.length">
+              <app-quick-add-card
+                *ngFor="let card of message.cards"
+                [card]="card"
+                (toggleEdit)="toggleCardEdit(message, card)"
+                (fieldChange)="updateCardField(message, card, $event.field, $event.value)"
+                (confirm)="confirmCard(message, card)"
+                (discard)="discardCard(message, card)">
+              </app-quick-add-card>
+              <button
+                type="button"
+                class="confirm-all-chip"
+                *ngIf="hasConfirmableHighConfidence(message)"
+                (click)="confirmAllHighConfidence(message)">
+                Confirm all clean ones
+              </button>
+            </div>
+          </ng-container>
         </div>
         <div class="chat-message" *ngIf="isChatLoading()">
           <app-loading-animation [size]="14"></app-loading-animation>
+        </div>
+      </div>
+
+      <div class="home-chat-clear" *ngIf="chatMessages().length">
+        <button
+          *ngIf="!isConfirmingClearChat()"
+          type="button"
+          class="clear-chat-btn"
+          (click)="requestClearChat()"
+          matTooltip="Clear chat">
+          <mat-icon>delete_sweep</mat-icon>
+          Clear chat
+        </button>
+        <div class="clear-chat-confirm" *ngIf="isConfirmingClearChat()">
+          <span>Clear all messages?</span>
+          <button type="button" class="clear-chat-confirm-btn" (click)="confirmClearChat()">Yes, clear</button>
+          <button type="button" class="clear-chat-cancel-btn" (click)="cancelClearChat()">Cancel</button>
         </div>
       </div>
 

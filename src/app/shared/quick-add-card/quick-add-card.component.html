@@ -1,0 +1,59 @@
+<div class="quick-add-card"
+     [class.confirmed]="card.status === 'confirmed'"
+     [class.discarded]="card.status === 'discarded'"
+     [class.warning]="card.status === 'pending' && (card.isLowConfidence || card.duplicateNote)">
+
+  <div class="card-main">
+    <mat-icon class="type-icon">{{ typeIcons[card.item.type] }}</mat-icon>
+
+    <div class="card-details" *ngIf="!card.isEditing">
+      <div class="card-title-row">
+        <span class="card-title">{{ card.item.title || card.item.factText }}</span>
+        <span class="type-label">{{ typeLabels[card.item.type] }}</span>
+      </div>
+      <div class="card-meta" *ngIf="card.item.date || card.item.person">
+        <span *ngIf="card.item.date">{{ card.item.date }}</span>
+        <span *ngIf="card.item.time"> · {{ card.item.time }}</span>
+        <span *ngIf="card.item.person"> · {{ card.item.person }}</span>
+      </div>
+      <div class="card-note" *ngIf="card.item.inferredNote">
+        <mat-icon>info</mat-icon>{{ card.item.inferredNote }}
+      </div>
+      <div class="card-note duplicate-note" *ngIf="card.duplicateNote">
+        <mat-icon>content_copy</mat-icon>{{ card.duplicateNote }}
+      </div>
+    </div>
+
+    <div class="card-edit-fields" *ngIf="card.isEditing">
+      <mat-form-field appearance="outline">
+        <mat-label>{{ card.item.type === 'fact' ? 'Fact' : 'Title' }}</mat-label>
+        <input
+          matInput
+          [ngModel]="card.item.type === 'fact' ? card.item.factText : card.item.title"
+          (ngModelChange)="onFieldChange(card.item.type === 'fact' ? 'factText' : 'title', $event)">
+      </mat-form-field>
+      <mat-form-field appearance="outline" *ngIf="card.item.type !== 'fact'">
+        <mat-label>Date</mat-label>
+        <input matInput type="date" [ngModel]="card.item.date" (ngModelChange)="onFieldChange('date', $event)">
+      </mat-form-field>
+      <mat-form-field appearance="outline" *ngIf="card.item.type === 'event' || card.item.type === 'reminder'">
+        <mat-label>Time</mat-label>
+        <input matInput type="time" [ngModel]="card.item.time" (ngModelChange)="onFieldChange('time', $event)">
+      </mat-form-field>
+      <mat-form-field appearance="outline">
+        <mat-label>Person</mat-label>
+        <input matInput [ngModel]="card.item.person" (ngModelChange)="onFieldChange('person', $event)">
+      </mat-form-field>
+    </div>
+  </div>
+
+  <div class="card-actions" *ngIf="card.status === 'pending'">
+    <button mat-button (click)="toggleEdit.emit()">{{ card.isEditing ? 'Done' : 'Edit' }}</button>
+    <button mat-button color="warn" (click)="discard.emit()">Discard</button>
+    <button mat-raised-button color="primary" (click)="confirm.emit()">Confirm</button>
+  </div>
+  <div class="card-status" *ngIf="card.status !== 'pending'">
+    <mat-icon>{{ card.status === 'confirmed' ? 'check_circle' : 'cancel' }}</mat-icon>
+    {{ card.status === 'confirmed' ? 'Added' : 'Discarded' }}
+  </div>
+</div>

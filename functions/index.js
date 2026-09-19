@@ -94,6 +94,35 @@ const GROCERY_STORE_SECTIONS = [
   'Dry Goods', 'Condiments', 'Snacks', 'Beverages', 'Health/Beauty', 'Household', 'Other'
 ];
 
+// Shared item shape/instructions for anything that asks the model to turn free text into
+// structured event/reminder/todo/shopping_item/fact records — used by 'family-chat' so a
+// chat message can both get a reply and (optionally) propose data to create.
+const ITEM_SCHEMA_BLOCK = (
+  `Classify each item as exactly one of these types:\n` +
+  `- "event": has a specific date/time and describes something happening (e.g. "soccer practice Tuesday at 4")\n` +
+  `- "reminder": a task tied to a specific date/time, phrased as a reminder (e.g. "remind me to bring snacks tomorrow")\n` +
+  `- "todo": a task with no fixed time, or only a due date with no time\n` +
+  `- "shopping_item": something to buy or add to the shopping list (e.g. "we need milk", "add paper towels to the list")\n` +
+  `- "fact": a persistent statement about a person or household rule, not a scheduled item (e.g. ` +
+  `"Remi is allergic to shellfish", "oil change every 5000 miles")\n\n` +
+  `Each item has this shape (omit fields that don't apply to its type):\n` +
+  `{\n` +
+  `  "type": "event" | "reminder" | "todo" | "shopping_item" | "fact",\n` +
+  `  "title": "short title (for event/reminder/todo/shopping_item)",\n` +
+  `  "factText": "the fact, verbatim or lightly cleaned up (for fact only)",\n` +
+  `  "category": "dietary | preference | maintenance | medical | schedule | other (for fact only)",\n` +
+  `  "date": "YYYY-MM-DD (for event/reminder/todo, resolved from today's date above)",\n` +
+  `  "time": "HH:mm 24-hour, or null if no time was given (for event/reminder)",\n` +
+  `  "person": "a name from the known list above, or the mentioned name/pronoun as written, or null",\n` +
+  `  "confidence": { "date": "high"|"low", "time": "high"|"low", "person": "high"|"low" },\n` +
+  `  "inferredNote": "a short note explaining any default you applied (e.g. 'No time given — defaulted ` +
+  `to 9:00 AM'), or null if nothing was inferred"\n` +
+  `}\n\n` +
+  `Only mark a field "high" confidence if the statement stated it explicitly or it follows unambiguously ` +
+  `(e.g. "tomorrow" resolved from today's date is high confidence). Never silently guess a "high" ` +
+  `confidence — when you apply a default, mark that field "low" and explain it in inferredNote.`
+);
+
 const ORCHESTRATOR_TEMPLATES = {
   'grocery-aisle-hint': {
     // Fired once per grocery item on every list load — no accept/reject action exists for
@@ -213,12 +242,15 @@ const ORCHESTRATOR_TEMPLATES = {
     parseResponse: extractJson
   },
   'family-chat': {
-    // Open-ended chat doesn't fit a bounded JSON schema the way a single fact/dish/sentence
-    // does, so this is the one template that stays prose in/out. No accept/reject action
-    // exists for a chat reply either, so it's excluded from the aiSuggestions log.
+    // Hybrid template: replies conversationally AND decides whether the message asks to
+    // create/save something (event, reminder, todo, shopping item, or fact). Structured
+    // items are logged per-item to aiSuggestions (logSuggestion: 'items-field') so each can
+    // be independently accepted/edited/rejected from its own inline chat card — this is the
+    // single entry point for what used to be the separate 'quick-add-parse' template behind
+    // its own FAB; the chat is now the only place free-text data creation happens.
     usesMemory: true,
-    logSuggestion: false,
-    maxTokens: 1024,
+    logSuggestion: 'items-field',
+    maxTokens: 1500,
     buildContext: buildFamilyChatContext,
     buildPrompt: (payload, context) => {
       const factsClause = context.facts.length
@@ -242,66 +274,33 @@ const ORCHESTRATOR_TEMPLATES = {
       const alertsClause = context.alerts.length
         ? `\nActive alerts: ${context.alerts.join('; ')}.`
         : '';
-      return (
-        `You are a helpful family assistant for a family command center app. Be friendly, concise, and ` +
-        `helpful. Use the household information below when it's relevant to the question — don't recite ` +
-        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${calendarClause}` +
-        `${todosClause}${groceryClause}${alertsClause}\n\nThe user asked: ${payload.message}`
-      );
-    },
-    parseResponse: (raw) => ({ text: raw.trim() })
-  },
-  'quick-add-parse': {
-    // Powers the free-text "quick add" entry point (see AI_MEMORY_ORCHESTRATION_PLAN.md §8):
-    // one statement can classify into multiple typed items, each logged as its own
-    // aiSuggestions doc (logSuggestion: 'per-item', handled below) so it can be independently
-    // accepted/edited/rejected from its own confirmation card rather than as one batch.
-    usesMemory: true,
-    logSuggestion: 'per-item',
-    maxTokens: 1500,
-    buildPrompt: (payload, context) => {
-      const factsClause = context.facts.length
-        ? ` Household facts to keep in mind: ${context.facts.join('; ')}.`
-        : '';
-      const contextClause = context.recentContext.length
-        ? ` Recent household context: ${context.recentContext.join('; ')}.`
-        : '';
       const peopleClause = (payload.knownPeople || []).length
         ? ` Known family member names: ${payload.knownPeople.join(', ')}. If a mentioned person matches ` +
           `one of these, use that exact name.`
         : '';
       return (
-        `You are a parser for a family organizer app's "quick add" free-text entry point. Today is ` +
-        `${payload.referenceWeekday || ''} ${payload.referenceDate}.${peopleClause}${factsClause}${contextClause}\n\n` +
-        `Parse the following statement into one or more structured items. A single statement can yield ` +
-        `multiple items — split them.\n\nStatement: "${payload.statement}"\n\n` +
-        `For each item, classify it as exactly one of these types:\n` +
-        `- "event": has a specific date/time and describes something happening (e.g. "soccer practice Tuesday at 4")\n` +
-        `- "reminder": a task tied to a specific date/time, phrased as a reminder (e.g. "remind me to bring snacks tomorrow")\n` +
-        `- "todo": a task with no fixed time, or only a due date with no time\n` +
-        `- "shopping_item": something to buy or add to the shopping list (e.g. "we need milk", "add paper towels to the list")\n` +
-        `- "fact": a persistent statement about a person or household rule, not a scheduled item (e.g. ` +
-        `"Remi is allergic to shellfish", "oil change every 5000 miles")\n\n` +
-        `Respond with ONLY a JSON array, no other text. Each item has this shape (omit fields that don't ` +
-        `apply to its type):\n` +
+        `You are a helpful family assistant for a family command center app. Today is ` +
+        `${context.todayWeekday}, ${context.today} — use this as the reference date for "today", ` +
+        `"tomorrow", and any other relative dates. Be friendly, concise, and ` +
+        `helpful. Use the household information below when it's relevant to the question — don't recite ` +
+        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${calendarClause}` +
+        `${todosClause}${groceryClause}${alertsClause}${peopleClause}\n\nThe user said: ${payload.message}\n\n` +
+        `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
+        `messages are just questions or conversation and should yield no items — only propose items when ` +
+        `the user is clearly asking you to add/save/remember/schedule something (e.g. "remind me to...", ` +
+        `"add ... to the list", "we have soccer practice Tuesday", "remember that..."). A single message can ` +
+        `yield multiple items — split them.\n\n${ITEM_SCHEMA_BLOCK}\n\n` +
+        `Respond with ONLY a JSON object of this exact shape, no other text:\n` +
         `{\n` +
-        `  "type": "event" | "reminder" | "todo" | "shopping_item" | "fact",\n` +
-        `  "title": "short title (for event/reminder/todo/shopping_item)",\n` +
-        `  "factText": "the fact, verbatim or lightly cleaned up (for fact only)",\n` +
-        `  "category": "dietary | preference | maintenance | medical | schedule | other (for fact only)",\n` +
-        `  "date": "YYYY-MM-DD (for event/reminder/todo, resolved from today's date above)",\n` +
-        `  "time": "HH:mm 24-hour, or null if no time was given (for event/reminder)",\n` +
-        `  "person": "a name from the known list above, or the mentioned name/pronoun as written, or null",\n` +
-        `  "confidence": { "date": "high"|"low", "time": "high"|"low", "person": "high"|"low" },\n` +
-        `  "inferredNote": "a short note explaining any default you applied (e.g. 'No time given — defaulted ` +
-        `to 9:00 AM'), or null if nothing was inferred"\n` +
-        `}\n\n` +
-        `Only mark a field "high" confidence if the statement stated it explicitly or it follows unambiguously ` +
-        `(e.g. "tomorrow" resolved from today's date is high confidence). Never silently guess a "high" ` +
-        `confidence — when you apply a default, mark that field "low" and explain it in inferredNote.`
+        `  "reply": "your conversational response to the user's message, as you'd normally answer",\n` +
+        `  "items": [ ] // zero or more items in the shape above, or an empty array if nothing should be created\n` +
+        `}`
       );
     },
-    parseResponse: extractJsonArray
+    parseResponse: (raw) => {
+      const parsed = extractJson(raw);
+      return { text: (parsed.reply || '').trim(), items: Array.isArray(parsed.items) ? parsed.items : [] };
+    }
   }
 };
 
@@ -462,7 +461,9 @@ async function buildFamilyChatContext(db) {
 
   const alerts = alertsSnap.docs.map(d => d.data().message).filter(Boolean).slice(0, 10);
 
-  return { calendarEvents, scheduleSummary, todos, groceryItems, alerts };
+  const todayWeekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
+
+  return { today, todayWeekday, calendarEvents, scheduleSummary, todos, groceryItems, alerts };
 }
 
 exports.orchestratedGenerate = onCall(
@@ -500,11 +501,9 @@ exports.orchestratedGenerate = onCall(
 
       let suggestionId = null;
       let suggestionIds = null;
-      if (template.logSuggestion === 'per-item') {
-        if (!Array.isArray(result)) {
-          throw new Error(`Expected an array result for per-item suggestion logging (${featureType})`);
-        }
-        suggestionIds = await Promise.all(result.map(item => logAiSuggestion(db, {
+      if (template.logSuggestion === 'items-field') {
+        const items = Array.isArray(result.items) ? result.items : [];
+        suggestionIds = await Promise.all(items.map(item => logAiSuggestion(db, {
           featureType,
           memberId,
           generatedContent: item,
