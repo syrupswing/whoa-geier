@@ -90,7 +90,7 @@
     </div>
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
-      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars()" (click)="$event.stopPropagation()">
+      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
         <input
           type="checkbox"
           [checked]="calendarService.isCalendarVisible(cal.id)"
@@ -114,7 +114,7 @@
         <span class="cal-allday-label">All day</span>
         <div class="cal-allday-events">
           <div
-            *ngFor="let event of getAllDayEventsForDay(currentDate())"
+            *ngFor="let event of getAllDayEventsForDay(currentDate()); trackBy: trackByEventId"
             class="cal-allday-chip"
             [style.--event-color]="getEventColor(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
@@ -127,14 +127,14 @@
 
       <div class="cal-timeline-scroll" #timelineScroll (click)="clearSelectedEvent()">
         <div class="cal-timeline-inner">
-          <div class="cal-hour-row" *ngFor="let hour of allHours">
+          <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour">
             <span class="cal-hour-label">{{ formatHour(hour) }}</span>
           </div>
 
           <div class="cal-events-layer">
             <div
               class="cal-event-block"
-              *ngFor="let event of getTimedEventsForDay(currentDate())"
+              *ngFor="let event of getTimedEventsForDay(currentDate()); trackBy: trackByEventId"
               [style.top.px]="event.topPosition"
               [style.height.px]="event.height"
               [style.--event-color]="getEventColor(event)"
@@ -169,7 +169,7 @@
     <ng-container *ngIf="isWideViewport()">
       <div class="cal-week-header">
         <div class="cal-week-header-spacer"></div>
-        <div class="cal-week-day-header" *ngFor="let day of getWeekDays()" [class.today]="isToday(day)">
+        <div class="cal-week-day-header" *ngFor="let day of getWeekDays(); trackBy: trackByDate" [class.today]="isToday(day)">
           <span class="cal-week-day-name">{{ day | date:'EEE' }}</span>
           <span class="cal-week-day-number" [class.today-number]="isToday(day)">{{ day | date:'d' }}</span>
         </div>
@@ -177,9 +177,9 @@
 
       <div class="cal-week-allday">
         <div class="cal-week-allday-spacer"></div>
-        <div class="cal-week-allday-col" *ngFor="let day of getWeekDays()">
+        <div class="cal-week-allday-col" *ngFor="let day of getWeekDays(); trackBy: trackByDate">
           <div
-            *ngFor="let event of getAllDayEventsForDay(day)"
+            *ngFor="let event of getAllDayEventsForDay(day); trackBy: trackByEventId"
             class="cal-allday-chip cal-allday-chip--compact"
             [style.--event-color]="getEventColor(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
@@ -192,18 +192,18 @@
       <div class="cal-timeline-scroll cal-timeline-scroll--week" #timelineScroll (click)="clearSelectedEvent()">
         <div class="cal-week-grid">
           <div class="cal-timeline-inner cal-week-hours">
-            <div class="cal-hour-row" *ngFor="let hour of allHours">
+            <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour">
               <span class="cal-hour-label">{{ formatHour(hour) }}</span>
             </div>
           </div>
 
-          <div class="cal-timeline-inner cal-week-day-col" *ngFor="let day of getWeekDays()" [class.today]="isToday(day)">
-            <div class="cal-hour-row" *ngFor="let hour of allHours"></div>
+          <div class="cal-timeline-inner cal-week-day-col" *ngFor="let day of getWeekDays(); trackBy: trackByDate" [class.today]="isToday(day)">
+            <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour"></div>
 
             <div class="cal-events-layer">
               <div
                 class="cal-event-block"
-                *ngFor="let event of getTimedEventsForDay(day)"
+                *ngFor="let event of getTimedEventsForDay(day); trackBy: trackByEventId"
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.height"
                 [style.--event-color]="getEventColor(event)"

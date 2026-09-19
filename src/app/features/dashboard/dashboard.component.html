@@ -153,7 +153,7 @@
     </div>
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
-      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars()" (click)="$event.stopPropagation()">
+      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
         <input
           type="checkbox"
           [checked]="calendarService.isCalendarVisible(cal.id)"
@@ -168,7 +168,7 @@
       <span class="cal-allday-label">All day</span>
       <div class="cal-allday-events">
         <div
-          *ngFor="let event of getAllDayEvents()"
+          *ngFor="let event of getAllDayEvents(); trackBy: trackByEventId"
           class="cal-allday-chip"
           [style.--event-color]="getEventColor(event)"
           [class.has-popover]="selectedEvent()?.id === event.id"
@@ -237,7 +237,7 @@
         [style.marginTop.px]="-getVisibleHourRange().start * effectiveHourPx">
 
         <!-- Hour grid -->
-        <div class="cal-hour-row" *ngFor="let hour of allHours">
+        <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour">
           <span class="cal-hour-label">{{ formatHour(hour) }}</span>
         </div>
 
@@ -245,7 +245,7 @@
         <div class="cal-events-layer">
           <div
             class="cal-event-block"
-            *ngFor="let event of getTimedEvents()"
+            *ngFor="let event of getTimedEvents(); trackBy: trackByEventId"
             [style.top.px]="event.topPosition * scaleFactor"
             [style.height.px]="event.height * scaleFactor"
             [style.--event-color]="getEventColor(event)"

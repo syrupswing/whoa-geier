@@ -632,6 +632,17 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return event && event.start.dateTime ? event : null;
   }
 
+  // getAllDayEvents()/getTimedEvents() rebuild their arrays (and TimelineEvent objects) on
+  // every call rather than caching, so without trackBy, any change-detection pass would
+  // make *ngFor treat every event as new and recreate its DOM node — dropping :hover state.
+  trackByEventId(_index: number, item: { id: string }): string {
+    return item.id;
+  }
+
+  trackByHour(_index: number, hour: number): number {
+    return hour;
+  }
+
   private readonly closePopoverOnScroll = (): void => {
     if (this.selectedEvent()) {
       this.clearSelectedEvent();

@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, signal, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, OnDestroy, AfterViewInit, signal, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -40,7 +40,8 @@ const WIDE_VIEWPORT_QUERY = '(min-width: 1024px)';
     HomeLogoBtnComponent
   ],
   templateUrl: './calendar.component.html',
-  styleUrls: ['./calendar.component.scss']
+  styleUrls: ['./calendar.component.scss'],
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   currentDate = signal<Date>(new Date());
@@ -459,5 +460,23 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
   clearSelectedEvent(): void {
     this.selectedEvent.set(null);
+  }
+
+  // trackBy functions: getTimedEventsForDay()/getAllDayEventsForDay()/getWeekDays() all
+  // construct fresh arrays (and fresh Date/TimelineEvent objects) on every call, since
+  // their positions are recomputed each time rather than cached. Without trackBy, any
+  // change-detection pass — including one triggered by simply hovering an event, since
+  // that's a DOM event zone.js reacts to — would make *ngFor treat every item as new and
+  // recreate its DOM node, which drops :hover state and reads as a flicker.
+  trackByEventId(_index: number, item: { id: string }): string {
+    return item.id;
+  }
+
+  trackByDate(_index: number, date: Date): number {
+    return date.getTime();
+  }
+
+  trackByHour(_index: number, hour: number): number {
+    return hour;
   }
 }
