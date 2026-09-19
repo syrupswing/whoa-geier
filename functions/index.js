@@ -373,6 +373,7 @@ async function buildFamilyChatContext(db) {
   const cachedEvents = calendarCacheDoc.exists ? (calendarCacheDoc.data().events || []) : [];
   const calendarEvents = cachedEvents
     .map(e => {
+      const isAllDay = !e.start?.dateTime;
       const startStr = e.start?.dateTime || e.start?.date;
       const endStr = e.end?.dateTime || e.end?.date || startStr;
       if (!startStr) return null;
@@ -380,14 +381,20 @@ async function buildFamilyChatContext(db) {
         title: e.summary || 'Event',
         start: new Date(startStr),
         end: new Date(endStr),
-        allDay: !e.start?.dateTime
+        allDay: isAllDay,
+        // All-day dates (e.g. "2026-09-20") carry no time zone. Parsing one with `new
+        // Date(...)` reads it as UTC midnight, and converting that back through
+        // America/Chicago for display would land on the previous day — so for all-day
+        // events, keep the original calendar-day string instead of round-tripping it
+        // through a Date object.
+        allDayDateStr: isAllDay ? e.start.date : null
       };
     })
     .filter(e => e && e.end >= now && e.start <= horizon)
     .sort((a, b) => a.start - b.start)
     .slice(0, 20)
     .map(e => {
-      const dateLabel = toDateStr(e.start);
+      const dateLabel = e.allDay ? e.allDayDateStr : toDateStr(e.start);
       const timeLabel = e.allDay ? '' : ` at ${e.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE })}`;
       return `${e.title} on ${dateLabel}${timeLabel}`;
     });
