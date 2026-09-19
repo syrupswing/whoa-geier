@@ -258,8 +258,8 @@
       content: '';
       position: absolute;
       top: 0;
-      left: -4px;
-      width: calc(100% + 4px);
+      left: -16px;
+      width: calc(100% + 16px);
       height: 3px;
       background: var(--event-color, #2196F3);
       pointer-events: none;
