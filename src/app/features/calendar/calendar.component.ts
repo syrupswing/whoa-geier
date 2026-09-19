@@ -38,8 +38,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   currentDate = signal<Date>(new Date());
   currentTime = signal<Date>(new Date());
   viewMode = signal<'day' | 'week'>('day');
-  
+
   private timeInterval?: number;
+  /** True once the user has explicitly stepped away from today's view — blocks the auto re-sync on resume. */
+  private hasNavigatedAwayFromToday = false;
   
   hours = Array.from({ length: 24 }, (_, i) => i);
 
@@ -53,7 +55,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     this.timeInterval = window.setInterval(() => {
       this.currentTime.set(new Date());
     }, 60000);
-    
+
+    // Catches a day rollover while this component stayed alive in the background
+    // (mobile tab suspend/resume, a kiosk tablet left open, etc).
+    document.addEventListener('visibilitychange', this.resyncViewDateOnForeground);
+
     this.loadEventsForCurrentView();
   }
 
@@ -65,6 +71,25 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   ngOnDestroy(): void {
     if (this.timeInterval) {
       clearInterval(this.timeInterval);
+    }
+    document.removeEventListener('visibilitychange', this.resyncViewDateOnForeground);
+  }
+
+  private readonly resyncViewDateOnForeground = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.syncViewDateToToday();
+    }
+  };
+
+  /**
+   * Keeps the default view pinned to the real current day even if this component instance
+   * stays alive across midnight, without ever overriding a day the user explicitly navigated to.
+   */
+  private syncViewDateToToday(): void {
+    if (this.hasNavigatedAwayFromToday) return;
+    const now = new Date();
+    if (now.toDateString() !== this.currentDate().toDateString()) {
+      this.currentDate.set(now);
     }
   }
 
@@ -105,6 +130,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   previousDay(): void {
+    this.hasNavigatedAwayFromToday = true;
     const newDate = new Date(this.currentDate());
     newDate.setDate(newDate.getDate() - 1);
     this.currentDate.set(newDate);
@@ -112,6 +138,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   nextDay(): void {
+    this.hasNavigatedAwayFromToday = true;
     const newDate = new Date(this.currentDate());
     newDate.setDate(newDate.getDate() + 1);
     this.currentDate.set(newDate);
@@ -119,6 +146,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   today(): void {
+    this.hasNavigatedAwayFromToday = false;
     this.currentDate.set(new Date());
     // No need to reload - events are already cached
   }

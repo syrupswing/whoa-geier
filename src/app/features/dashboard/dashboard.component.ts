@@ -86,6 +86,8 @@ function loadPersistedChatMessages(): ChatMessage[] {
 export class DashboardComponent implements OnInit, AfterViewInit {
   currentTime = signal<Date>(new Date());
   viewDate = signal<Date>(new Date());
+  /** True once the user has explicitly stepped away from today's view — blocks the auto re-sync on resume. */
+  private hasNavigatedAwayFromToday = false;
   selectedEvent = signal<TimelineEvent | null>(null);
   popoverAbove = false;
   popoverTop = 0;
@@ -242,6 +244,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // Capture phase, since scroll events from the timeline container don't bubble.
     window.addEventListener('scroll', this.closePopoverOnScroll, true);
 
+    // Catches a day rollover while this component stayed alive in the background
+    // (mobile tab suspend/resume, a kiosk tablet left open, etc).
+    document.addEventListener('visibilitychange', this.resyncViewDateOnForeground);
+
     // Read-only — just fetches today's cached briefing doc if one exists, so
     // homeHighlights can surface Remi's next event. Never triggers regeneration.
     void this.remiScheduleService.loadTodayBriefing();
@@ -254,6 +260,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   ngOnDestroy(): void {
     window.removeEventListener('scroll', this.closePopoverOnScroll, true);
+    document.removeEventListener('visibilitychange', this.resyncViewDateOnForeground);
     if (this.timeInterval) {
       clearInterval(this.timeInterval);
     }
@@ -288,20 +295,36 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   prevDay(): void {
+    this.hasNavigatedAwayFromToday = true;
     const d = new Date(this.viewDate());
     d.setDate(d.getDate() - 1);
     this.viewDate.set(d);
   }
 
   nextDay(): void {
+    this.hasNavigatedAwayFromToday = true;
     const d = new Date(this.viewDate());
     d.setDate(d.getDate() + 1);
     this.viewDate.set(d);
   }
 
   goToToday(): void {
+    this.hasNavigatedAwayFromToday = false;
     this.viewDate.set(new Date());
     setTimeout(() => this.scrollToCurrentTime(), 50);
+  }
+
+  /**
+   * Keeps the default view pinned to the real current day even if this component instance
+   * stays alive across midnight (e.g. a mobile tab suspended and resumed, or a kiosk tablet
+   * left open) — without ever overriding a day the user explicitly navigated to.
+   */
+  private syncViewDateToToday(): void {
+    if (this.hasNavigatedAwayFromToday) return;
+    const now = new Date();
+    if (now.toDateString() !== this.viewDate().toDateString()) {
+      this.viewDate.set(now);
+    }
   }
 
   formatViewDate(): string {
@@ -575,6 +598,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private readonly closePopoverOnScroll = (): void => {
     if (this.selectedEvent()) {
       this.clearSelectedEvent();
+    }
+  };
+
+  private readonly resyncViewDateOnForeground = (): void => {
+    if (document.visibilityState === 'visible') {
+      this.syncViewDateToToday();
     }
   };
 
