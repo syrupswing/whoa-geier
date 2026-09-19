@@ -162,6 +162,14 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // User-added quick links (the hardcoded system links never touch Firestore)
+    match /quickLinks/{linkId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
     // Smart alerts computed by the nightly smart-alerts Cloud Function. Created server-side
     // only; the client will update status (dismissed/acted_on) once a UI exists for that.
     match /smartAlerts/{alertId} {
