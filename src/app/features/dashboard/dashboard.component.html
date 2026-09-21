@@ -3,7 +3,7 @@
   <section class="dashboard-hero">
     <div class="header">
       <app-home-logo-btn></app-home-logo-btn>
-      <h1>{{ getGreetingMessage() }}</h1>
+      <h1 [appTypewriter]="heroHeading()" [typewriterSpeed]="20" [typewriterSpacePause]="90"></h1>
       <app-global-nav-menu></app-global-nav-menu>
     </div>
 
@@ -70,8 +70,7 @@
           class="clear-chat-btn"
           (click)="requestClearChat()"
           matTooltip="Clear chat">
-          <mat-icon>delete_sweep</mat-icon>
-          Clear chat
+          <mat-icon>delete</mat-icon>
         </button>
         <div class="clear-chat-confirm" *ngIf="isConfirmingClearChat()">
           <span>Clear all messages?</span>

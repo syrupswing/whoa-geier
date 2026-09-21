@@ -21,7 +21,7 @@ import { WeatherService } from '../../services/weather.service';
 import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
-import { RemiScheduleService } from '../../services/remi-schedule.service';
+import { RemiScheduleService, RemiDailyBriefing } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
@@ -60,10 +60,33 @@ interface ChatMessage {
   cards?: QuickAddCard[];
   /** True once the user has already seen this message typed out — skips the typewriter animation on reload. */
   instant?: boolean;
+  /** Set on the auto-injected daily briefing message — its value is the briefing's own `date`
+   *  ("YYYY-MM-DD"), so it's only ever injected once per day no matter how often the dashboard reloads. */
+  briefingDate?: string;
 }
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
 const CHAT_MESSAGES_KEY = 'dashboardChatMessages';
+
+/** Playful loading phrases typed out on the hero heading before it settles on the real greeting. */
+const HERO_LOADING_PHRASES = [
+  'Geier-ing...',
+  'Whoooaaa Geier!',
+  'Using the Force...',
+  'Asking permission from Kelly...',
+  'Bribing Remi with screen time...',
+  'Untangling the grocery list...',
+  'Consulting the fridge oracle...',
+  'Summoning the weather gods...',
+  'Negotiating with a 6-year-old...',
+  'Herding the family calendar...',
+  'Reticulating chore charts...',
+  'Powering up the command center...'
+];
+
+function pickRandomHeroPhrase(): string {
+  return HERO_LOADING_PHRASES[Math.floor(Math.random() * HERO_LOADING_PHRASES.length)];
+}
 
 /** Restores chat history saved by a previous visit so navigating away and back doesn't lose it. */
 function loadPersistedChatMessages(): ChatMessage[] {
@@ -89,6 +112,12 @@ function loadPersistedChatMessages(): ChatMessage[] {
 export class DashboardComponent implements OnInit, AfterViewInit {
   currentTime = signal<Date>(new Date());
   viewDate = signal<Date>(new Date());
+
+  /** A random playful phrase, typed out on load before the heading settles on the real greeting. */
+  private readonly heroLoadingPhrase = pickRandomHeroPhrase();
+  private heroPhase = signal<'intro' | 'greeting'>('intro');
+  private heroSwapTimer?: number;
+  heroHeading = computed(() => this.heroPhase() === 'intro' ? this.heroLoadingPhrase : this.getGreetingMessage());
   /** True once the user has explicitly stepped away from today's view — blocks the auto re-sync on resume. */
   private hasNavigatedAwayFromToday = false;
   selectedEvent = signal<TimelineEvent | null>(null);
@@ -255,7 +284,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // Read-only — just fetches today's cached briefing doc if one exists, so
     // homeHighlights can surface Remi's next event. Never triggers regeneration.
-    void this.remiScheduleService.loadTodayBriefing();
+    void this.remiScheduleService.loadTodayBriefing().then(() => this.injectDailyBriefingChatMessage());
+
+    // Let the loading phrase sit on screen for a beat after it finishes typing, then
+    // hand off to the real greeting.
+    this.heroSwapTimer = window.setTimeout(() => this.heroPhase.set('greeting'), 1800);
   }
 
   ngAfterViewInit(): void {
@@ -268,6 +301,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     document.removeEventListener('visibilitychange', this.resyncViewDateOnForeground);
     if (this.timeInterval) {
       clearInterval(this.timeInterval);
+    }
+    if (this.heroSwapTimer) {
+      clearTimeout(this.heroSwapTimer);
     }
     if (this.sharedAudioContext) {
       this.sharedAudioContext.close().catch(() => {});
@@ -779,6 +815,56 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!candidates.length) return null;
     candidates.sort((a, b) => a.minutes - b.minutes);
     return candidates[0].highlight;
+  }
+
+  /**
+   * Appends today's briefing as an assistant chat message, unprompted — once per day,
+   * regardless of how much older chat history is already sitting above it. A no-op if
+   * no briefing has been generated yet for today, or if today's has already been shown.
+   */
+  private injectDailyBriefingChatMessage(): void {
+    const briefing = this.remiScheduleService.todayBriefing();
+    if (!briefing) return;
+
+    const alreadyShown = this.chatMessages().some(m => m.briefingDate === briefing.date);
+    if (alreadyShown) return;
+
+    this.chatMessages.update(messages => [...messages, {
+      text: this.formatBriefingForChat(briefing),
+      isUser: false,
+      timestamp: new Date(),
+      briefingDate: briefing.date
+    }]);
+  }
+
+  /**
+   * Same 3-bullet summary as the push notification (functions/index.js's
+   * summarizeBriefingForPush) — school/activity status, breakfast, and an outfit
+   * suggestion (only when Remi's actually going somewhere), so the chat's daily
+   * briefing message matches the push word-for-word.
+   */
+  private formatBriefingForChat(briefing: RemiDailyBriefing): string {
+    const activities = briefing.activities || [];
+    const isGoingOut = briefing.schoolStatus !== 'no-school' || activities.length > 0;
+    const activityText = activities.slice(0, 2).map(a => (a.time ? `${a.title} ${a.time}` : a.title)).join(', ');
+
+    let scheduleLine: string;
+    if (briefing.schoolStatus === 'no-school') {
+      scheduleLine = briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today';
+    } else if (briefing.schoolStatus === 'early-release' && briefing.startTime) {
+      scheduleLine = `Early release, starts ${this.formatClockTime(briefing.startTime)}`;
+    } else if (briefing.startTime) {
+      scheduleLine = `School at ${this.formatClockTime(briefing.startTime)}`;
+    } else {
+      scheduleLine = 'No school today';
+    }
+    if (activityText) scheduleLine += ` — ${activityText}`;
+
+    const bullets = [scheduleLine];
+    if (briefing.breakfastIdea) bullets.push(`Breakfast: ${briefing.breakfastIdea}`);
+    if (isGoingOut && briefing.clothingIdea) bullets.push(`Wear: ${briefing.clothingIdea}`);
+
+    return bullets.map(b => `• ${b}`).join('\n');
   }
 
   /** Formats a stored "HH:mm" schedule time as "8:00 AM". */
