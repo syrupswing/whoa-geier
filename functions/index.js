@@ -862,24 +862,40 @@ async function rejectAiSuggestion(db, suggestionId) {
   }
 }
 
-async function generateClothingIdea(claudeToken, weather, previous) {
+/**
+ * Generates the "what should Remi wear" reasoning. This runs at 7:30 AM for the scheduled
+ * push, before Remi is actually dressed and out the door — so the outfit must be reasoned
+ * from the forecast for when he'll actually be outside (school hours, plus any later
+ * activity), not from the "right now" reading at push time, which is given as background only.
+ */
+async function generateClothingIdea(claudeToken, weather, previous, context = {}) {
+  const { startTime, endTime, activities } = context;
   const forecastLine = (weather.periods || [])
     .map(p => `${p.part}: ${p.tempF}°F, ${p.description}, ${p.pop}% chance of precipitation`)
     .join('; ');
 
+  const outLine = startTime
+    ? `Remi will be out for school roughly ${formatTime12h(startTime)}–${formatTime12h(endTime)}`
+    : 'Remi has no school today';
+  const activityLine = (activities || []).length
+    ? `, and has ${activities.map(a => a.time ? `${a.title} at ${a.time}` : a.title).join(', ')} later`
+    : '';
+
   const raw = await callClaude(
     claudeToken,
-    `You're helping a parent get their 6-year-old son Remi (starting 1st grade) dressed for school.\n\n` +
-    `Right now: ${weather.tempF}°F, feels like ${weather.feelsLike}°F, ${weather.description}.\n` +
-    (weather.highF ? `Today's high ${weather.highF}°F, low ${weather.lowF}°F.\n` : '') +
-    (forecastLine ? `Rest of today — ${forecastLine}.\n` : '') +
-    `\nRespond with ONLY a JSON object of the exact shape {"reasoning": "..."} — no other text. The ` +
+    `You're helping a parent get their 6-year-old son Remi (1st grade) dressed for the day.\n\n` +
+    `${outLine}${activityLine}.\n` +
+    `Today's forecast${weather.highF ? ` — high ${weather.highF}°F, low ${weather.lowF}°F` : ''}` +
+    `${forecastLine ? `: ${forecastLine}` : ''}.\n` +
+    `(Right now: ${weather.tempF}°F, feels like ${weather.feelsLike}°F, ${weather.description} — for ` +
+    `background only; base the outfit on the forecast for when he'll actually be out, not this reading.)\n\n` +
+    `Respond with ONLY a JSON object of the exact shape {"reasoning": "..."} — no other text. The ` +
     `"reasoning" value should be 2-3 conversational sentences telling the parent what Remi should wear, ` +
-    `reasoning out loud from the forecast (mention specific rain chances or times of day when they matter). ` +
-    `Lead with whatever the weather actually calls for — a jacket, rain gear, sun protection — then cover ` +
-    `the basics like top, bottom, and footwear. Mention extras like sunglasses, a hat, or gloves only if the ` +
-    `forecast justifies them. Refer to him as Remi. Warm and casual, like a text from a ` +
-    `partner.${avoidClause(previous)}`,
+    `reasoning out loud from the forecast for the hours he'll actually be outside (mention specific rain ` +
+    `chances or times of day when they matter). Lead with whatever the weather actually calls for — a ` +
+    `jacket, rain gear, sun protection — then cover the basics like top, bottom, and footwear. Mention ` +
+    `extras like sunglasses, a hat, or gloves only if the forecast justifies them. Refer to him as Remi. ` +
+    `Warm and casual, like a text from a partner.${avoidClause(previous)}`,
     350
   );
 
@@ -944,6 +960,8 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
   }
 
   const activities = await fetchActivitiesForDate(schedule.icalUrls, dateStr);
+  // No point suggesting a school outfit on a day Remi has nothing on the calendar.
+  const isGoingOut = schedule.schoolStatus !== 'no-school' || activities.length > 0;
 
   let clothingIdea = null;
   let clothingSuggestionId = null;
@@ -954,9 +972,13 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
   let dinnerIdea = null;
   let dinnerSuggestionId = null;
 
-  if (claudeToken && weather) {
+  if (claudeToken && weather && isGoingOut) {
     try {
-      const idea = await generateClothingIdea(claudeToken, weather, existing?.clothingIdea);
+      const idea = await generateClothingIdea(claudeToken, weather, existing?.clothingIdea, {
+        startTime: schedule.startTime,
+        endTime: schedule.endTime,
+        activities
+      });
       clothingIdea = idea.reasoning;
       await rejectAiSuggestion(db, existing?.clothingSuggestionId);
       clothingSuggestionId = await logAiSuggestion(db, {
@@ -1048,34 +1070,36 @@ function formatTime12h(hhmm) {
   return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
+/** Three bullets: what's on today, breakfast, and (only if he's actually going out) an outfit. */
 function summarizeBriefingForPush(briefing) {
-  const parts = [];
+  const activities = briefing.activities || [];
+  const isGoingOut = briefing.schoolStatus !== 'no-school' || activities.length > 0;
+  const activityText = activities.slice(0, 2).map(a => (a.time ? `${a.title} ${a.time}` : a.title)).join(', ');
 
+  let scheduleLine;
   if (briefing.schoolStatus === 'no-school') {
-    parts.push(briefing.scheduleNote ? `No school today — ${briefing.scheduleNote}` : 'No school today');
+    scheduleLine = briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today';
   } else if (briefing.schoolStatus === 'early-release') {
-    parts.push(`Early release today, starts ${formatTime12h(briefing.startTime)}`);
+    scheduleLine = `Early release, starts ${formatTime12h(briefing.startTime)}`;
   } else {
-    parts.push(`School at ${formatTime12h(briefing.startTime)}`);
+    scheduleLine = `School at ${formatTime12h(briefing.startTime)}`;
   }
+  if (activityText) scheduleLine += ` — ${activityText}`;
 
-  if (briefing.clothingIdea) parts.push(briefing.clothingIdea);
+  const bullets = [scheduleLine];
+  if (briefing.breakfastIdea) bullets.push(`Breakfast: ${briefing.breakfastIdea}`);
+  // No point suggesting an outfit on a day off with nothing on the calendar.
+  if (isGoingOut && briefing.clothingIdea) bullets.push(`Wear: ${briefing.clothingIdea}`);
 
-  if (briefing.lunchPlan === 'pack' && briefing.packedLunchIdea) {
-    parts.push(`Pack: ${briefing.packedLunchIdea}`);
-  } else if (briefing.lunchMenuText) {
-    parts.push(`Lunch: ${briefing.lunchMenuText}`);
-  }
-
-  return parts.join(' • ');
+  return bullets.map(b => `• ${b}`).join('\n');
 }
 
 /**
  * Builds today's briefing and pushes a summary to all registered devices.
- * Runs every morning at 6:00 AM Central Time.
+ * Runs every morning at 7:30 AM Central Time.
  */
 exports.dailyRemiBriefing = onSchedule(
-  { schedule: '0 6 * * *', timeZone: 'America/Chicago', secrets: ['CLAUDE_API_KEY', 'OPEN_WEATHER_API_KEY'] },
+  { schedule: '30 7 * * *', timeZone: 'America/Chicago', secrets: ['CLAUDE_API_KEY', 'OPEN_WEATHER_API_KEY'] },
   async () => {
     const db = admin.firestore();
     const dateStr = toDateStr(new Date());
@@ -1168,7 +1192,7 @@ exports.regenerateBriefingFacet = onCall(
           if (!briefing.weather) {
             throw new HttpsError('failed-precondition', 'No weather data available for this day');
           }
-          // The stored snapshot is from whenever the briefing was built (6 AM for
+          // The stored snapshot is from whenever the briefing was built (7:30 AM for
           // the scheduled run), so today's outfit advice re-reads the weather.
           let weather = briefing.weather;
           if (date === toDateStr(new Date())) {
@@ -1178,7 +1202,11 @@ exports.regenerateBriefingFacet = onCall(
               console.error('regenerateBriefingFacet weather refresh error:', err);
             }
           }
-          const idea = await generateClothingIdea(token, weather, briefing.clothingIdea);
+          const idea = await generateClothingIdea(token, weather, briefing.clothingIdea, {
+            startTime: briefing.startTime,
+            endTime: briefing.endTime,
+            activities: briefing.activities
+          });
           await rejectAiSuggestion(db, briefing.clothingSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
             featureType: 'remi-clothing',
