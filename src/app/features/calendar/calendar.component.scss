@@ -321,26 +321,45 @@
   pointer-events: auto;
   cursor: pointer;
   z-index: 1;
+  // Never shorter than one full line of title plus the body's padding, so a very short
+  // event doesn't clip its own label.
+  min-height: calc(1.2 * 0.78rem + 16px);
 
   &.has-popover { z-index: 100; }
 }
 
 .cal-event-body {
   height: 100%;
+  min-height: calc(1.2 * 0.78rem + 16px);
   border-radius: 5px;
   padding: 8px;
+
+  // Anything past the event's true duration (from the readability minimum height) is
+  // veiled so it reads as padding, not as time the event actually occupies.
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: var(--actual-h, 100%);
+    bottom: 0;
+    border-radius: 0 0 5px 5px;
+    background: rgba(255, 255, 255, 0.55);
+    pointer-events: none;
+  }
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
   gap: 2px;
   // Same lighter tint as the all-day chips, minus their darker bottom-border accent.
-  background: color-mix(in srgb, var(--event-color, #a4bdfc) 18%, white);
+  background: color-mix(in srgb, var(--event-color, #a4bdfc) 28%, white);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.09);
   transition: background 0.15s ease, box-shadow 0.2s ease, margin 0.15s ease;
   will-change: box-shadow;
 
   .cal-event-block:hover & {
-    background: color-mix(in srgb, var(--event-color, #a4bdfc) 28%, white);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
   }
 
@@ -416,6 +435,8 @@
 }
 
 .cal-event-title {
+  position: relative;
+  z-index: 1;
   font-size: 0.78rem;
   line-height: 1.2;
   color: var(--color-midnight-bloom);
@@ -677,8 +698,13 @@
     left: 0;
   }
 
+  .cal-event-block {
+    min-height: calc(1.2 * 0.68rem + 8px);
+  }
+
   .cal-event-body {
     padding: 4px 6px;
+    min-height: calc(1.2 * 0.68rem + 8px);
   }
 
   .cal-event-title {

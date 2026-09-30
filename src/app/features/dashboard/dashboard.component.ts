@@ -48,6 +48,8 @@ interface TimelineEvent extends CalendarEvent {
   endDate: Date;
   topPosition: number;
   height: number;
+  /** True duration-derived height in unscaled px, before the readability minimum is applied. */
+  actualHeight: number;
   columnIndex: number;
   columnCount: number;
 }
@@ -124,6 +126,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   popoverAbove = false;
   popoverTop = 0;
   readonly HOUR_PX = 20;
+  /** Smallest on-screen height (px) of an event block — one title line plus padding; keep in sync with .cal-event-block's min-height. */
+  readonly MIN_EVENT_BLOCK_PX = 29;
   readonly TOTAL_TIMELINE_HEIGHT = 480; // fixed container height
   readonly allHours = Array.from({ length: 24 }, (_, i) => i);
   private timeInterval?: number;
@@ -420,11 +424,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // A point-in-time event has zero duration, so this naturally falls back to the
     // same minimum height as any other very short timed event — it renders like a
     // normal event block, just with the top-border marker added in CSS.
-    const height = Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 14);
+    const actualHeight = ((endMin - startMin) / 60) * this.HOUR_PX;
+    const height = Math.max(actualHeight, 14);
     return {
       ...event, startDate, endDate,
       topPosition: (startMin / 60) * this.HOUR_PX,
       height,
+      actualHeight,
       columnIndex: 0,
       columnCount: 1
     };
@@ -437,15 +443,22 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getTimedEvents(): TimelineEvent[] {
-    const events = this.getViewDayEvents().filter(e =>
+    return this.assignOverlapColumns(this.getVisibleTimedEvents());
+  }
+
+  /** Timed events for the viewed day, without overlap columns — those depend on the scale, which depends on this. */
+  private getVisibleTimedEvents(): TimelineEvent[] {
+    return this.getViewDayEvents().filter(e =>
       !!e.start.dateTime && (e.source === 'app' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
     );
-    return this.assignOverlapColumns(events);
   }
 
   /** Splits overlapping events into side-by-side columns so none are hidden. */
   private assignOverlapColumns(events: TimelineEvent[]): TimelineEvent[] {
     const sorted = [...events].sort((a, b) => a.topPosition - b.topPosition || b.height - a.height);
+    // Blocks render at least MIN_EVENT_BLOCK_PX tall on screen whatever their duration, which
+    // is a different share of the (zoomed) timeline depending on how few hours are shown.
+    const minUnscaledHeight = this.MIN_EVENT_BLOCK_PX / this.scaleFactor;
     let cluster: TimelineEvent[] = [];
     let columnEnds: number[] = [];
 
@@ -458,7 +471,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     for (const event of sorted) {
       const start = event.topPosition;
-      const end = start + event.height;
+      const end = start + Math.max(event.actualHeight, minUnscaledHeight);
 
       if (cluster.length && columnEnds.every(colEnd => colEnd <= start)) {
         closeCluster();
@@ -486,7 +499,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getVisibleHourRange(): { start: number; end: number } {
-    const timed = this.getTimedEvents();
+    const timed = this.getVisibleTimedEvents();
     if (timed.length === 0) return { start: 0, end: 24 };
 
     let minHour = 24, maxHour = 0;
@@ -597,7 +610,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const durationMinutes = endMinutes - startMinutes;
     
     const topPosition = (startMinutes / 60) * 60;
-    const height = Math.max((durationMinutes / 60) * 60, 30);
+    const actualHeight = (durationMinutes / 60) * 60;
+    const height = Math.max(actualHeight, 30);
     
     return {
       ...event,
@@ -605,6 +619,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       endDate,
       topPosition,
       height,
+      actualHeight,
       columnIndex: 0,
       columnCount: 1
     };

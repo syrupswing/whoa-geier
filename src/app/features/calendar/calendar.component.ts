@@ -19,6 +19,8 @@ interface TimelineEvent extends CalendarEvent {
   endDate: Date;
   topPosition: number;
   height: number;
+  /** True duration-derived height in unscaled px, before the readability minimum is applied. */
+  actualHeight: number;
   columnIndex: number;
   columnCount: number;
 }
@@ -294,6 +296,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
       // same minimum height as any other very short timed event — it renders like a
       // normal event block, just with the top-border marker added in CSS.
       height: Math.max(((endMin - startMin) / 60) * this.HOUR_PX, 30),
+      actualHeight: ((endMin - startMin) / 60) * this.HOUR_PX,
       columnIndex: 0,
       columnCount: 1
     };

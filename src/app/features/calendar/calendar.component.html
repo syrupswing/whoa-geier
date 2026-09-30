@@ -130,6 +130,7 @@
               [style.top.px]="event.topPosition"
               [style.height.px]="event.isPointInTime ? null : event.height"
               [style.--event-color]="getEventColor(event)"
+              [style.--actual-h.px]="event.isPointInTime ? null : event.actualHeight"
               [ngStyle]="getEventLayoutStyle(event)"
               [class.has-popover]="selectedEvent()?.id === event.id"
               (click)="selectEvent(event, $event)">
@@ -198,6 +199,7 @@
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.isPointInTime ? null : event.height"
                 [style.--event-color]="getEventColor(event)"
+                [style.--actual-h.px]="event.isPointInTime ? null : event.actualHeight"
                 [ngStyle]="getEventLayoutStyle(event)"
                 [class.has-popover]="selectedEvent()?.id === event.id"
                 (click)="selectEvent(event, $event)">
