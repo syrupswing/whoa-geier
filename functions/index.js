@@ -913,6 +913,9 @@ async function generateClothingIdea(claudeToken, weather, previous, context = {}
     .map(p => `${p.part}: ${p.tempF}°F, ${p.description}, ${p.pop}% chance of precipitation`)
     .join('; ');
 
+  const nowLabel = new Date().toLocaleString('en-US', {
+    weekday: 'long', hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE
+  });
   const outLine = startTime
     ? `Remi will be out for school roughly ${formatTime12h(startTime)}–${formatTime12h(endTime)}`
     : 'Remi has no school today';
@@ -923,6 +926,9 @@ async function generateClothingIdea(claudeToken, weather, previous, context = {}
   const raw = await callClaude(
     claudeToken,
     `You're helping a parent get their 6-year-old son Remi (1st grade) dressed for the day.\n\n` +
+    `It's currently ${nowLabel}. Only advise for the time still ahead today — hours that have already passed ` +
+    `don't matter (if school has already started, focus on the trip home or any later activity, and don't ` +
+    `re-tell him how to dress for the morning).\n` +
     `${outLine}${activityLine}.\n` +
     `Today's forecast${weather.highF ? ` — high ${weather.highF}°F, low ${weather.lowF}°F` : ''}` +
     `${forecastLine ? `: ${forecastLine}` : ''}.\n` +

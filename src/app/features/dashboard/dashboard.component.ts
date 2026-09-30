@@ -1,4 +1,4 @@
-import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, ViewChild, ElementRef, inject, effect, HostListener, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, ViewChild, ElementRef, inject, effect, HostListener, ChangeDetectionStrategy, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -52,8 +52,9 @@ interface ChatMessage {
   cards?: QuickAddCard[];
   /** True once the user has already seen this message typed out — skips the typewriter animation on reload. */
   instant?: boolean;
-  /** Set on the auto-injected daily briefing message — its value is the briefing's own `date`
-   *  ("YYYY-MM-DD"), so it's only ever injected once per day no matter how often the dashboard reloads. */
+  /** Set on the auto-posted daily briefing blurb — its value is the briefing's own `date`
+   *  ("YYYY-MM-DD"). There's one blurb per day; it's rewritten in place as the day moves on
+   *  rather than posted again. */
   briefingDate?: string;
 }
 
@@ -270,6 +271,18 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
 
+    // Keeps the auto-posted briefing blurb current: the clock moving on, fresh weather, or a
+    // refreshed briefing all re-evaluate what's still ahead. Rewriting is a no-op when the
+    // text comes out the same, so the once-a-minute clock tick is cheap.
+    effect(() => {
+      const briefing = this.remiScheduleService.todayBriefing();
+      const now = this.currentTime();
+      this.weatherService.weather();
+      this.weatherService.forecast();
+      if (!briefing) return;
+      untracked(() => this.syncBriefingMessage(briefing, now));
+    });
+
     // Persist chat history so it survives navigating away and back.
     effect(() => {
       const messages = this.chatMessages();
@@ -321,9 +334,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // (mobile tab suspend/resume, a kiosk tablet left open, etc).
     document.addEventListener('visibilitychange', this.resyncViewDateOnForeground);
 
-    // Read-only — just fetches today's cached briefing doc if one exists, so it can be
-    // posted into the chat. Never triggers regeneration.
-    void this.remiScheduleService.loadTodayBriefing().then(() => this.injectDailyBriefingChatMessage());
+    // Read-only — just fetches today's cached briefing doc if one exists; the effect in the
+    // constructor turns it into the chat blurb. Never triggers a full regeneration.
+    void this.remiScheduleService.loadTodayBriefing();
 
     // Normally onHeroTyped() hands off once the loading phrase has finished typing; this
     // is only a backstop so the greeting still shows up if that never fires.
@@ -841,54 +854,165 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${hours}:${minutes}${ampm}`;
   }
 
+  private briefingSeeded = false;
+  private lastOutfitRefreshAt = 0;
+
   /**
-   * Appends today's briefing as an assistant chat message, unprompted — once per day,
-   * regardless of how much older chat history is already sitting above it. A no-op if
-   * no briefing has been generated yet for today, or if today's has already been shown.
+   * Keeps today's blurb in the chat up to date. The first time (per visit) it's posted as a
+   * new assistant message so it types out; after that it's rewritten in place, instantly,
+   * whenever what's still ahead changes. A no-op until today's briefing exists.
    */
-  private injectDailyBriefingChatMessage(): void {
-    const briefing = this.remiScheduleService.todayBriefing();
-    if (!briefing) return;
+  private syncBriefingMessage(briefing: RemiDailyBriefing, now: Date): void {
+    // Left open past midnight, the loaded briefing is yesterday's — nothing to say about it.
+    if (briefing.date !== now.toLocaleDateString('en-CA')) return;
 
-    const alreadyShown = this.chatMessages().some(m => m.briefingDate === briefing.date);
-    if (alreadyShown) return;
+    void this.refreshStaleOutfit(briefing, now);
 
+    const text = this.buildBriefingBlurb(briefing, now);
+    const existing = this.chatMessages().find(m => m.briefingDate === briefing.date);
+    if (existing) {
+      this.briefingSeeded = true;
+      if (existing.text !== text) {
+        this.chatMessages.update(messages =>
+          messages.map(m => (m === existing ? { ...m, text, instant: true } : m))
+        );
+      }
+      return;
+    }
+
+    // Clearing the chat shouldn't make the blurb pop straight back in.
+    if (this.briefingSeeded) return;
+    this.briefingSeeded = true;
     this.chatMessages.update(messages => [...messages, {
-      text: this.formatBriefingForChat(briefing),
+      text,
       isUser: false,
       timestamp: new Date(),
       briefingDate: briefing.date
     }]);
   }
 
+  /** Whether there's still somewhere for Remi to go today that an outfit suggestion would matter for. */
+  private isOutfitRelevant(briefing: RemiDailyBriefing, nowMin: number): boolean {
+    const startMin = briefing.schoolStatus === 'no-school' ? null : this.parseHHmmToMinutes(briefing.startTime);
+    if (startMin !== null && nowMin < startMin) return true;
+    return (briefing.activities || []).some(a => {
+      const minutes = this.parseClockLabelToMinutes(a.time);
+      return minutes !== null && minutes >= nowMin;
+    });
+  }
+
   /**
-   * Same 3-bullet summary as the push notification (functions/index.js's
-   * summarizeBriefingForPush) — school/activity status, breakfast, and an outfit
-   * suggestion (only when Remi's actually going somewhere), so the chat's daily
-   * briefing message matches the push word-for-word.
+   * The outfit line was written from the morning's forecast. When it's gone stale and there's
+   * still an outing ahead, regenerate it (which re-reads the weather) — at most every couple of hours.
    */
-  private formatBriefingForChat(briefing: RemiDailyBriefing): string {
-    const activities = briefing.activities || [];
-    const isGoingOut = briefing.schoolStatus !== 'no-school' || activities.length > 0;
-    const activityText = activities.slice(0, 2).map(a => (a.time ? `${a.title} ${a.time}` : a.title)).join(', ');
+  private async refreshStaleOutfit(briefing: RemiDailyBriefing, now: Date): Promise<void> {
+    const TWO_HOURS = 2 * 60 * 60 * 1000;
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    if (!this.isOutfitRelevant(briefing, nowMin) || this.remiScheduleService.regeneratingFacet()) return;
 
-    let scheduleLine: string;
+    const fetchedAt = briefing.weather?.fetchedAt ? new Date(briefing.weather.fetchedAt).getTime() : 0;
+    if (now.getTime() - fetchedAt < TWO_HOURS || now.getTime() - this.lastOutfitRefreshAt < TWO_HOURS) return;
+
+    this.lastOutfitRefreshAt = now.getTime();
+    await this.remiScheduleService.regenerateFacet('clothing');
+  }
+
+  /**
+   * The chat's daily blurb, written for the current moment: only what's still ahead today.
+   * School that already started, breakfast once it's past (or Remi is at school), the
+   * school lunch once he's there, and activities that already happened are all dropped, and
+   * the weather comes from the live conditions and the rest-of-day forecast, not the morning's.
+   */
+  private buildBriefingBlurb(briefing: RemiDailyBriefing, now: Date): string {
+    const nowMin = now.getHours() * 60 + now.getMinutes();
+    const startMin = this.parseHHmmToMinutes(briefing.startTime);
+    const endMin = this.parseHHmmToMinutes(briefing.endTime);
+    const isSchoolDay = briefing.schoolStatus !== 'no-school' && startMin !== null;
+    const atSchoolOrDone = isSchoolDay && nowMin >= startMin!;
+    const note = briefing.scheduleNote ? ` (${briefing.scheduleNote})` : '';
+
+    const bullets: string[] = [];
+
     if (briefing.schoolStatus === 'no-school') {
-      scheduleLine = briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today';
-    } else if (briefing.schoolStatus === 'early-release' && briefing.startTime) {
-      scheduleLine = `Early release, out at ${this.formatClockTime(briefing.endTime ?? briefing.startTime)}`;
-    } else if (briefing.startTime) {
-      scheduleLine = `School at ${this.formatClockTime(briefing.startTime)}`;
-    } else {
-      scheduleLine = 'No school today';
+      bullets.push(briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today');
+    } else if (isSchoolDay) {
+      const earlyRelease = briefing.schoolStatus === 'early-release';
+      if (nowMin < startMin!) {
+        bullets.push(
+          `School starts at ${this.formatClockTime(briefing.startTime!)}` +
+          `${earlyRelease && briefing.endTime ? `, early release at ${this.formatClockTime(briefing.endTime)}` : ''}${note}`
+        );
+      } else if (endMin !== null && nowMin < endMin) {
+        bullets.push(`${earlyRelease ? 'Early release at' : 'School lets out at'} ${this.formatClockTime(briefing.endTime!)}${note}`);
+      }
     }
-    if (activityText) scheduleLine += ` — ${activityText}`;
 
-    const bullets = [scheduleLine];
-    if (briefing.breakfastIdea) bullets.push(`Breakfast: ${briefing.breakfastIdea}`);
-    if (isGoingOut && briefing.clothingIdea) bullets.push(`Wear: ${briefing.clothingIdea}`);
+    const upcoming = (briefing.activities || []).filter(a => {
+      const minutes = this.parseClockLabelToMinutes(a.time);
+      return minutes === null || minutes >= nowMin;
+    });
+    if (upcoming.length) {
+      bullets.push(`Coming up: ${upcoming.slice(0, 3).map(a => (a.time ? `${a.title} at ${a.time}` : a.title)).join(', ')}`);
+    }
 
-    return bullets.map(b => `• ${b}`).join('\n');
+    // Breakfast is over by 10, or once school has started (whichever is sooner).
+    if (briefing.breakfastIdea && nowMin < 10 * 60 && !atSchoolOrDone) {
+      bullets.push(`Breakfast: ${briefing.breakfastIdea}`);
+    }
+
+    // School lunch only matters before Remi is at school.
+    if (isSchoolDay && nowMin < startMin!) {
+      bullets.push(briefing.lunchPlan === 'pack'
+        ? `Lunch: packed${briefing.packedLunchIdea ? ` — ${briefing.packedLunchIdea}` : ''}`
+        : `Lunch: hot lunch${briefing.lunchMenuText ? ` — ${briefing.lunchMenuText}` : ''}`);
+    }
+
+    const weatherLine = this.formatWeatherForBlurb();
+    if (weatherLine) bullets.push(weatherLine);
+
+    if (briefing.clothingIdea && this.isOutfitRelevant(briefing, nowMin)) {
+      bullets.push(`Wear: ${briefing.clothingIdea}`);
+    }
+
+    if (briefing.dinnerIdea && nowMin >= 12 * 60 && nowMin < 21 * 60) {
+      bullets.push(`Dinner: ${briefing.dinnerIdea}`);
+    }
+
+    const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
+    const part = dayPartOf(now.getHours());
+    const lead = `Here's what's ahead this ${weekday} ${part}:`;
+    if (!bullets.length) {
+      return `${lead}\nNothing else is on the schedule.`;
+    }
+    return `${lead}\n${bullets.map(b => `• ${b}`).join('\n')}`;
+  }
+
+  /** "Weather: 62°F and light rain now. Evening 55°F, 60% chance of rain." — live conditions plus what's left of the day. */
+  private formatWeatherForBlurb(): string | null {
+    const weather = this.weatherService.weather();
+    if (!weather) return null;
+
+    const partLabel: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', night: 'Overnight' };
+    const periods = (this.weatherService.forecast()?.periods ?? [])
+      .slice(0, 2)
+      .map(p => `${partLabel[p.part]} ${p.tempF}°F${p.pop >= 30 ? `, ${p.pop}% chance of rain` : ''}`);
+
+    return `Weather: ${weather.temperature}°F and ${weather.description} now.${periods.length ? ` ${periods.join('; ')}.` : ''}`;
+  }
+
+  private parseHHmmToMinutes(hhmm: string | null | undefined): number | null {
+    if (!hhmm) return null;
+    const [hour, minute] = hhmm.split(':').map(Number);
+    return hour * 60 + minute;
+  }
+
+  /** Parses a displayed "H:MM AM/PM" activity time into minutes since midnight. */
+  private parseClockLabelToMinutes(label: string | null): number | null {
+    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((label || '').trim());
+    if (!match) return null;
+    let hour = Number(match[1]) % 12;
+    if (match[3].toUpperCase() === 'PM') hour += 12;
+    return hour * 60 + Number(match[2]);
   }
 
   /** Formats a stored "HH:mm" schedule time as "8:00 AM". */

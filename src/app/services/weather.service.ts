@@ -16,13 +16,31 @@ export interface WeatherData {
   sunset: Date;
 }
 
+export interface ForecastPeriod {
+  part: 'morning' | 'afternoon' | 'evening' | 'night';
+  tempF: number;
+  /** Chance of precipitation, 0-100. */
+  pop: number;
+  description: string;
+}
+
+/** What's still ahead today, from the 3-hour forecast — slots that have already ended are dropped. */
+export interface RemainingForecast {
+  periods: ForecastPeriod[];
+  highF: number;
+  lowF: number;
+  maxPrecipChance: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
 export class WeatherService {
   private readonly API_URL = 'https://api.openweathermap.org/data/2.5/weather';
+  private readonly FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
   
   weather = signal<WeatherData | null>(null);
+  forecast = signal<RemainingForecast | null>(null);
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
 
@@ -52,6 +70,54 @@ export class WeatherService {
 
     // Default to Minneapolis zipcode 55410
     this.fetchWeatherByZipcode('55410');
+    void this.fetchRemainingForecast('55410');
+  }
+
+  /** Loads the rest of today's forecast, refreshed alongside the current conditions so it never goes stale. */
+  private async fetchRemainingForecast(zipcode: string): Promise<void> {
+    try {
+      const response = await fetch(`${this.FORECAST_URL}?zip=${zipcode},US&units=imperial&appid=${environment.weatherApiKey}`);
+      if (!response.ok) return;
+      const data = await response.json();
+
+      const now = Date.now();
+      const todayKey = new Date().toDateString();
+      const partOf = (hour: number): ForecastPeriod['part'] =>
+        hour < 12 ? 'morning' : hour < 17 ? 'afternoon' : hour < 21 ? 'evening' : 'night';
+
+      const slots = (data.list || [])
+        .map((entry: any) => ({ start: new Date(entry.dt * 1000), entry }))
+        // Each slot covers three hours from its timestamp; keep those still in progress or ahead, today only.
+        .filter((s: any) => s.start.toDateString() === todayKey && s.start.getTime() + 3 * 3600_000 > now);
+      if (!slots.length) {
+        this.forecast.set(null);
+        return;
+      }
+
+      const byPart = new Map<ForecastPeriod['part'], ForecastPeriod>();
+      for (const { start, entry } of slots) {
+        const part = partOf(start.getHours());
+        const tempF = Math.round(entry.main.temp);
+        const pop = Math.round((entry.pop || 0) * 100);
+        const existing = byPart.get(part);
+        if (!existing) {
+          byPart.set(part, { part, tempF, pop, description: entry.weather?.[0]?.description || '' });
+        } else {
+          existing.tempF = Math.max(existing.tempF, tempF);
+          existing.pop = Math.max(existing.pop, pop);
+        }
+      }
+
+      const temps = slots.map((s: any) => Math.round(s.entry.main.temp));
+      this.forecast.set({
+        periods: Array.from(byPart.values()),
+        highF: Math.max(...temps),
+        lowF: Math.min(...temps),
+        maxPrecipChance: Math.max(...slots.map((s: any) => Math.round((s.entry.pop || 0) * 100)))
+      });
+    } catch (error) {
+      console.error('Error fetching forecast:', error);
+    }
   }
 
   private async fetchWeatherByZipcode(zipcode: string): Promise<void> {
