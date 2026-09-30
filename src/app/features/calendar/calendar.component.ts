@@ -8,6 +8,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
+import { expandRecurringForDay } from '../../utils/recurrence';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
@@ -160,10 +161,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
       if (!result || result.action !== 'save') return;
       try {
         await this.appCalendarEventService.addEvent(result.event);
-        this.snackBar.open('Event added', 'Close', { duration: 3000 });
+        this.snackBar.open('Item added', 'Close', { duration: 3000 });
       } catch (error) {
         console.error('Error adding calendar event:', error);
-        this.snackBar.open('Failed to add event', 'Close', { duration: 3000 });
+        this.snackBar.open('Failed to add item', 'Close', { duration: 3000 });
       }
     });
   }
@@ -183,14 +184,14 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
       try {
         if (result.action === 'delete') {
           await this.appCalendarEventService.deleteEvent(event.id);
-          this.snackBar.open('Event deleted', 'Close', { duration: 3000 });
+          this.snackBar.open('Item deleted', 'Close', { duration: 3000 });
         } else {
           await this.appCalendarEventService.updateEvent(event.id, result.event);
-          this.snackBar.open('Event updated', 'Close', { duration: 3000 });
+          this.snackBar.open('Item updated', 'Close', { duration: 3000 });
         }
       } catch (error) {
         console.error('Error updating calendar event:', error);
-        this.snackBar.open('Failed to save event', 'Close', { duration: 3000 });
+        this.snackBar.open('Failed to save item', 'Close', { duration: 3000 });
       }
     });
   }
@@ -264,7 +265,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 0, 0, 0);
     const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 
-    return this.getAllEvents()
+    return expandRecurringForDay(this.getAllEvents(), dayStart, dayEnd)
       .filter(event => {
         const eventStart = this.getEventStartDate(event);
         const eventEnd = this.getEventEndDate(event);
@@ -367,7 +368,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     // For all-day events (date only), use local midnight
     if (event.end.date && !event.end.dateTime) {
       const [year, month, day] = event.end.date.split('-').map(Number);
-      return new Date(year, month - 1, day, 0, 0, 0);
+      // end.date is exclusive (Google Calendar semantics); subtract 1ms so the last day is the final one included.
+      return new Date(new Date(year, month - 1, day, 0, 0, 0).getTime() - 1);
     }
 
     // For timed events, parse the ISO string which includes timezone

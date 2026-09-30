@@ -4,7 +4,7 @@ import { GroceryService } from './grocery.service';
 import { MemoryService, ExplicitFact } from './memory.service';
 import { HouseholdService } from './household.service';
 import { GoogleCalendarService } from './google-calendar.service';
-import { AppCalendarEventService } from './app-calendar-event.service';
+import { AppCalendarEventService, nextDayIso } from './app-calendar-event.service';
 
 export type QuickAddItemType = 'event' | 'reminder' | 'todo' | 'fact' | 'shopping_item';
 
@@ -158,7 +158,8 @@ export class QuickAddCreationService {
       const end = new Date(start.getTime() + 60 * 60 * 1000);
       return { start: { dateTime: start.toISOString() }, end: { dateTime: end.toISOString() } };
     }
-    return { start: { date }, end: { date } };
+    // end.date is exclusive (the day after), like Google Calendar.
+    return { start: { date }, end: { date: nextDayIso(date) } };
   }
 
   private resolvePersonToMemberId(person: string | null | undefined): string | undefined {

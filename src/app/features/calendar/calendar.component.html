@@ -54,8 +54,8 @@
         <button
           mat-icon-button
           (click)="openAddEventDialog()"
-          matTooltip="Add event"
-          aria-label="Add event">
+          matTooltip="Add item"
+          aria-label="Add item">
           <mat-icon>add</mat-icon>
         </button>
         <a
@@ -245,7 +245,7 @@
         *ngIf="sel.source === 'app'"
         class="cal-popover-edit"
         (click)="openEditEventDialog(sel)"
-        aria-label="Edit event">
+        aria-label="Edit item">
         <mat-icon>edit</mat-icon>
       </button>
       <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>

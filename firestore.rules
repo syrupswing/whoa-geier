@@ -166,23 +166,30 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
-    // App-native calendar events (Google Calendar itself stays read-only via OAuth;
-    // this is the write path for events created in-app, e.g. via quick-add). A private
-    // event (isPrivate: true) is only ever creatable for yourself — never for someone
-    // else — so it's only readable/writable by the account linked to its memberId.
+    // App-native calendar items (events and tasks). Google Calendar itself stays read-only via
+    // OAuth; this is the write path for items created in-app. A private item (isPrivate: true)
+    // is visible only to the account that created it (createdByUid). Items made before
+    // createdByUid existed fall back to the old rule: the account linked to their memberId.
     match /calendarEvents/{eventId} {
-      // .get(field, default) is required here, not dot access — most events never set
-      // isPrivate/memberId at all, and accessing an absent map field directly throws,
-      // which would fail-closed and hide every non-private event once this deployed.
-      allow read: if isAuthenticated() &&
-        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null));
-      allow create: if isAuthenticated() &&
-        (request.resource.data.get('isPrivate', false) != true || myMemberId() == request.resource.data.get('memberId', null));
-      allow update: if isAuthenticated() &&
-        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null)) &&
-        (request.resource.data.get('isPrivate', false) != true || myMemberId() == request.resource.data.get('memberId', null));
-      allow delete: if isAuthenticated() &&
-        (resource.data.get('isPrivate', false) != true || myMemberId() == resource.data.get('memberId', null));
+      // .get(field, default) is required here, not dot access — most items never set
+      // isPrivate/createdByUid/memberId at all, and accessing an absent map field directly
+      // throws, which would fail-closed and hide every non-private item.
+      function canAccess(data) {
+        return data.get('isPrivate', false) != true
+          || (data.get('createdByUid', null) != null
+              ? data.get('createdByUid', null) == request.auth.uid
+              : myMemberId() == data.get('memberId', null));
+      }
+
+      allow read: if isAuthenticated() && canAccess(resource.data);
+      // A new item must be stamped with its real creator (or left unstamped), so nobody can
+      // create items that appear to come from someone else.
+      allow create: if isAuthenticated() && canAccess(request.resource.data) &&
+        request.resource.data.get('createdByUid', request.auth.uid) == request.auth.uid;
+      // The creator stamp is fixed once set.
+      allow update: if isAuthenticated() && canAccess(resource.data) && canAccess(request.resource.data) &&
+        request.resource.data.get('createdByUid', null) == resource.data.get('createdByUid', null);
+      allow delete: if isAuthenticated() && canAccess(resource.data);
     }
 
     // Links one Firebase Auth account to the household member it belongs to (a

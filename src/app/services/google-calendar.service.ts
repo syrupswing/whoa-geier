@@ -7,6 +7,23 @@ import { AuthService } from './auth.service';
 
 declare const gapi: any;
 
+/** App-native calendar items are either plain timing-based events or completable tasks. */
+export type CalendarItemKind = 'event' | 'task';
+
+/** "Every [interval] [unit]" — a weekly repeat recurs on the start date's weekday, a monthly one on its day of month. */
+export interface RepeatRule {
+  unit: 'day' | 'week' | 'month';
+  interval: number;
+}
+
+/** One recorded completion of a task occurrence. */
+export interface TaskCompletion {
+  byUid: string;
+  byName: string;
+  /** ISO timestamp of when it was marked complete. */
+  at: string;
+}
+
 export interface CalendarEvent {
   id: string;
   summary: string;
@@ -34,6 +51,17 @@ export interface CalendarEvent {
   memberId?: string;
   /** App-native events only — restricted by Firestore rules to be readable/writable only by the account linked to memberId. Only ever settable for yourself, never for someone else. */
   isPrivate?: boolean;
+  /** App-native items only — unset is treated as a plain event. */
+  kind?: CalendarItemKind;
+  /** App-native items only — unset means the item doesn't repeat. */
+  repeat?: RepeatRule;
+  /** App-native items only — the Firebase uid/display name of whoever created it. A private item is visible only to this uid. */
+  createdByUid?: string;
+  createdByName?: string;
+  /** Runtime only, never stored: for one expanded occurrence of a repeating item, the "YYYY-MM-DD" date that occurrence starts on. */
+  occurrenceDate?: string;
+  /** Tasks only — completions keyed by the occurrence's start date ("YYYY-MM-DD"), so a repeating task tracks each occurrence separately. */
+  completions?: Record<string, TaskCompletion>;
 }
 
 export interface CalendarInfo {

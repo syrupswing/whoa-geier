@@ -160,7 +160,7 @@
       <ng-container *ngIf="calendarMenuView() === 'actions'">
         <button mat-menu-item (click)="openAddEventDialog()">
           <mat-icon>add</mat-icon>
-          <span>Add event</span>
+          <span>Add item</span>
         </button>
         <a mat-menu-item [href]="googleCalendarUrl()" target="_blank" rel="noopener">
           <mat-icon>open_in_new</mat-icon>
@@ -203,8 +203,21 @@
           [style.--event-color]="getEventColor(event)"
           [class.has-popover]="selectedEvent()?.id === event.id"
           (click)="selectEvent(event, $event)">
-          <mat-icon>event</mat-icon>
-          {{ event.summary }}
+          <button
+            type="button"
+            class="task-check"
+            *ngIf="isTask(event)"
+            (click)="askTaskToggle(event, $event)"
+            [attr.aria-label]="isTaskDone(event) ? 'Completed — tap to mark not complete' : 'Mark complete'">
+            <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+          </button>
+          <mat-icon *ngIf="!isTask(event)">event</mat-icon>
+          <span [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
+          <span class="task-prompt" *ngIf="isConfirmingTask(event)" (click)="$event.stopPropagation()">
+            {{ isTaskDone(event) ? 'Mark not complete?' : 'Mark complete?' }}
+            <button type="button" class="task-prompt-btn task-prompt-btn--confirm" (click)="confirmTaskToggle(event, $event)">{{ isTaskDone(event) ? 'Reopen' : 'Complete' }}</button>
+            <button type="button" class="task-prompt-btn" (click)="cancelTaskPrompt($event)">Cancel</button>
+          </span>
           <div
             class="cal-popover"
             *ngIf="selectedEvent()?.id === event.id"
@@ -218,6 +231,8 @@
               <p class="cal-popover-person" *ngIf="memberName(event.memberId) as name">
                 <mat-icon>{{ event.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ event.isPrivate ? 'Private — only you' : 'For ' + name }}
               </p>
+              <p class="cal-popover-person" *ngIf="!event.isPrivate && event.createdByName"><mat-icon>person_add</mat-icon>Created by {{ event.createdByName }}</p>
+              <p class="cal-popover-person" *ngIf="completionFor(event) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
               <p class="cal-popover-location" *ngIf="event.location"><mat-icon>location_on</mat-icon>{{ event.location }}</p>
               <p class="cal-popover-desc" *ngIf="event.description">{{ event.description }}</p>
             </div>
@@ -226,7 +241,7 @@
               *ngIf="event.source === 'app'"
               class="cal-popover-edit"
               (click)="openEditEventDialog(event)"
-              aria-label="Edit event">
+              aria-label="Edit item">
               <mat-icon>edit</mat-icon>
             </button>
             <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
@@ -295,7 +310,20 @@
               [class.is-point-in-time]="event.isPointInTime"
               [class.is-approximate-start]="event.startApproximate"
               [class.is-approximate-end]="event.endApproximate">
-              <span class="cal-event-title">{{ event.summary }}</span>
+              <button
+                type="button"
+                class="task-check"
+                *ngIf="isTask(event)"
+                (click)="askTaskToggle(event, $event)"
+                [attr.aria-label]="isTaskDone(event) ? 'Completed — tap to mark not complete' : 'Mark complete'">
+                <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+              </button>
+              <span class="cal-event-title" [class.task-done]="isTaskDone(event)" *ngIf="!isConfirmingTask(event)">{{ event.summary }}</span>
+              <span class="task-prompt" *ngIf="isConfirmingTask(event)" (click)="$event.stopPropagation()">
+                {{ isTaskDone(event) ? 'Mark not complete?' : 'Mark complete?' }}
+                <button type="button" class="task-prompt-btn task-prompt-btn--confirm" (click)="confirmTaskToggle(event, $event)">{{ isTaskDone(event) ? 'Reopen' : 'Complete' }}</button>
+                <button type="button" class="task-prompt-btn" (click)="cancelTaskPrompt($event)">Cancel</button>
+              </span>
             </div>
           </div>
 
@@ -315,6 +343,8 @@
               <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name">
                 <mat-icon>{{ sel.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ sel.isPrivate ? 'Private — only you' : 'For ' + name }}
               </p>
+              <p class="cal-popover-person" *ngIf="!sel.isPrivate && sel.createdByName"><mat-icon>person_add</mat-icon>Created by {{ sel.createdByName }}</p>
+              <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
               <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
               <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
             </div>
@@ -323,7 +353,7 @@
               *ngIf="sel.source === 'app'"
               class="cal-popover-edit"
               (click)="openEditEventDialog(sel)"
-              aria-label="Edit event">
+              aria-label="Edit item">
               <mat-icon>edit</mat-icon>
             </button>
             <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>

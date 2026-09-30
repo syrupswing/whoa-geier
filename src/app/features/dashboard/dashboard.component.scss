@@ -2890,3 +2890,51 @@
   margin-right: 0;
 }
 
+// ── Task items on the calendar ─────────────────────────────────
+.task-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-right: 4px;
+  color: inherit;
+  cursor: pointer;
+
+  mat-icon {
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.task-done {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+// Inline "Mark complete?" prompt that replaces the title while a checkbox tap is being confirmed.
+.task-prompt {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.task-prompt-btn {
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+  padding: 1px 8px;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+
+  &--confirm {
+    background: rgba(61, 53, 80, 0.14);
+  }
+}

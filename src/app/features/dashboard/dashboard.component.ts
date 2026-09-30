@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
+import { expandRecurringForDay, occurrenceKey, completionFor } from '../../utils/recurrence';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GroceryService } from '../../services/grocery.service';
@@ -550,7 +551,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0);
     const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
     const seenIds = new Set<string>();
-    return this.getAllEvents()
+    return expandRecurringForDay(this.getAllEvents(), dayStart, dayEnd)
       .filter(event => {
         if (seenIds.has(event.id)) return false;
         const start = this.getEventStartDate(event);
@@ -653,9 +654,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (timed.length === 0) return { start: 0, end: 24 };
 
     let minHour = 24, maxHour = 0;
+    // An event that runs past midnight fills the viewed day from/to its edge, so measure only the
+    // part that falls on this day (otherwise a multi-day event would distort the visible range).
+    const day = this.viewDate();
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate() + 1);
     for (const e of timed) {
-      const startHour = e.startDate.getHours() + e.startDate.getMinutes() / 60;
-      const endHour = e.endDate.getHours() + e.endDate.getMinutes() / 60;
+      const from = e.startDate < dayStart ? dayStart : e.startDate;
+      const to = e.endDate > dayEnd ? dayEnd : e.endDate;
+      const startHour = from.getHours() + from.getMinutes() / 60;
+      const endHour = to >= dayEnd ? 24 : to.getHours() + to.getMinutes() / 60;
       if (startHour < minHour) minHour = startHour;
       if (endHour > maxHour) maxHour = endHour;
     }
@@ -717,7 +725,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // Use a Set to track event IDs and prevent duplicates
     const seenEventIds = new Set<string>();
 
-    return this.getAllEvents()
+    return expandRecurringForDay(this.getAllEvents(), dayStart, dayEnd)
       .filter(event => {
         // Skip if we've already processed this event
         if (seenEventIds.has(event.id)) {
@@ -828,6 +836,56 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   /** The selected event, only when it's a timed (non-all-day) event — used to gate the
    * hoisted timed-event popover so it doesn't double up with the all-day chip's own. */
+  // ── Tasks ──────────────────────────────────────────────────────
+  /** The task occurrence showing its "Mark complete?" prompt, as "<id>|<occurrence date>". */
+  private confirmingTaskKey = signal<string | null>(null);
+
+  isTask(event: CalendarEvent): boolean {
+    return event.kind === 'task';
+  }
+
+  isTaskDone(event: CalendarEvent): boolean {
+    return !!completionFor(event);
+  }
+
+  completionFor = completionFor;
+
+  isConfirmingTask(event: CalendarEvent): boolean {
+    return this.confirmingTaskKey() === `${event.id}|${occurrenceKey(event)}`;
+  }
+
+  /** Tapping the checkbox asks first, rather than toggling straight away. */
+  askTaskToggle(event: CalendarEvent, domEvent: Event): void {
+    domEvent.stopPropagation();
+    this.confirmingTaskKey.set(`${event.id}|${occurrenceKey(event)}`);
+  }
+
+  cancelTaskPrompt(domEvent: Event): void {
+    domEvent.stopPropagation();
+    this.confirmingTaskKey.set(null);
+  }
+
+  async confirmTaskToggle(event: CalendarEvent, domEvent: Event): Promise<void> {
+    domEvent.stopPropagation();
+    this.confirmingTaskKey.set(null);
+    const key = occurrenceKey(event);
+    try {
+      if (this.isTaskDone(event)) {
+        await this.appCalendarEventService.clearCompletion(event.id, key);
+      } else {
+        await this.appCalendarEventService.completeOccurrence(event.id, key);
+      }
+    } catch (error) {
+      console.error('Error updating task completion:', error);
+      this.snackBar.open('Could not update the task — try again', 'Close', { duration: 3000 });
+    }
+  }
+
+  formatCompletionTime(iso: string): string {
+    const d = new Date(iso);
+    return `${this.formatShortDate(d)} at ${this.formatTime(d)}`;
+  }
+
   selectedTimedEvent(): TimelineEvent | null {
     const event = this.selectedEvent();
     return event && event.start.dateTime ? event : null;
@@ -1188,10 +1246,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       if (!result || result.action !== 'save') return;
       try {
         await this.appCalendarEventService.addEvent(result.event);
-        this.snackBar.open('Event added', 'Close', { duration: 3000 });
+        this.snackBar.open('Item added', 'Close', { duration: 3000 });
       } catch (error) {
         console.error('Error adding calendar event:', error);
-        this.snackBar.open('Failed to add event', 'Close', { duration: 3000 });
+        this.snackBar.open('Failed to add item', 'Close', { duration: 3000 });
       }
     });
   }
@@ -1211,14 +1269,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       try {
         if (result.action === 'delete') {
           await this.appCalendarEventService.deleteEvent(event.id);
-          this.snackBar.open('Event deleted', 'Close', { duration: 3000 });
+          this.snackBar.open('Item deleted', 'Close', { duration: 3000 });
         } else {
           await this.appCalendarEventService.updateEvent(event.id, result.event);
-          this.snackBar.open('Event updated', 'Close', { duration: 3000 });
+          this.snackBar.open('Item updated', 'Close', { duration: 3000 });
         }
       } catch (error) {
         console.error('Error updating calendar event:', error);
-        this.snackBar.open('Failed to save event', 'Close', { duration: 3000 });
+        this.snackBar.open('Failed to save item', 'Close', { duration: 3000 });
       }
     });
   }
