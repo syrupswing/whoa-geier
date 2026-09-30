@@ -108,6 +108,82 @@
 
   <mat-card class="form-card">
     <mat-card-header>
+      <mat-card-title>Reference library</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">
+        Flyers, guides and notes the chat can answer from — paste the text, or link to a web page, PDF or
+        Google Doc. Links must be public (for a Google Doc, share it as "anyone with the link"); a link is
+        saved as a snapshot, so use Refresh to pick up changes.
+      </p>
+
+      <mat-button-toggle-group class="doc-mode" [(ngModel)]="docMode" aria-label="How to add a document">
+        <mat-button-toggle value="paste">Paste text</mat-button-toggle>
+        <mat-button-toggle value="link">Link</mat-button-toggle>
+      </mat-button-toggle-group>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Title (optional)</mat-label>
+          <input matInput [(ngModel)]="docTitle" placeholder="Summer swim lesson flyer">
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width" *ngIf="docMode === 'paste'">
+          <mat-label>Text</mat-label>
+          <textarea matInput rows="6" [(ngModel)]="docText" placeholder="Paste the text of the flyer or guide"></textarea>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" class="full-width" *ngIf="docMode === 'link'">
+          <mat-label>Link</mat-label>
+          <input matInput type="url" [(ngModel)]="docUrl" placeholder="https://..." (keydown.enter)="addDoc()">
+        </mat-form-field>
+      </div>
+
+      <div class="doc-list" *ngIf="referenceDocs.docs().length; else noDocs">
+        <div class="doc-row" *ngFor="let doc of referenceDocs.docs()">
+          <div class="doc-main">
+            <div class="doc-heading">
+              <strong>{{ doc.title }}</strong>
+              <mat-chip-set>
+                <mat-chip>{{ doc.source === 'url' ? 'Link' : 'Pasted' }}</mat-chip>
+                <mat-chip *ngIf="doc.truncated">Shortened</mat-chip>
+              </mat-chip-set>
+            </div>
+            <span class="doc-summary" *ngIf="doc.summary">{{ doc.summary }}</span>
+            <a *ngIf="doc.url" class="doc-link" [href]="doc.url" target="_blank" rel="noopener">{{ doc.url }}</a>
+            <button type="button" class="doc-toggle" (click)="toggleDocExpanded(doc.id)">
+              {{ expandedDocId() === doc.id ? 'Hide text' : 'Show saved text' }}
+            </button>
+            <pre class="doc-text" *ngIf="expandedDocId() === doc.id">{{ doc.text }}</pre>
+          </div>
+          <div class="doc-actions">
+            <button
+              mat-icon-button
+              *ngIf="doc.source === 'url'"
+              [disabled]="refreshingDocId() === doc.id"
+              (click)="refreshDoc(doc)"
+              matTooltip="Refresh from the link">
+              <mat-icon>refresh</mat-icon>
+            </button>
+            <button mat-icon-button (click)="deleteDoc(doc)" matTooltip="Remove">
+              <mat-icon>delete</mat-icon>
+            </button>
+          </div>
+        </div>
+      </div>
+      <ng-template #noDocs>
+        <p class="hint-text">No documents yet.</p>
+      </ng-template>
+    </mat-card-content>
+    <mat-card-actions>
+      <button mat-raised-button color="primary" [disabled]="isAddingDoc() || !canAddDoc()" (click)="addDoc()">
+        {{ isAddingDoc() ? 'Reading…' : 'Add to library' }}
+      </button>
+    </mat-card-actions>
+  </mat-card>
+
+  <mat-card class="form-card">
+    <mat-card-header>
       <mat-card-title>What's remembered</mat-card-title>
     </mat-card-header>
     <mat-card-content>

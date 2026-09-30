@@ -209,6 +209,15 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Reference library (pasted or linked flyers/guides the family chat can answer from).
+    // Created and refreshed only by the addReferenceDoc/refreshReferenceDoc functions
+    // (Admin SDK) since they fetch links and summarize; anyone signed in can read or remove one.
+    match /referenceDocs/{docId} {
+      allow read: if isAuthenticated();
+      allow create, update: if false;
+      allow delete: if isAuthenticated();
+    }
+
     // Per-person Google Calendar refresh tokens — read and written only by the
     // googleCalendar* Cloud Functions via the Admin SDK, never by a client.
     match /googleCalendarTokens/{uid} {

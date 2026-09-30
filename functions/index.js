@@ -5,6 +5,8 @@ const admin = require('firebase-admin');
 const cheerio = require('cheerio');
 const {PDFParse} = require('pdf-parse');
 const ical = require('node-ical');
+const dns = require('dns').promises;
+const net = require('net');
 
 admin.initializeApp();
 
@@ -290,6 +292,11 @@ const ORCHESTRATOR_TEMPLATES = {
       const alertsClause = context.alerts.length
         ? `\nActive alerts: ${context.alerts.join('; ')}.`
         : '';
+      const referenceClause = (context.referenceDocs || []).length
+        ? `\n\nReference documents the family saved (flyers, guides, notes). For questions they cover, answer ` +
+          `from them, mention which document you used, and don't invent details they don't contain:\n` +
+          context.referenceDocs.map(d => `### ${d.title}\n${d.text}`).join('\n\n')
+        : '';
       const peopleClause = (payload.knownPeople || []).length
         ? ` Known family member names: ${payload.knownPeople.join(', ')}. If a mentioned person matches ` +
           `one of these, use that exact name.`
@@ -300,7 +307,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `"tomorrow", and any other relative dates. Be friendly, concise, and ` +
         `helpful. Use the household information below when it's relevant to the question — don't recite ` +
         `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${weatherClause}${calendarClause}` +
-        `${todosClause}${groceryClause}${alertsClause}${peopleClause}\n\nThe user said: ${payload.message}\n\n` +
+        `${todosClause}${groceryClause}${alertsClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
         `the user is clearly asking you to add/save/remember/schedule something (e.g. "remind me to...", ` +
@@ -319,6 +326,12 @@ const ORCHESTRATOR_TEMPLATES = {
     }
   }
 };
+
+/** The orchestrator context minus the bulky reference-doc text — the log only needs to know which docs were used. */
+function loggableContext(context) {
+  if (!context.referenceDocs) return context;
+  return { ...context, referenceDocs: context.referenceDocs.map(d => d.title) };
+}
 
 /** Facts and still-relevant recent-context entries for a member (or the whole household). */
 async function buildOrchestratorMemoryContext(db, memberId) {
@@ -373,7 +386,7 @@ function parseClockLabelToMinutes(label) {
  * today's activities, meal plans — is dropped once that time has passed, even
  * earlier the same day, since it's no longer actionable for the person asking.
  */
-async function buildFamilyChatContext(db) {
+async function buildFamilyChatContext(db, payload) {
   const now = new Date();
   const today = toDateStr(now);
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -505,7 +518,9 @@ async function buildFamilyChatContext(db) {
 
   const todayWeekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
 
-  return { today, todayWeekday, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, alerts };
+  const referenceDocs = await selectReferenceDocs(db, payload?.message);
+
+  return { today, todayWeekday, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, alerts, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(
@@ -550,14 +565,14 @@ exports.orchestratedGenerate = onCall(
           featureType,
           memberId,
           generatedContent: item,
-          contextSnapshot: { payload: payload || {}, memory: context }
+          contextSnapshot: { payload: payload || {}, memory: loggableContext(context) }
         })));
       } else if (template.logSuggestion !== false) {
         suggestionId = await logAiSuggestion(db, {
           featureType,
           memberId,
           generatedContent: result,
-          contextSnapshot: { payload: payload || {}, memory: context }
+          contextSnapshot: { payload: payload || {}, memory: loggableContext(context) }
         });
       }
 
@@ -1609,3 +1624,291 @@ exports.parseScheduleException = onCall(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// Reference library: flyers, guides and notes the family chat can answer from
+//
+// Each entry is a text snapshot in /referenceDocs/{id} — pasted directly, or fetched from a
+// public link (web page, PDF, or a link-shared Google Doc). Written only here (Admin SDK);
+// the client reads and deletes them.
+// ---------------------------------------------------------------------------
+
+const REFERENCE_COLLECTION = 'referenceDocs';
+/** Per-document cap on stored text. These are flyers, not manuals. */
+const MAX_REFERENCE_CHARS = 30000;
+/** How much reference text goes into a single chat prompt. */
+const CHAT_REFERENCE_BUDGET = 24000;
+const MAX_FETCH_BYTES = 8 * 1024 * 1024;
+const MAX_REDIRECTS = 5;
+
+function isPrivateIp(ip) {
+  if (net.isIPv4(ip)) {
+    const [a, b] = ip.split('.').map(Number);
+    return (
+      a === 0 || a === 10 || a === 127 ||
+      (a === 100 && b >= 64 && b <= 127) ||
+      (a === 169 && b === 254) ||
+      (a === 172 && b >= 16 && b <= 31) ||
+      (a === 192 && b === 168)
+    );
+  }
+  const lower = ip.toLowerCase();
+  const mapped = lower.match(/^::ffff:(\d+\.\d+\.\d+\.\d+)$/);
+  if (mapped) return isPrivateIp(mapped[1]);
+  return lower === '::1' || lower === '::' || lower.startsWith('fc') || lower.startsWith('fd') || lower.startsWith('fe80');
+}
+
+/** Refuses anything that isn't a plain public http(s) address, so a saved link can't be pointed at internal services. */
+async function assertPublicUrl(rawUrl) {
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    throw new HttpsError('invalid-argument', "That doesn't look like a valid link");
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') {
+    throw new HttpsError('invalid-argument', 'Only http(s) links are supported');
+  }
+  const addresses = net.isIP(url.hostname)
+    ? [{ address: url.hostname }]
+    : await dns.lookup(url.hostname, { all: true }).catch(() => []);
+  if (addresses.length === 0 || addresses.some(a => isPrivateIp(a.address))) {
+    throw new HttpsError('invalid-argument', "Couldn't reach that link");
+  }
+  return url;
+}
+
+/** Google Doc share/edit links become their plain-text export; anything else is used as given. */
+function normalizeDocumentUrl(url) {
+  const match = url.pathname.match(/^\/document\/(?:u\/\d+\/)?d\/([\w-]+)/);
+  if (url.hostname === 'docs.google.com' && match) {
+    return new URL(`https://docs.google.com/document/d/${match[1]}/export?format=txt`);
+  }
+  return url;
+}
+
+/** Fetches a public URL, following redirects by hand so every hop is re-checked, with a time and size limit. */
+async function fetchPublicUrl(rawUrl) {
+  let url = normalizeDocumentUrl(await assertPublicUrl(rawUrl));
+  for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+    const res = await fetch(url, {
+      redirect: 'manual',
+      signal: AbortSignal.timeout(15000),
+      headers: { 'User-Agent': 'FamilyCommandCenter/1.0', Accept: 'text/html,application/pdf,text/plain,*/*;q=0.5' }
+    }).catch(() => { throw new HttpsError('invalid-argument', "Couldn't reach that link"); });
+
+    if (res.status >= 300 && res.status < 400 && res.headers.get('location')) {
+      url = await assertPublicUrl(new URL(res.headers.get('location'), url).toString());
+      continue;
+    }
+    // A private Google Doc bounces to the sign-in page rather than returning an error.
+    if (url.hostname === 'accounts.google.com' || res.status === 401 || res.status === 403) {
+      throw new HttpsError('failed-precondition', 'That link needs a login. Share it so anyone with the link can view it, or paste the text instead.');
+    }
+    if (!res.ok) {
+      throw new HttpsError('invalid-argument', `That link returned an error (${res.status})`);
+    }
+    if (Number(res.headers.get('content-length')) > MAX_FETCH_BYTES) {
+      throw new HttpsError('invalid-argument', 'That file is too large');
+    }
+    const buffer = Buffer.from(await res.arrayBuffer());
+    if (buffer.length > MAX_FETCH_BYTES) {
+      throw new HttpsError('invalid-argument', 'That file is too large');
+    }
+    return { buffer, contentType: (res.headers.get('content-type') || '').toLowerCase(), finalUrl: url.toString() };
+  }
+  throw new HttpsError('invalid-argument', 'That link redirected too many times');
+}
+
+/** Reduces a fetched response to { title, text }. Handles HTML pages, PDFs and plain text. */
+async function extractDocumentText({ buffer, contentType, finalUrl }) {
+  const isPdf = contentType.includes('application/pdf') || buffer.subarray(0, 5).toString() === '%PDF-';
+  if (isPdf) {
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const { text } = await parser.getText();
+      return { title: '', text };
+    } finally {
+      await parser.destroy();
+    }
+  }
+  if (contentType.includes('text/plain') || finalUrl.includes('format=txt')) {
+    return { title: '', text: buffer.toString('utf8') };
+  }
+  if (contentType.includes('html') || contentType === '') {
+    const $ = cheerio.load(buffer.toString('utf8'));
+    const title = ($('meta[property="og:title"]').attr('content') || $('title').first().text() || '').trim();
+    $('script, style, noscript, svg, nav, footer, header, form, iframe').remove();
+    // Newlines after block-level elements keep paragraphs and list items from running together.
+    $('br').replaceWith('\n');
+    $('p, div, li, h1, h2, h3, h4, h5, h6, tr, section, article').each((_, el) => { $(el).append('\n'); });
+    const root = $('main').length ? $('main') : $('article').length ? $('article') : $('body');
+    return { title, text: root.text() };
+  }
+  throw new HttpsError('invalid-argument', "That kind of file isn't supported yet. Use a web page, PDF, or Google Doc, or paste the text.");
+}
+
+function cleanDocumentText(text) {
+  return text
+    .replace(/\r/g, '')
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(/ *\n */g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+/** A one-or-two sentence summary (and a title when none was given) so the chat can tell what a document covers. */
+async function summarizeReferenceDoc(token, text, givenTitle) {
+  try {
+    const raw = await callClaude(
+      token,
+      `Here is a document a family saved for reference (it may be a flyer, guide, or notes).\n\n` +
+      `${text.slice(0, 8000)}\n\n` +
+      `Respond with ONLY a JSON object of the exact shape {"title": "...", "summary": "..."} — no other ` +
+      `text. "title" is a short descriptive title of at most 8 words${givenTitle ? ` (use "${givenTitle}")` : ''}. ` +
+      `"summary" is one or two plain sentences saying what the document covers and what questions it could ` +
+      `answer.`,
+      300
+    );
+    const parsed = extractJson(raw);
+    return {
+      title: givenTitle || String(parsed.title || '').trim().slice(0, 100),
+      summary: String(parsed.summary || '').trim().slice(0, 400)
+    };
+  } catch (err) {
+    console.error('summarizeReferenceDoc error:', err);
+    return { title: givenTitle || '', summary: '' };
+  }
+}
+
+/** Builds the stored fields for a reference doc from either pasted text or a public link. */
+async function buildReferenceDocFields(token, { title, text, url }) {
+  let source;
+  let body;
+  let pageTitle = '';
+  if (url) {
+    const fetched = await fetchPublicUrl(url);
+    const extracted = await extractDocumentText(fetched);
+    body = extracted.text;
+    pageTitle = extracted.title;
+    source = { source: 'url', url: fetched.finalUrl.includes('/export?format=txt') ? url : fetched.finalUrl };
+  } else {
+    body = text;
+    source = { source: 'paste', url: null };
+  }
+
+  body = cleanDocumentText(body || '');
+  if (body.length < 20) {
+    throw new HttpsError('invalid-argument', "Couldn't find any readable text there");
+  }
+  const truncated = body.length > MAX_REFERENCE_CHARS;
+  if (truncated) body = body.slice(0, MAX_REFERENCE_CHARS);
+
+  const givenTitle = (title || '').trim().slice(0, 100);
+  const generated = await summarizeReferenceDoc(token, body, givenTitle || pageTitle.slice(0, 100));
+  return {
+    ...source,
+    title: generated.title || givenTitle || pageTitle.slice(0, 100) || 'Untitled document',
+    summary: generated.summary || body.slice(0, 160),
+    text: body,
+    truncated,
+    fetchedAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+}
+
+/** Adds a reference doc from pasted text or a public link. */
+exports.addReferenceDoc = onCall(
+  { secrets: ['CLAUDE_API_KEY'], invoker: 'public', timeoutSeconds: 90 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const { title, text, url } = request.data || {};
+    if (!url && (typeof text !== 'string' || !text.trim())) {
+      throw new HttpsError('invalid-argument', 'Paste some text or add a link');
+    }
+
+    const fields = await buildReferenceDocFields(claudeApiKey.value(), {
+      title: typeof title === 'string' ? title : '',
+      text: typeof text === 'string' ? text : '',
+      url: typeof url === 'string' && url.trim() ? url.trim() : ''
+    });
+    const ref = await admin.firestore().collection(REFERENCE_COLLECTION).add({
+      ...fields,
+      createdAt: new Date().toISOString(),
+      createdBy: request.auth.uid
+    });
+    return { id: ref.id };
+  }
+);
+
+/** Re-fetches a linked reference doc so its saved snapshot catches up with the page. */
+exports.refreshReferenceDoc = onCall(
+  { secrets: ['CLAUDE_API_KEY'], invoker: 'public', timeoutSeconds: 90 },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const id = request.data?.id;
+    const docRef = admin.firestore().collection(REFERENCE_COLLECTION).doc(String(id || ''));
+    const snap = id ? await docRef.get() : null;
+    if (!snap?.exists) {
+      throw new HttpsError('not-found', 'That document no longer exists');
+    }
+    const existing = snap.data();
+    if (existing.source !== 'url' || !existing.url) {
+      throw new HttpsError('failed-precondition', 'Only linked documents can be refreshed');
+    }
+    // Keeps the current title (which may have been given by hand); the summary is regenerated.
+    const fields = await buildReferenceDocFields(claudeApiKey.value(), { title: existing.title, url: existing.url });
+    await docRef.update(fields);
+    return { success: true };
+  }
+);
+
+/**
+ * Picks the reference docs to include in a family-chat prompt. A handful of short flyers
+ * all fit, so they go in whole; only once the library outgrows the prompt budget does a
+ * quick Claude call choose the ones that look relevant to the question.
+ */
+async function selectReferenceDocs(db, message) {
+  const snap = await db.collection(REFERENCE_COLLECTION).get();
+  const docs = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(d => d.text)
+    .sort((a, b) => (a.title || '').localeCompare(b.title || ''));
+  if (docs.length === 0) return [];
+
+  let chosen = docs;
+  if (docs.reduce((sum, d) => sum + d.text.length, 0) > CHAT_REFERENCE_BUDGET) {
+    try {
+      const index = docs.map((d, i) => `${i + 1}. ${d.title}: ${d.summary || ''}`).join('\n');
+      const raw = await callClaude(
+        claudeApiKey.value(),
+        `A family saved these reference documents:\n${index}\n\nTheir question: "${message || ''}"\n\n` +
+        `Respond with ONLY a JSON object of the exact shape {"numbers": [1, 2]} listing the numbers of at ` +
+        `most 3 documents likely to help answer it, or an empty list if none would.`,
+        100
+      );
+      const numbers = extractJson(raw).numbers;
+      chosen = (Array.isArray(numbers) ? numbers : [])
+        .map(n => docs[Number(n) - 1])
+        .filter(Boolean)
+        .slice(0, 3);
+    } catch (err) {
+      console.error('selectReferenceDocs routing error:', err);
+      chosen = docs;
+    }
+  }
+
+  let remaining = CHAT_REFERENCE_BUDGET;
+  const selected = [];
+  for (const d of chosen) {
+    if (remaining <= 0) break;
+    const text = d.text.slice(0, remaining);
+    remaining -= text.length;
+    selected.push({ title: d.title || 'Untitled document', text });
+  }
+  return selected;
+}

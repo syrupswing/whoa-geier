@@ -7,11 +7,13 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
+import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MemoryService, ExplicitFact } from '../../services/memory.service';
 import { HouseholdService, FamilyMember } from '../../services/household.service';
+import { ReferenceDocsService, ReferenceDoc } from '../../services/reference-docs.service';
 
 const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule', 'other'] as const;
 
@@ -27,6 +29,7 @@ const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule
     MatFormFieldModule,
     MatInputModule,
     MatSelectModule,
+    MatButtonToggleModule,
     MatChipsModule,
     MatTooltipModule,
     MatSnackBarModule
@@ -46,11 +49,69 @@ export class FamilyMemoryComponent {
   memberDietaryInput = '';
   isSavingMember = signal(false);
 
+  // Reference library
+  docMode: 'paste' | 'link' = 'paste';
+  docTitle = '';
+  docText = '';
+  docUrl = '';
+  isAddingDoc = signal(false);
+  refreshingDocId = signal<string | null>(null);
+  expandedDocId = signal<string | null>(null);
+
   constructor(
     public memoryService: MemoryService,
     public householdService: HouseholdService,
+    public referenceDocs: ReferenceDocsService,
     private snackBar: MatSnackBar
   ) {}
+
+  canAddDoc(): boolean {
+    return this.docMode === 'paste' ? !!this.docText.trim() : !!this.docUrl.trim();
+  }
+
+  async addDoc(): Promise<void> {
+    if (!this.canAddDoc() || this.isAddingDoc()) return;
+    this.isAddingDoc.set(true);
+    try {
+      await this.referenceDocs.add({
+        title: this.docTitle.trim() || undefined,
+        text: this.docMode === 'paste' ? this.docText : undefined,
+        url: this.docMode === 'link' ? this.docUrl.trim() : undefined
+      });
+      this.docTitle = '';
+      this.docText = '';
+      this.docUrl = '';
+      this.snackBar.open('Added to the reference library', 'Close', { duration: 3000 });
+    } catch (err: any) {
+      this.snackBar.open(err?.message || 'Could not add that document', 'Close', { duration: 6000 });
+    } finally {
+      this.isAddingDoc.set(false);
+    }
+  }
+
+  async refreshDoc(doc: ReferenceDoc): Promise<void> {
+    this.refreshingDocId.set(doc.id);
+    try {
+      await this.referenceDocs.refresh(doc.id);
+      this.snackBar.open('Refreshed from the link', 'Close', { duration: 3000 });
+    } catch (err: any) {
+      this.snackBar.open(err?.message || 'Could not refresh that link', 'Close', { duration: 6000 });
+    } finally {
+      this.refreshingDocId.set(null);
+    }
+  }
+
+  async deleteDoc(doc: ReferenceDoc): Promise<void> {
+    if (!confirm(`Remove "${doc.title}" from the reference library?`)) return;
+    const ok = await this.referenceDocs.remove(doc.id);
+    if (!ok) {
+      this.snackBar.open('Failed to delete', 'Close', { duration: 3000 });
+    }
+  }
+
+  toggleDocExpanded(id: string): void {
+    this.expandedDocId.set(this.expandedDocId() === id ? null : id);
+  }
 
   memberName(memberId: string | undefined): string {
     if (!memberId) return 'Whole household';

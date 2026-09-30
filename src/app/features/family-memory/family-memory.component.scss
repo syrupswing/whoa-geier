@@ -56,4 +56,83 @@
       }
     }
   }
+
+  .doc-mode {
+    margin-top: 12px;
+  }
+
+  .doc-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 16px;
+
+    .doc-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 12px;
+      border: 1px solid rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+
+      .doc-main {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        min-width: 0;
+      }
+
+      .doc-heading {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        flex-wrap: wrap;
+
+        mat-chip {
+          font-size: 0.7rem;
+          min-height: 22px;
+        }
+      }
+
+      .doc-summary {
+        font-size: 0.85rem;
+        opacity: 0.8;
+      }
+
+      .doc-link {
+        font-size: 0.75rem;
+        overflow-wrap: anywhere;
+      }
+
+      .doc-toggle {
+        align-self: flex-start;
+        padding: 0;
+        border: 0;
+        background: none;
+        font-size: 0.75rem;
+        text-decoration: underline;
+        cursor: pointer;
+        color: inherit;
+        opacity: 0.7;
+      }
+
+      .doc-text {
+        margin: 0;
+        max-height: 240px;
+        overflow: auto;
+        font-family: inherit;
+        font-size: 0.8rem;
+        white-space: pre-wrap;
+        padding: 8px;
+        border-radius: 6px;
+        background: rgba(0, 0, 0, 0.04);
+      }
+
+      .doc-actions {
+        display: flex;
+        flex-shrink: 0;
+      }
+    }
+  }
 }
