@@ -256,6 +256,48 @@ const ORCHESTRATOR_TEMPLATES = {
     ),
     parseResponse: extractJson
   },
+  'memory-correction': {
+    // Turns the user's free-text correction of an assistant reply into one durable, standalone
+    // household fact (and, when it contradicts a saved fact, which fact it replaces). The
+    // client shows the result as a fact card the user confirms, like any other chat item.
+    usesMemory: false,
+    logSuggestion: false,
+    maxTokens: 400,
+    buildContext: async (db) => {
+      const snap = await db.collection('explicitFacts').get();
+      return { savedFacts: snap.docs.map(d => ({ id: d.id, text: d.data().factText })) };
+    },
+    buildPrompt: (payload, context) => {
+      const clip = (text, max) => String(text || '').slice(0, max);
+      const factsList = context.savedFacts.length
+        ? context.savedFacts.map(f => `- [${f.id}] ${f.text}`).join('\n')
+        : '(none saved yet)';
+      return (
+        `A family's assistant gave a reply the user says is wrong. Turn the user's correction into ONE ` +
+        `durable household fact that will be shown to the assistant in every future conversation.\n\n` +
+        `User's question: ${clip(payload.question, 1000) || '(not available)'}\n` +
+        `Assistant's reply: ${clip(payload.reply, 2000)}\n` +
+        `User's correction: ${clip(payload.correction, 1000)}\n\n` +
+        `Already-saved household facts (id in brackets):\n${factsList}\n\n` +
+        `Write factText as a short, self-contained statement that makes sense with no conversation ` +
+        `around it. State the correct information plainly, and include the distinction that was ` +
+        `confused when that helps prevent the same mistake. Do not mention "the assistant" or "the reply". ` +
+        `If the correction contradicts or refines a saved fact, set replacesFactId to that fact's id, and ` +
+        `make factText the complete updated statement; otherwise set it to null. category must be one of: ` +
+        `dietary, preference, maintenance, medical, schedule, other.\n\n` +
+        `Respond with ONLY a JSON object of this exact shape, no other text:\n` +
+        `{"factText": "...", "category": "schedule", "replacesFactId": null}`
+      );
+    },
+    parseResponse: (raw) => {
+      const parsed = extractJson(raw);
+      return {
+        factText: String(parsed.factText || '').trim(),
+        category: parsed.category || 'other',
+        replacesFactId: parsed.replacesFactId || null
+      };
+    }
+  },
   'family-chat': {
     // Hybrid template: replies conversationally AND decides whether the message asks to
     // create/save something (event, reminder, todo, shopping item, or fact). Structured
@@ -269,7 +311,8 @@ const ORCHESTRATOR_TEMPLATES = {
     buildContext: buildFamilyChatContext,
     buildPrompt: (payload, context) => {
       const factsClause = context.facts.length
-        ? ` Household facts to keep in mind: ${context.facts.join('; ')}.`
+        ? ` Household facts to keep in mind: ${context.facts.join('; ')}. These facts come from the family ` +
+          `themselves, so if one conflicts with a reference document or your own assumption, trust the fact.`
         : '';
       const recentClause = context.recentContext.length
         ? ` Recent household context: ${context.recentContext.join('; ')}.`

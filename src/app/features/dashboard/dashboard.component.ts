@@ -222,6 +222,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   chatMessages = signal<ChatMessage[]>(loadPersistedChatMessages());
   chatInput = '';;
   isChatLoading = signal(false);
+  /** The assistant reply currently being corrected (its inline correction form is open). */
+  correctingMessage = signal<ChatMessage | null>(null);
+  correctionText = '';
+  isCorrecting = signal(false);
   isConfirmingClearChat = signal(false);
   /** Index into chatHistoryList() currently shown in the input, via Up/Down recall; -1 = not browsing. */
   private chatHistoryIndex = -1;
@@ -1265,6 +1269,58 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     } finally {
       this.isChatLoading.set(false);
       setTimeout(() => this.scrollChatToBottom(), 100);
+    }
+  }
+
+  startCorrection(message: ChatMessage): void {
+    this.correctingMessage.set(message);
+    this.correctionText = '';
+  }
+
+  cancelCorrection(): void {
+    this.correctingMessage.set(null);
+    this.correctionText = '';
+  }
+
+  /**
+   * Turns the user's correction of an assistant reply into a fact card on that reply. The
+   * card goes through the normal Confirm/Discard review, so nothing reaches household memory
+   * until the user approves the wording.
+   */
+  async submitCorrection(message: ChatMessage): Promise<void> {
+    const correction = this.correctionText.trim();
+    if (!correction || this.isCorrecting()) {
+      return;
+    }
+
+    const messages = this.chatMessages();
+    const index = messages.indexOf(message);
+    const question = messages.slice(0, index).reverse().find(m => m.isUser)?.text ?? '';
+
+    this.isCorrecting.set(true);
+    try {
+      const result = await this.aiOrchestrator.generate<
+        { factText: string; category: string; replacesFactId: string | null }
+      >('memory-correction', { question, reply: message.text, correction });
+
+      if (!result.factText) {
+        throw new Error('Could not turn that into a fact — try rephrasing');
+      }
+      const card = this.quickAddCreation.buildCard({
+        type: 'fact',
+        title: result.factText,
+        factText: result.factText,
+        category: result.category,
+        replacesFactId: result.replacesFactId
+      }, null);
+      this.chatMessages.update(all => all.map(m =>
+        m === message ? { ...m, cards: [...(m.cards || []), card] } : m
+      ));
+      this.cancelCorrection();
+    } catch (error: any) {
+      this.snackBar.open(error?.message || 'Could not save that correction — try again', 'Close', { duration: 3000 });
+    } finally {
+      this.isCorrecting.set(false);
     }
   }
 

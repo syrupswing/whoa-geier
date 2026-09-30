@@ -18,6 +18,8 @@ export interface ParsedQuickAddItem {
   type: QuickAddItemType;
   title?: string;
   factText?: string;
+  /** Fact only: id of a saved fact this one supersedes, so confirming updates it rather than adding a duplicate. */
+  replacesFactId?: string | null;
   category?: string;
   date?: string;
   time?: string;
@@ -132,7 +134,11 @@ export class QuickAddCreationService {
           category: item.category || 'other'
         };
         if (memberId) fact.memberId = memberId;
-        await this.memoryService.addExplicitFact(fact);
+        if (item.replacesFactId) {
+          await this.memoryService.updateExplicitFact(item.replacesFactId, fact);
+        } else {
+          await this.memoryService.addExplicitFact(fact);
+        }
         break;
       }
       case 'shopping_item': {

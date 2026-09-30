@@ -324,6 +324,58 @@
       }
     }
 
+    .chat-message-correct {
+      margin-top: 4px;
+
+      .correct-btn,
+      .correct-cancel {
+        border: none;
+        background: transparent;
+        padding: 0;
+        font-size: 0.7rem;
+        color: var(--color-text-secondary);
+        text-decoration: underline;
+        cursor: pointer;
+      }
+
+      .correct-form {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+
+        textarea {
+          width: 100%;
+          box-sizing: border-box;
+          border: 1px solid rgba(61, 53, 80, 0.14);
+          border-radius: 8px;
+          padding: 6px 8px;
+          font: inherit;
+          resize: vertical;
+        }
+      }
+
+      .correct-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+
+      .correct-submit {
+        border: 1px solid rgba(61, 53, 80, 0.14);
+        border-radius: 999px;
+        background: transparent;
+        padding: 4px 12px;
+        font-size: 0.76rem;
+        color: var(--color-text-primary);
+        cursor: pointer;
+
+        &:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
+      }
+    }
+
     .chat-message-cards {
       display: flex;
       flex-direction: column;

@@ -27,6 +27,28 @@
               Updated {{ relativeAge(message.updatedAt ?? message.timestamp) }}
             </div>
             <div [appTypewriter]="message.text" [typewriterMarkdown]="true" [typewriterInstant]="!!message.instant"></div>
+            <div class="chat-message-correct">
+              <button
+                type="button"
+                class="correct-btn"
+                *ngIf="correctingMessage() !== message"
+                (click)="startCorrection(message)">
+                Correct this
+              </button>
+              <form class="correct-form" *ngIf="correctingMessage() === message" (ngSubmit)="submitCorrection(message)">
+                <textarea
+                  name="correctionInput"
+                  rows="2"
+                  placeholder="What should I have said? I'll remember it going forward."
+                  [(ngModel)]="correctionText"></textarea>
+                <div class="correct-actions">
+                  <button type="submit" class="correct-submit" [disabled]="!correctionText.trim() || isCorrecting()">
+                    {{ isCorrecting() ? 'Thinking…' : 'Save correction' }}
+                  </button>
+                  <button type="button" class="correct-cancel" (click)="cancelCorrection()">Cancel</button>
+                </div>
+              </form>
+            </div>
             <div class="chat-message-cards" *ngIf="message.cards?.length">
               <app-quick-add-card
                 *ngFor="let card of message.cards"
