@@ -432,16 +432,16 @@ async function buildFamilyChatContext(db) {
 
   let scheduleSummary = null;
   try {
-    let schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather;
+    let schoolStatus, scheduleNote, dayNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather;
     if (briefingDoc.exists) {
-      ({ schoolStatus, scheduleNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather } = briefingDoc.data());
+      ({ schoolStatus, scheduleNote, dayNote, startTime, endTime, activities, lunchPlan, lunchMenuText, packedLunchIdea, breakfastIdea, dinnerIdea, weather } = briefingDoc.data());
       // Fall back to this morning's cached reading only if the live fetch above failed.
       if (!weatherSummary && weather) {
         weatherSummary = formatWeatherSummary(weather);
       }
     } else {
       const schedule = await resolveScheduleForDate(db, today);
-      ({ schoolStatus, scheduleNote, startTime, endTime, lunchPlan } = schedule);
+      ({ schoolStatus, scheduleNote, dayNote, startTime, endTime, lunchPlan } = schedule);
       activities = await fetchActivitiesForDate(schedule.icalUrls, today);
     }
 
@@ -454,7 +454,7 @@ async function buildFamilyChatContext(db) {
     } else if (schoolStatus === 'early-release') {
       parts.push(schoolEnded
         ? `Early release today — school has already let out${scheduleNote ? ` (${scheduleNote})` : ''}`
-        : `Early release today, starts ${formatTime12h(startTime)}${scheduleNote ? ` (${scheduleNote})` : ''}`);
+        : `Early release today, out at ${formatTime12h(endTime)}${scheduleNote ? ` (${scheduleNote})` : ''}`);
     } else {
       parts.push(schoolEnded
         ? 'School already let out for today'
@@ -481,6 +481,9 @@ async function buildFamilyChatContext(db) {
     }
     if (nowMin < MEAL_CUTOFF_MIN.dinner && dinnerIdea) {
       parts.push(`Dinner: ${dinnerIdea}`);
+    }
+    if (dayNote) {
+      parts.push(`Note for today: ${dayNote}`);
     }
 
     scheduleSummary = parts.join('. ');
@@ -672,12 +675,24 @@ async function resolveScheduleForDate(db, dateStr) {
   const weekday = new Date(`${dateStr}T00:00:00`).getDay();
   const noSchool = exception.noSchool === true || !schoolDays.includes(weekday);
 
+  const startTime = exception.startTimeOverride || defaultStartTime;
+  const endTime = exception.endTimeOverride || defaultEndTime;
+
+  // 'early-release' means dismissal is earlier than usual — a different start time alone
+  // (earlier or later) is still a regular school day, just at another hour.
   let schoolStatus = 'school';
   if (noSchool) {
     schoolStatus = 'no-school';
-  } else if (exception.startTimeOverride || exception.endTimeOverride) {
+  } else if (endTime < defaultEndTime) {
     schoolStatus = 'early-release';
   }
+
+  // A short label for display lines ("No school — School pride day"); the longer free-text
+  // note is kept separately as dayNote for the AI prompts. Older exceptions only had a
+  // short note, so it doubles as the label when there's no title.
+  const rawNote = (exception.note || '').trim();
+  const title = (exception.title || '').trim() || (rawNote && rawNote.length <= 60 ? rawNote : '');
+  const lunchPlan = exception.lunchPlan || (exception.packLunch ? 'pack' : defaultLunchPlan);
 
   // calendarIcalUrl is the pre-multi-calendar setting and is still honored.
   const icalUrls = (settings.calendarIcalUrls || [])
@@ -687,10 +702,11 @@ async function resolveScheduleForDate(db, dateStr) {
 
   return {
     schoolStatus,
-    scheduleNote: exception.note || null,
-    startTime: noSchool ? null : (exception.startTimeOverride || defaultStartTime),
-    endTime: noSchool ? null : (exception.endTimeOverride || defaultEndTime),
-    lunchPlan: exception.packLunch ? 'pack' : defaultLunchPlan,
+    scheduleNote: title || null,
+    dayNote: rawNote || null,
+    startTime: noSchool ? null : startTime,
+    endTime: noSchool ? null : endTime,
+    lunchPlan,
     icalUrls: Array.from(new Set(icalUrls))
   };
 }
@@ -817,6 +833,14 @@ function avoidClause(previous) {
   return previous ? ` Don't repeat this previous suggestion: "${previous}".` : '';
 }
 
+/** Passes a parent's free-text note for the day into a prompt, so things like a dress-up theme aren't ignored. */
+function dayNoteClause(dayNote) {
+  return dayNote
+    ? ` The parent left this note about today: "${dayNote}". Follow it wherever it's relevant (for example a ` +
+      `required outfit or lunch instruction) and ignore the parts that aren't.`
+    : '';
+}
+
 /** Extracts and parses the first {...} JSON object found in a model response. */
 function extractJson(text) {
   const match = text.match(/\{[\s\S]*\}/);
@@ -869,7 +893,7 @@ async function rejectAiSuggestion(db, suggestionId) {
  * activity), not from the "right now" reading at push time, which is given as background only.
  */
 async function generateClothingIdea(claudeToken, weather, previous, context = {}) {
-  const { startTime, endTime, activities } = context;
+  const { startTime, endTime, activities, dayNote } = context;
   const forecastLine = (weather.periods || [])
     .map(p => `${p.part}: ${p.tempF}°F, ${p.description}, ${p.pop}% chance of precipitation`)
     .join('; ');
@@ -895,43 +919,43 @@ async function generateClothingIdea(claudeToken, weather, previous, context = {}
     `chances or times of day when they matter). Lead with whatever the weather actually calls for — a ` +
     `jacket, rain gear, sun protection — then cover the basics like top, bottom, and footwear. Mention ` +
     `extras like sunglasses, a hat, or gloves only if the forecast justifies them. Refer to him as Remi. ` +
-    `Warm and casual, like a text from a partner.${avoidClause(previous)}`,
+    `Warm and casual, like a text from a partner.${dayNoteClause(dayNote)}${avoidClause(previous)}`,
     350
   );
 
   return extractJson(raw);
 }
 
-async function generatePackedLunchIdea(claudeToken, previous) {
+async function generatePackedLunchIdea(claudeToken, previous, dayNote) {
   const raw = await callClaude(
     claudeToken,
     `Respond with ONLY a JSON object of the exact shape {"dish": "..."} — no other text. The "dish" value ` +
     `should suggest ONE simple, kid-friendly packed lunch for a 6-year-old with no dietary restrictions, ` +
-    `for a school lunchbox. Max 20 words.${avoidClause(previous)}`,
+    `for a school lunchbox. Max 20 words.${dayNoteClause(dayNote)}${avoidClause(previous)}`,
     150
   );
 
   return extractJson(raw);
 }
 
-async function generateBreakfastIdea(claudeToken, previous) {
+async function generateBreakfastIdea(claudeToken, previous, dayNote) {
   const raw = await callClaude(
     claudeToken,
     `Respond with ONLY a JSON object of the exact shape {"dish": "..."} — no other text. The "dish" value ` +
     `should suggest ONE quick, kid-friendly breakfast idea for a 6-year-old before school, no dietary ` +
-    `restrictions, ready in under 10 minutes. Max 18 words.${avoidClause(previous)}`,
+    `restrictions, ready in under 10 minutes. Max 18 words.${dayNoteClause(dayNote)}${avoidClause(previous)}`,
     150
   );
 
   return extractJson(raw);
 }
 
-async function generateDinnerIdea(claudeToken, previous) {
+async function generateDinnerIdea(claudeToken, previous, dayNote) {
   const raw = await callClaude(
     claudeToken,
     `Respond with ONLY a JSON object of the exact shape {"dish": "..."} — no other text. The "dish" value ` +
     `should suggest ONE simple, kid-friendly dinner idea for a 6-year-old with no dietary restrictions, ` +
-    `easy enough for a busy weeknight. Max 20 words.${avoidClause(previous)}`,
+    `easy enough for a busy weeknight. Max 20 words.${dayNoteClause(dayNote)}${avoidClause(previous)}`,
     150
   );
 
@@ -977,7 +1001,8 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
       const idea = await generateClothingIdea(claudeToken, weather, existing?.clothingIdea, {
         startTime: schedule.startTime,
         endTime: schedule.endTime,
-        activities
+        activities,
+        dayNote: schedule.dayNote
       });
       clothingIdea = idea.reasoning;
       await rejectAiSuggestion(db, existing?.clothingSuggestionId);
@@ -993,7 +1018,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken && schedule.lunchPlan === 'pack') {
     try {
-      const idea = await generatePackedLunchIdea(claudeToken, existing?.packedLunchIdea);
+      const idea = await generatePackedLunchIdea(claudeToken, existing?.packedLunchIdea, schedule.dayNote);
       packedLunchIdea = idea.dish;
       await rejectAiSuggestion(db, existing?.packedLunchSuggestionId);
       packedLunchSuggestionId = await logAiSuggestion(db, {
@@ -1008,7 +1033,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken) {
     try {
-      const idea = await generateBreakfastIdea(claudeToken, existing?.breakfastIdea);
+      const idea = await generateBreakfastIdea(claudeToken, existing?.breakfastIdea, schedule.dayNote);
       breakfastIdea = idea.dish;
       await rejectAiSuggestion(db, existing?.breakfastSuggestionId);
       breakfastSuggestionId = await logAiSuggestion(db, {
@@ -1023,7 +1048,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken) {
     try {
-      const idea = await generateDinnerIdea(claudeToken, existing?.dinnerIdea);
+      const idea = await generateDinnerIdea(claudeToken, existing?.dinnerIdea, schedule.dayNote);
       dinnerIdea = idea.dish;
       await rejectAiSuggestion(db, existing?.dinnerSuggestionId);
       dinnerSuggestionId = await logAiSuggestion(db, {
@@ -1040,6 +1065,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
     date: dateStr,
     schoolStatus: schedule.schoolStatus,
     scheduleNote: schedule.scheduleNote,
+    dayNote: schedule.dayNote,
     startTime: schedule.startTime,
     endTime: schedule.endTime,
     weather,
@@ -1080,7 +1106,7 @@ function summarizeBriefingForPush(briefing) {
   if (briefing.schoolStatus === 'no-school') {
     scheduleLine = briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today';
   } else if (briefing.schoolStatus === 'early-release') {
-    scheduleLine = `Early release, starts ${formatTime12h(briefing.startTime)}`;
+    scheduleLine = `Early release, out at ${formatTime12h(briefing.endTime)}`;
   } else {
     scheduleLine = `School at ${formatTime12h(briefing.startTime)}`;
   }
@@ -1205,7 +1231,8 @@ exports.regenerateBriefingFacet = onCall(
           const idea = await generateClothingIdea(token, weather, briefing.clothingIdea, {
             startTime: briefing.startTime,
             endTime: briefing.endTime,
-            activities: briefing.activities
+            activities: briefing.activities,
+            dayNote: briefing.dayNote
           });
           await rejectAiSuggestion(db, briefing.clothingSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
@@ -1217,7 +1244,7 @@ exports.regenerateBriefingFacet = onCall(
           break;
         }
         case 'breakfast': {
-          const idea = await generateBreakfastIdea(token, briefing.breakfastIdea);
+          const idea = await generateBreakfastIdea(token, briefing.breakfastIdea, briefing.dayNote);
           await rejectAiSuggestion(db, briefing.breakfastSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
             featureType: 'remi-breakfast',
@@ -1231,7 +1258,7 @@ exports.regenerateBriefingFacet = onCall(
           if (briefing.lunchPlan !== 'pack') {
             throw new HttpsError('failed-precondition', 'Today is a hot-lunch day, not a packed lunch');
           }
-          const idea = await generatePackedLunchIdea(token, briefing.packedLunchIdea);
+          const idea = await generatePackedLunchIdea(token, briefing.packedLunchIdea, briefing.dayNote);
           await rejectAiSuggestion(db, briefing.packedLunchSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
             featureType: 'remi-packed-lunch',
@@ -1242,7 +1269,7 @@ exports.regenerateBriefingFacet = onCall(
           break;
         }
         case 'dinner': {
-          const idea = await generateDinnerIdea(token, briefing.dinnerIdea);
+          const idea = await generateDinnerIdea(token, briefing.dinnerIdea, briefing.dayNote);
           await rejectAiSuggestion(db, briefing.dinnerSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
             featureType: 'remi-dinner',
@@ -1508,3 +1535,77 @@ exports.googleCalendarDisconnect = onCall(async (request) => {
   }
   return { success: true };
 });
+
+// ---------------------------------------------------------------------------
+// Schedule exceptions: turn a parent's free-text description of one day into fields
+// ---------------------------------------------------------------------------
+
+const HHMM_PATTERN = /^([01]\d|2[0-3]):[0-5]\d$/;
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Reads e.g. "Sept 25 Remi starts 30 minutes earlier (8:30am) and it's a school pride day,
+ * wear green and blue" into the structured fields the schedule actually uses. Only a
+ * suggestion — the client shows the result for the parent to confirm or correct before
+ * saving, and the original text is kept as the day's note for the AI suggestion prompts.
+ */
+exports.parseScheduleException = onCall(
+  { secrets: ['CLAUDE_API_KEY'], invoker: 'public' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+
+    const text = typeof request.data?.text === 'string' ? request.data.text.trim().slice(0, 1500) : '';
+    if (!text) {
+      throw new HttpsError('invalid-argument', 'Describe the day first');
+    }
+    const defaults = request.data?.defaults || {};
+    const startTime = HHMM_PATTERN.test(defaults.startTime) ? defaults.startTime : '08:00';
+    const endTime = HHMM_PATTERN.test(defaults.endTime) ? defaults.endTime : '14:30';
+    const lunchPlan = defaults.lunchPlan === 'pack' ? 'packed' : 'hot';
+
+    const now = new Date();
+    const today = toDateStr(now);
+    const weekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
+
+    const prompt =
+      `You turn a parent's free-text note about one particular school day into structured fields. Today is ` +
+      `${weekday}, ${today}.\n\nThe regular schedule: school runs ${formatTime12h(startTime)} to ` +
+      `${formatTime12h(endTime)}, and lunch is normally ${lunchPlan}.\n\nThe note: "${text}"\n\n` +
+      `Respond with ONLY a JSON object of this exact shape, no other text:\n` +
+      `{\n` +
+      `  "date": "YYYY-MM-DD" or null,\n` +
+      `  "title": "a label of at most 5 words, e.g. 'School pride day'",\n` +
+      `  "noSchool": true or false,\n` +
+      `  "startTime": "HH:mm" (24-hour) or null,\n` +
+      `  "endTime": "HH:mm" (24-hour) or null,\n` +
+      `  "lunchPlan": "hot" or "pack" or null\n` +
+      `}\n\n` +
+      `Rules:\n` +
+      `- "date" only if the note names or clearly implies a specific day; when no year is given use the next ` +
+      `upcoming occurrence on or after today. Otherwise null.\n` +
+      `- "startTime"/"endTime" only when that time differs from the regular schedule. Resolve relative wording ` +
+      `("30 minutes earlier", "an hour late", "gets out at 1") against the regular times above. An explicit ` +
+      `clock time in the note always wins over your arithmetic. Otherwise null.\n` +
+      `- "lunchPlan" only if the note says to pack a lunch ("pack") or that hot lunch is happening ("hot"); ` +
+      `otherwise null.\n` +
+      `- Things that aren't schedule facts (what to wear, what to bring, themes, reminders) do NOT go in any ` +
+      `field — they stay in the note itself, which is kept as written.`;
+
+    try {
+      const parsed = extractJson(await callClaude(claudeApiKey.value(), prompt, 400));
+      return {
+        date: DATE_PATTERN.test(parsed.date) ? parsed.date : null,
+        title: typeof parsed.title === 'string' ? parsed.title.trim().slice(0, 60) : '',
+        noSchool: parsed.noSchool === true,
+        startTime: HHMM_PATTERN.test(parsed.startTime) ? parsed.startTime : null,
+        endTime: HHMM_PATTERN.test(parsed.endTime) ? parsed.endTime : null,
+        lunchPlan: parsed.lunchPlan === 'hot' || parsed.lunchPlan === 'pack' ? parsed.lunchPlan : null
+      };
+    } catch (err) {
+      console.error('parseScheduleException error:', err);
+      throw new HttpsError('internal', err.message || 'Could not read that description');
+    }
+  }
+);

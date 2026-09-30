@@ -15,10 +15,26 @@ export interface RemiScheduleSettings {
 export interface RemiScheduleException {
   date: string; // YYYY-MM-DD
   noSchool?: boolean;
+  /** Short label for display lines ("School pride day"). */
+  title?: string;
+  /** Free-text description of the day, as the parent wrote it; also fed to the AI suggestion prompts. */
   note?: string;
   startTimeOverride?: string;
   endTimeOverride?: string;
+  /** Overrides the default lunch plan for this day; unset means use the default. */
+  lunchPlan?: 'hot' | 'pack';
+  /** @deprecated superseded by lunchPlan; still read for exceptions saved before it existed. */
   packLunch?: boolean;
+}
+
+/** What Claude read out of a free-text description of a day — a suggestion to confirm, not a saved record. */
+export interface ParsedScheduleException {
+  date: string | null;
+  title: string;
+  noSchool: boolean;
+  startTime: string | null;
+  endTime: string | null;
+  lunchPlan: 'hot' | 'pack' | null;
 }
 
 export interface RemiLunchMenuEntry {
@@ -54,6 +70,8 @@ export interface RemiDailyBriefing {
   date: string;
   schoolStatus: 'school' | 'no-school' | 'early-release';
   scheduleNote: string | null;
+  /** The parent's full free-text note for the day, when they left one. */
+  dayNote?: string | null;
   startTime: string | null;
   endTime: string | null;
   weather: RemiBriefingWeather | null;
@@ -127,6 +145,16 @@ export class RemiScheduleService {
     return items
       .map(({ id, ...rest }) => ({ date: id, ...rest }))
       .sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  async parseExceptionText(
+    text: string,
+    defaults: { startTime: string; endTime: string; lunchPlan: 'hot' | 'pack' }
+  ): Promise<ParsedScheduleException> {
+    const parse = httpsCallable<{ text: string; defaults: typeof defaults }, ParsedScheduleException>(
+      getFunctions(), 'parseScheduleException'
+    );
+    return (await parse({ text, defaults })).data;
   }
 
   async saveException(exception: RemiScheduleException): Promise<boolean> {

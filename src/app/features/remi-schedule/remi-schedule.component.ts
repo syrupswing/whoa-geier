@@ -1,4 +1,4 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, computed, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   RemiScheduleService,
@@ -39,6 +40,7 @@ interface UpcomingDay {
     MatInputModule,
     MatCheckboxModule,
     MatRadioModule,
+    MatTooltipModule,
     MatSnackBarModule
   ],
   templateUrl: './remi-schedule.component.html',
@@ -59,6 +61,21 @@ export class RemiScheduleComponent implements OnInit {
   exceptions = signal<RemiScheduleException[]>([]);
   showAddException = signal(false);
   exceptionForm: RemiScheduleException = this.emptyExceptionForm();
+  /** Lunch choice for the form: '' means "use the regular plan". */
+  lunchChoice: '' | 'hot' | 'pack' = '';
+  isParsingException = signal(false);
+  /** Set after Claude fills the form, so the parent knows to double-check the detected details. */
+  exceptionParsed = signal(false);
+
+  // Upcoming first (soonest at the top), then past days, most recent first.
+  upcomingExceptions = computed(() => {
+    const today = this.todayStr();
+    return this.exceptions().filter(e => e.date >= today);
+  });
+  pastExceptions = computed(() => {
+    const today = this.todayStr();
+    return this.exceptions().filter(e => e.date < today).reverse();
+  });
 
   upcomingDays = signal<UpcomingDay[]>([]);
   editingLunchDate = signal<string | null>(null);
@@ -142,24 +159,38 @@ export class RemiScheduleComponent implements OnInit {
     this.exceptions.set(await this.remiScheduleService.getExceptions());
   }
 
+  private todayStr(): string {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+  }
+
   private emptyExceptionForm(): RemiScheduleException {
     return {
-      date: new Date().toISOString().split('T')[0],
+      date: this.todayStr(),
       noSchool: false,
+      title: '',
       note: '',
       startTimeOverride: '',
-      endTimeOverride: '',
-      packLunch: false
+      endTimeOverride: ''
     };
+  }
+
+  /** Exceptions saved before lunchPlan existed carry a packLunch boolean instead. */
+  private lunchChoiceOf(exception: RemiScheduleException): '' | 'hot' | 'pack' {
+    return exception.lunchPlan ?? (exception.packLunch ? 'pack' : '');
   }
 
   openAddException(): void {
     this.exceptionForm = this.emptyExceptionForm();
+    this.lunchChoice = '';
+    this.exceptionParsed.set(false);
     this.showAddException.set(true);
   }
 
   editException(exception: RemiScheduleException): void {
     this.exceptionForm = { ...exception };
+    this.lunchChoice = this.lunchChoiceOf(exception);
+    this.exceptionParsed.set(false);
     this.showAddException.set(true);
   }
 
@@ -167,9 +198,60 @@ export class RemiScheduleComponent implements OnInit {
     this.showAddException.set(false);
   }
 
+  /** Asks Claude to read the free-text description into the fields below it; the parent confirms or corrects. */
+  async fillExceptionFromText(): Promise<void> {
+    const text = (this.exceptionForm.note ?? '').trim();
+    if (!text) return;
+    const settings = this.remiScheduleService.settings();
+    this.isParsingException.set(true);
+    try {
+      const parsed = await this.remiScheduleService.parseExceptionText(text, {
+        startTime: settings.schoolStartTime,
+        endTime: settings.schoolEndTime,
+        lunchPlan: settings.defaultLunchPlan
+      });
+      this.exceptionForm = {
+        ...this.exceptionForm,
+        date: parsed.date ?? this.exceptionForm.date,
+        title: parsed.title,
+        noSchool: parsed.noSchool,
+        startTimeOverride: parsed.startTime ?? '',
+        endTimeOverride: parsed.endTime ?? ''
+      };
+      this.lunchChoice = parsed.lunchPlan ?? '';
+      this.exceptionParsed.set(true);
+    } catch (err: any) {
+      console.error('parseExceptionText error:', err);
+      this.snackBar.open("Couldn't read that — fill in the details below instead", 'Close', { duration: 4000 });
+    } finally {
+      this.isParsingException.set(false);
+    }
+  }
+
   async saveException(): Promise<void> {
     if (!this.exceptionForm.date) return;
-    const ok = await this.remiScheduleService.saveException(this.exceptionForm);
+    const settings = this.remiScheduleService.settings();
+    const { packLunch, ...form } = this.exceptionForm;
+    // A time equal to the regular one isn't an exception, and storing it would only
+    // make the day look changed when it isn't.
+    const exception: RemiScheduleException = {
+      ...form,
+      title: (form.title ?? '').trim(),
+      note: (form.note ?? '').trim(),
+      startTimeOverride: form.startTimeOverride === settings.schoolStartTime ? '' : form.startTimeOverride,
+      endTimeOverride: form.endTimeOverride === settings.schoolEndTime ? '' : form.endTimeOverride
+    };
+    if (this.lunchChoice && this.lunchChoice !== settings.defaultLunchPlan) {
+      exception.lunchPlan = this.lunchChoice;
+    } else {
+      delete exception.lunchPlan;
+    }
+    if (exception.noSchool) {
+      exception.startTimeOverride = '';
+      exception.endTimeOverride = '';
+    }
+
+    const ok = await this.remiScheduleService.saveException(exception);
     if (ok) {
       this.showAddException.set(false);
       await this.loadExceptions();
@@ -184,6 +266,55 @@ export class RemiScheduleComponent implements OnInit {
     await this.remiScheduleService.deleteException(date);
     await this.loadExceptions();
     await this.loadUpcomingLunchMenu();
+  }
+
+  /**
+   * Plain-language tags for how a day differs from the regular schedule. Compared against
+   * the regular times so a start that's earlier or later isn't mislabeled "early release",
+   * and a setting that matches the default produces no tag at all.
+   */
+  exceptionTags(exception: RemiScheduleException): string[] {
+    if (exception.noSchool) return ['No school'];
+    const settings = this.remiScheduleService.settings();
+    const tags: string[] = [];
+
+    const start = exception.startTimeOverride;
+    if (start && start !== settings.schoolStartTime) {
+      const diff = this.minutesOf(start) - this.minutesOf(settings.schoolStartTime);
+      tags.push(`Starts ${this.formatDuration(Math.abs(diff))} ${diff < 0 ? 'earlier' : 'later'} (${this.formatTime(start)})`);
+    }
+    const end = exception.endTimeOverride;
+    if (end && end !== settings.schoolEndTime) {
+      const early = this.minutesOf(end) < this.minutesOf(settings.schoolEndTime);
+      tags.push(`${early ? 'Early' : 'Late'} dismissal (${this.formatTime(end)})`);
+    }
+    const lunch = this.lunchChoiceOf(exception);
+    if (lunch && lunch !== settings.defaultLunchPlan) {
+      tags.push(lunch === 'pack' ? 'Pack lunch' : 'Hot lunch');
+    }
+    return tags;
+  }
+
+  formatExceptionDate(date: string): string {
+    const [y, m, d] = date.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
+  }
+
+  private minutesOf(hhmm: string): number {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  private formatDuration(minutes: number): string {
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m ? `${h} hr ${m} min` : `${h} hr`;
+  }
+
+  private formatTime(hhmm: string): string {
+    const [h, m] = hhmm.split(':').map(Number);
+    return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
   }
 
   private nextSchoolDates(count: number): string[] {

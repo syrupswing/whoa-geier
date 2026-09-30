@@ -867,7 +867,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (briefing.schoolStatus === 'no-school') {
       scheduleLine = briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today';
     } else if (briefing.schoolStatus === 'early-release' && briefing.startTime) {
-      scheduleLine = `Early release, starts ${this.formatClockTime(briefing.startTime)}`;
+      scheduleLine = `Early release, out at ${this.formatClockTime(briefing.endTime ?? briefing.startTime)}`;
     } else if (briefing.startTime) {
       scheduleLine = `School at ${this.formatClockTime(briefing.startTime)}`;
     } else {

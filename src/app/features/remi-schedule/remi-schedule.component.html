@@ -74,16 +74,29 @@
       <mat-card-title>Schedule exceptions</mat-card-title>
     </mat-card-header>
     <mat-card-content>
-      <p class="hint-text">No school, early release, field trips, or a day to pack a lunch instead of the default.</p>
+      <p class="hint-text">Anything different about a particular day — no school, a different start or dismissal time, a lunch change, a dress-up theme. Just describe it and the details are filled in for you.</p>
 
       <div class="exception-list" *ngIf="exceptions().length; else noExceptions">
-        <div class="exception-row" *ngFor="let exception of exceptions()">
+        <ng-container *ngTemplateOutlet="exceptionRows; context: { $implicit: upcomingExceptions(), past: false }"></ng-container>
+
+        <details class="past-exceptions" *ngIf="pastExceptions().length">
+          <summary>Past days ({{ pastExceptions().length }})</summary>
+          <ng-container *ngTemplateOutlet="exceptionRows; context: { $implicit: pastExceptions(), past: true }"></ng-container>
+        </details>
+      </div>
+      <ng-template #noExceptions>
+        <p class="hint-text">No exceptions added.</p>
+      </ng-template>
+
+      <ng-template #exceptionRows let-rows let-past="past">
+        <div class="exception-row" [class.past]="past" *ngFor="let exception of rows">
           <div class="exception-info">
-            <strong>{{ exception.date }}</strong>
-            <span *ngIf="exception.noSchool" class="tag">No school</span>
-            <span *ngIf="exception.startTimeOverride || exception.endTimeOverride" class="tag">Early release</span>
-            <span *ngIf="exception.packLunch" class="tag">Pack lunch</span>
-            <span *ngIf="exception.note" class="note">{{ exception.note }}</span>
+            <div class="exception-heading">
+              <strong>{{ formatExceptionDate(exception.date) }}</strong>
+              <span *ngIf="exception.title" class="exception-title">{{ exception.title }}</span>
+              <span *ngFor="let tag of exceptionTags(exception)" class="tag">{{ tag }}</span>
+            </div>
+            <span *ngIf="exception.note && exception.note !== exception.title" class="note">{{ exception.note }}</span>
           </div>
           <div class="exception-actions">
             <button mat-icon-button (click)="editException(exception)" matTooltip="Edit">
@@ -94,9 +107,6 @@
             </button>
           </div>
         </div>
-      </div>
-      <ng-template #noExceptions>
-        <p class="hint-text">No exceptions added.</p>
       </ng-template>
 
       <button mat-stroked-button (click)="openAddException()">
@@ -113,30 +123,62 @@
     </mat-card-header>
     <mat-card-content>
       <div class="form-grid">
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>What's different that day?</mat-label>
+          <textarea
+            matInput
+            rows="3"
+            [(ngModel)]="exceptionForm.note"
+            (ngModelChange)="exceptionParsed.set(false)"
+            placeholder="e.g. Sept 25 Remi starts 30 minutes earlier (at 8:30am) and it's a school pride day, so he should wear green and blue or one of his Dragons shirts."></textarea>
+        </mat-form-field>
+
+        <div class="full-width parse-row">
+          <button
+            mat-stroked-button
+            type="button"
+            [disabled]="isParsingException() || !exceptionForm.note?.trim()"
+            (click)="fillExceptionFromText()">
+            <mat-icon>auto_awesome</mat-icon>
+            {{ isParsingException() ? 'Reading…' : 'Fill in details' }}
+          </button>
+          <span class="hint-text" *ngIf="exceptionParsed()">Filled in from your description — check the details below.</span>
+        </div>
+
         <mat-form-field appearance="outline">
           <mat-label>Date</mat-label>
           <input matInput type="date" [(ngModel)]="exceptionForm.date">
         </mat-form-field>
 
+        <mat-form-field appearance="outline">
+          <mat-label>Short label</mat-label>
+          <input matInput [(ngModel)]="exceptionForm.title" placeholder="e.g. School pride day">
+        </mat-form-field>
+
         <div class="full-width checkbox-row">
           <mat-checkbox [(ngModel)]="exceptionForm.noSchool">No school</mat-checkbox>
-          <mat-checkbox [(ngModel)]="exceptionForm.packLunch">Pack lunch instead of hot lunch</mat-checkbox>
         </div>
 
-        <mat-form-field appearance="outline" *ngIf="!exceptionForm.noSchool">
-          <mat-label>Start time override</mat-label>
-          <input matInput type="time" [(ngModel)]="exceptionForm.startTimeOverride">
-        </mat-form-field>
+        <ng-container *ngIf="!exceptionForm.noSchool">
+          <mat-form-field appearance="outline">
+            <mat-label>Start time (if different)</mat-label>
+            <input matInput type="time" [(ngModel)]="exceptionForm.startTimeOverride">
+          </mat-form-field>
 
-        <mat-form-field appearance="outline" *ngIf="!exceptionForm.noSchool">
-          <mat-label>End time override</mat-label>
-          <input matInput type="time" [(ngModel)]="exceptionForm.endTimeOverride">
-        </mat-form-field>
+          <mat-form-field appearance="outline">
+            <mat-label>Dismissal time (if different)</mat-label>
+            <input matInput type="time" [(ngModel)]="exceptionForm.endTimeOverride">
+          </mat-form-field>
+        </ng-container>
 
-        <mat-form-field appearance="outline" class="full-width">
-          <mat-label>Note</mat-label>
-          <input matInput [(ngModel)]="exceptionForm.note" placeholder="e.g. Field trip to the zoo">
-        </mat-form-field>
+        <div class="full-width lunch-choice">
+          <span class="lunch-choice-label">Lunch</span>
+          <mat-radio-group [(ngModel)]="lunchChoice" class="lunch-choice-options">
+            <mat-radio-button value="">Regular ({{ remiScheduleService.settings().defaultLunchPlan === 'pack' ? 'packed' : 'hot' }})</mat-radio-button>
+            <mat-radio-button value="hot">Hot lunch</mat-radio-button>
+            <mat-radio-button value="pack">Pack lunch</mat-radio-button>
+          </mat-radio-group>
+        </div>
       </div>
     </mat-card-content>
     <mat-card-actions>
