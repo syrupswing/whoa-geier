@@ -1,4 +1,4 @@
-import { Directive, ElementRef, Input, NgZone, OnChanges, OnDestroy, SecurityContext, SimpleChanges, inject } from '@angular/core';
+import { Directive, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestroy, Output, SecurityContext, SimpleChanges, inject } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import { marked } from 'marked';
 
@@ -40,36 +40,111 @@ export class TypewriterDirective implements OnChanges, OnDestroy {
   /** Skip the animation and render the full text immediately. */
   @Input() typewriterInstant = false;
 
+  /** Shows a caret (the `tw-cursor` class) while text is being typed or erased. */
+  @Input() typewriterCursor = false;
+
+  /** When the text changes, backspace what's showing before typing the new text. */
+  @Input() typewriterErase = false;
+
+  /** Milliseconds between characters while erasing. */
+  @Input() typewriterEraseSpeed = 14;
+
+  /** Fires once the full text has been revealed (not while erasing the old text). */
+  @Output() typewriterDone = new EventEmitter<void>();
+
+  /** Fires when the previous text is gone — after erasing it, or right away when there's nothing to erase — just before the new text starts. */
+  @Output() typewriterCleared = new EventEmitter<void>();
+
+  /** Plain text currently on screen, so erasing starts from where a reveal was cut off. */
+  private shown = '';
+
   ngOnChanges(changes: SimpleChanges): void {
     if (!changes['appTypewriter']) return;
     const text = this.appTypewriter ?? '';
     if (text === this.currentText) return;
     this.currentText = text;
-    this.reveal(text);
+    if (this.canErase()) {
+      this.erase(() => {
+        this.zone.run(() => this.typewriterCleared.emit());
+        this.reveal(text);
+      });
+    } else {
+      // Deferred: this runs inside the parent's change detection, where a listener that
+      // writes state the template already read would trip the dev-mode consistency check.
+      queueMicrotask(() => this.typewriterCleared.emit());
+      this.reveal(text);
+    }
   }
 
   ngOnDestroy(): void {
     this.stop();
   }
 
+  private prefersInstant(): boolean {
+    return this.typewriterInstant || !!window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  private canErase(): boolean {
+    return this.typewriterErase && !this.typewriterMarkdown && !this.prefersInstant() && this.shown.length > 0;
+  }
+
+  private setCursor(on: boolean): void {
+    if (this.typewriterCursor) {
+      this.el.nativeElement.classList.toggle('tw-cursor', on);
+    }
+  }
+
+  /** Backspaces whatever is showing, then calls onEmpty. */
+  private erase(onEmpty: () => void): void {
+    this.stop();
+    const node = this.el.nativeElement;
+    this.setCursor(true);
+    this.zone.runOutsideAngular(() => {
+      const step = () => {
+        this.shown = this.shown.slice(0, -1);
+        this.render(node, this.shown);
+        if (this.shown.length === 0) {
+          onEmpty();
+          return;
+        }
+        this.timer = window.setTimeout(step, this.typewriterEraseSpeed);
+      };
+      this.timer = window.setTimeout(step, this.typewriterEraseSpeed);
+    });
+  }
+
   private reveal(text: string): void {
     this.stop();
     const node = this.el.nativeElement;
+    this.shown = '';
     this.render(node, '');
-    if (!text) return;
-
-    if (this.typewriterInstant || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      this.render(node, text);
+    if (!text) {
+      this.setCursor(false);
       return;
     }
+
+    if (this.prefersInstant()) {
+      this.shown = text;
+      this.render(node, text);
+      this.setCursor(false);
+      this.zone.run(() => this.typewriterDone.emit());
+      return;
+    }
+
+    this.setCursor(true);
 
     let index = 0;
     this.wordsUntilPause = this.randomBurstLength();
     this.zone.runOutsideAngular(() => {
       const step = () => {
         index++;
-        this.render(node, text.slice(0, index));
-        if (index >= text.length) return;
+        this.shown = text.slice(0, index);
+        this.render(node, this.shown);
+        if (index >= text.length) {
+          this.setCursor(false);
+          this.zone.run(() => this.typewriterDone.emit());
+          return;
+        }
         // Pause on the space itself so the next word starts after a beat, not mid-reveal.
         const delay = text[index - 1] === ' ' ? this.spaceDelay() : this.typewriterSpeed;
         this.timer = window.setTimeout(step, delay);

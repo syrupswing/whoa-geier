@@ -2,34 +2,19 @@
 
   <section class="dashboard-hero">
     <div class="header">
-      <app-home-logo-btn></app-home-logo-btn>
-      <h1 [appTypewriter]="heroHeading()" [typewriterSpeed]="20" [typewriterSpacePause]="90"></h1>
+      <app-home-logo-btn [loading]="heroAnimating()"></app-home-logo-btn>
+      <h1
+        [class.is-loading-phrase]="heroLoadingStyle()"
+        [class.tw-cursor-hold]="isHeroLoading()"
+        [appTypewriter]="heroHeading()"
+        [typewriterSpeed]="40"
+        [typewriterSpacePause]="180"
+        [typewriterEraseSpeed]="28"
+        [typewriterCursor]="true"
+        [typewriterErase]="true"
+        (typewriterDone)="onHeroTyped()"
+        (typewriterCleared)="onHeroCleared()"></h1>
       <app-global-nav-menu></app-global-nav-menu>
-    </div>
-
-    <!-- At-a-glance highlights -->
-    <div class="home-highlights" *ngIf="homeHighlights().length">
-      <ng-container *ngFor="let highlight of homeHighlights()">
-        <a *ngIf="highlight.route" class="highlight-item" [routerLink]="highlight.route">
-          <mat-icon>{{ highlight.icon }}</mat-icon>
-          <span>{{ highlight.text }}</span>
-          <mat-icon class="highlight-chevron">chevron_right</mat-icon>
-        </a>
-        <div *ngIf="!highlight.route" class="highlight-item">
-          <mat-icon>{{ highlight.icon }}</mat-icon>
-          <span>{{ highlight.text }}</span>
-        </div>
-        <div class="highlight-quick-prompts" *ngIf="highlight.quickPrompts?.length">
-          <button
-            type="button"
-            class="quick-prompt-chip"
-            *ngFor="let prompt of highlight.quickPrompts"
-            [disabled]="isChatLoading()"
-            (click)="sendQuickPrompt(prompt)">
-            {{ prompt }}
-          </button>
-        </div>
-      </ng-container>
     </div>
 
     <!-- Agent chat -->
@@ -77,17 +62,6 @@
           <button type="button" class="clear-chat-confirm-btn" (click)="confirmClearChat()">Yes, clear</button>
           <button type="button" class="clear-chat-cancel-btn" (click)="cancelClearChat()">Cancel</button>
         </div>
-      </div>
-
-      <div class="home-chat-suggestions" *ngIf="!chatMessages().length">
-        <button
-          type="button"
-          class="quick-prompt-chip"
-          *ngFor="let suggestion of chatSuggestions"
-          [disabled]="isChatLoading()"
-          (click)="sendQuickPrompt(suggestion)">
-          {{ suggestion }}
-        </button>
       </div>
 
       <form class="home-chat-input" (ngSubmit)="sendChatMessage()">

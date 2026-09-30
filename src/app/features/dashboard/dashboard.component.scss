@@ -44,9 +44,29 @@
   display: grid;
   gap: 20px;
 
+  // Top-aligned so a heading that wraps to a second line grows downward instead of
+  // shifting its first line up (a centered row would split the extra height both ways).
+  .header {
+    align-items: flex-start;
+
+    // The nav button is 46px against the 52px logo — nudge it to the logo's center line.
+    app-global-nav-menu {
+      margin-top: 3px;
+    }
+  }
+
   h1 {
-    font-size: 2rem;
+    --hero-h1-size: 2rem;
+    font-size: var(--hero-h1-size);
+    // Centers the first line against the 52px logo button beside it (line-height is 1.2).
+    margin-top: calc((52px - 1.2 * var(--hero-h1-size)) / 2);
     color: var(--mat-sidenav-content-text-color);
+
+    // Loading phrases read as a lighter aside; the real greeting settles into full weight.
+    &.is-loading-phrase {
+      font-weight: 300;
+      font-style: italic;
+    }
   }
 
   .subtitle {
@@ -250,82 +270,6 @@
   }
 }
 
-.home-highlights {
-  display: flex;
-  flex-direction: column;
-
-  .highlight-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 7px 4px;
-    border-radius: 10px;
-    font-size: 0.85rem;
-    color: var(--color-text-primary);
-    text-decoration: none;
-
-    mat-icon:first-child {
-      color: var(--color-aura-sage);
-      flex-shrink: 0;
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
-    }
-
-    span {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .highlight-chevron {
-      color: var(--color-text-secondary);
-      flex-shrink: 0;
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-  }
-
-  a.highlight-item {
-    transition: background-color 0.15s ease;
-
-    &:hover,
-    &:active {
-      background: rgba(61, 53, 80, 0.06);
-    }
-  }
-
-  .highlight-quick-prompts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    padding: 2px 4px 10px 34px;
-  }
-}
-
-// Shared pill-shaped suggestion button — used both for a highlight's own quick
-// prompts and the chat window's general suggestions.
-.quick-prompt-chip {
-  border: 1px solid rgba(61, 53, 80, 0.14);
-  border-radius: 999px;
-  background: transparent;
-  padding: 5px 12px;
-  font-size: 0.76rem;
-  color: var(--color-text-primary);
-  cursor: pointer;
-  transition: background-color 0.15s ease, opacity 0.15s ease;
-
-  &:hover,
-  &:active {
-    background: rgba(61, 53, 80, 0.06);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-}
-
 .home-chat {
   display: flex;
   flex-direction: column;
@@ -465,16 +409,6 @@
       background: rgba(61, 53, 80, 0.06);
       color: var(--color-text-primary);
     }
-  }
-
-  .home-chat-suggestions {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 6px;
-    width: 92%;
-    max-width: 560px;
-    align-self: center;
   }
 
   .home-chat-input {
@@ -2070,7 +2004,7 @@
 
   .dashboard-container {
     h1 {
-      font-size: 1.5rem;
+      --hero-h1-size: 1.5rem;
     }
 
     .subtitle {

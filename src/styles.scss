@@ -417,3 +417,25 @@ button.card-expand-btn.mat-mdc-icon-button {
 .cdk-overlay-container .mat-mdc-menu-panel {
   border-radius: 12px;
 }
+
+/* Caret for the typewriter directive: solid while text is being typed or erased
+   (.tw-cursor), blinking while it waits between phases (.tw-cursor-hold). */
+.tw-cursor::after,
+.tw-cursor-hold::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 0.95em;
+  margin-left: 3px;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: tw-caret-blink 1s steps(1) infinite;
+}
+
+.tw-cursor::after {
+  animation: none;
+}
+
+@keyframes tw-caret-blink {
+  50% { opacity: 0; }
+}

@@ -10,7 +10,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { RouterLink } from '@angular/router';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
@@ -33,15 +32,6 @@ import {
 } from '../../services/quick-add-creation.service';
 import { AiSuggestionService } from '../../services/ai-suggestion.service';
 import { HouseholdService } from '../../services/household.service';
-
-interface HomeHighlight {
-  icon: string;
-  text: string;
-  /** Route to navigate to when this highlight references something actionable elsewhere in the app. */
-  route?: string;
-  /** Suggested chat questions relevant to this highlight (e.g. school -> "What should Remi wear?"). */
-  quickPrompts?: string[];
-}
 
 interface TimelineEvent extends CalendarEvent {
   startDate: Date;
@@ -86,6 +76,83 @@ const HERO_LOADING_PHRASES = [
   'Powering up the command center...'
 ];
 
+type DayPart = 'morning' | 'afternoon' | 'evening' | 'night';
+
+function dayPartOf(hour: number): DayPart {
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 20) return 'evening';
+  return 'night';
+}
+
+/** Casual greetings the hero heading settles on, by time of day; one is picked per visit. Keep them short — they share a row with the logo and menu buttons. */
+const HERO_GREETINGS: Record<DayPart, string[]> = {
+  morning: [
+    'Rise and shine, Geiers!',
+    'Morning, team Geier!',
+    'Coffee first, then conquer.',
+    "Look who's up bright and early!",
+    'A fresh day, ready when you are.'
+  ],
+  afternoon: [
+    'Afternoon, Geiers!',
+    'Hope the day is treating you well.',
+    'Halfway there, keep it rolling!',
+    'Still going strong, team Geier!',
+    'Hope the afternoon is a good one.'
+  ],
+  evening: [
+    'Evening, Geiers!',
+    'Home stretch of the day!',
+    'The day is winding down, nice work.',
+    'Cozy evening ahead, Geiers.',
+    'You made it through the day!'
+  ],
+  // Covers 8pm through the early hours, so nothing here assumes it's still early evening.
+  night: [
+    'Evening, Geiers!',
+    'Winding down, team Geier?',
+    'Quiet night, Geiers.',
+    'Time to put the feet up.',
+    'You made it through the day!'
+  ]
+};
+
+/** Generic nudges toward doing something in the app, by time of day (so nothing asks about dinner at midnight); deliberately not tied to what's actually in it. */
+const HERO_NUDGES: Record<DayPart, string[]> = {
+  morning: [
+    "What's on the agenda today?",
+    'Anything to add to the grocery list?',
+    'Any to-dos to knock out today?',
+    'Got something to put on the calendar?',
+    'Need a hand with anything?'
+  ],
+  afternoon: [
+    "What's for dinner tonight?",
+    'Anything to add to the grocery list?',
+    'Any to-dos to knock out today?',
+    'Got something to put on the calendar?',
+    'Need a hand with anything?'
+  ],
+  evening: [
+    "What's for dinner tonight?",
+    'Anything to add to the grocery list?',
+    'Anything to plan for tomorrow?',
+    'Got something to put on the calendar?',
+    'Need a hand with anything?'
+  ],
+  night: [
+    'Anything to plan for tomorrow?',
+    'Anything to jot down before bed?',
+    'Need anything on the grocery list for tomorrow?',
+    'Got something to put on the calendar?',
+    'Any to-dos to jot down for tomorrow?'
+  ]
+};
+
+/** Random slot shared by every time-of-day pool, so a greeting stays put when the hour rolls over. */
+const HERO_GREETING_SLOT = Math.random();
+
 function pickRandomHeroPhrase(): string {
   return HERO_LOADING_PHRASES[Math.floor(Math.random() * HERO_LOADING_PHRASES.length)];
 }
@@ -106,7 +173,7 @@ function loadPersistedChatMessages(): ChatMessage[] {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, RouterLink, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
+  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -119,7 +186,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private readonly heroLoadingPhrase = pickRandomHeroPhrase();
   private heroPhase = signal<'intro' | 'greeting'>('intro');
   private heroSwapTimer?: number;
-  heroHeading = computed(() => this.heroPhase() === 'intro' ? this.heroLoadingPhrase : this.getGreetingMessage());
+  /** True while the hero heading is showing a playful loading phrase rather than the real greeting. */
+  /**
+   * Whether the heading still looks like a loading phrase (light italic, animated logo). Outlasts
+   * isHeroLoading() by the erase animation, so the old text doesn't snap to full weight mid-delete.
+   */
+  heroLoadingStyle = signal(true);
+  /** Whether any heading animation is still running or pending — the logo loader keeps going until the final greeting has finished typing. */
+  heroAnimating = signal(true);
+  isHeroLoading = computed(() => this.heroPhase() === 'intro');
+  /** The proactive line after the greeting, fixed once the greeting starts so it can't change under the typing. */
+  private heroNudge = signal('');
+  heroHeading = computed(() => this.heroPhase() === 'intro'
+    ? this.heroLoadingPhrase
+    : `${this.getGreetingMessage()} ${this.heroNudge()}`.trim());
   /** True once the user has explicitly stepped away from today's view — blocks the auto re-sync on resume. */
   private hasNavigatedAwayFromToday = false;
   selectedEvent = signal<TimelineEvent | null>(null);
@@ -144,12 +224,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   /** What the user had typed before they started browsing history, restored when paging past the newest entry. */
   private chatHistoryDraft = '';
   apiCallCount = signal<number>(0);
-  readonly chatSuggestions: string[] = [
-    "What's Remi's full day look like?",
-    'Generate a to-do list for me today',
-    "What's for dinner tonight?",
-    'Any alerts I should know about?'
-  ];
   
   // Welcome message properties
   welcomeMessage = signal<string>('Welcome to your Family Command Center!');
@@ -172,45 +246,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   notificationPromptDismissed = signal<boolean>(localStorage.getItem(NOTIFICATION_PROMPT_KEY) === 'true');
 
-  // Short, at-a-glance highlights shown above the chat — next events, overdue todos, weather.
-  homeHighlights = computed<HomeHighlight[]>(() => {
-    const highlights: HomeHighlight[] = [];
-    const now = this.currentTime();
-
-    const remiHighlight = this.getRemiNextEventHighlight(now);
-    if (remiHighlight) {
-      highlights.push(remiHighlight);
-    }
-
-    const overdueCount = this.todoService.getOverdueItems().length;
-    if (overdueCount > 0) {
-      highlights.push({
-        icon: 'checklist',
-        text: `${overdueCount} to-do${overdueCount === 1 ? '' : 's'} overdue`,
-        route: '/todos'
-      });
-    }
-
-    const upcomingEvents = this.getTodayEvents().filter(e => e.endDate >= now);
-    const maxEvents = Math.max(0, 3 - highlights.length);
-    for (const event of upcomingEvents.slice(0, maxEvents)) {
-      highlights.push({
-        icon: 'event',
-        text: `${event.summary} at ${this.formatTime(event.startDate)}`,
-        route: '/calendar'
-      });
-    }
-
-    const weather = this.weatherService.weather();
-    if (weather && highlights.length < 4) {
-      highlights.push({
-        icon: 'wb_sunny',
-        text: `${weather.temperature}°F and ${weather.description}`
-      });
-    }
-
-    return highlights;
-  });
   
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
@@ -286,14 +321,38 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // (mobile tab suspend/resume, a kiosk tablet left open, etc).
     document.addEventListener('visibilitychange', this.resyncViewDateOnForeground);
 
-    // Read-only — just fetches today's cached briefing doc if one exists, so
-    // homeHighlights can surface Remi's next event. Never triggers regeneration.
+    // Read-only — just fetches today's cached briefing doc if one exists, so it can be
+    // posted into the chat. Never triggers regeneration.
     void this.remiScheduleService.loadTodayBriefing().then(() => this.injectDailyBriefingChatMessage());
 
-    // Let the loading phrase sit on screen for a beat after it finishes typing, then
-    // hand off to the real greeting.
-    this.heroSwapTimer = window.setTimeout(() => this.heroPhase.set('greeting'), 1800);
+    // Normally onHeroTyped() hands off once the loading phrase has finished typing; this
+    // is only a backstop so the greeting still shows up if that never fires.
+    this.heroSwapTimer = window.setTimeout(() => this.startHeroGreeting(), 8000);
   }
+
+  /** The loading phrase is fully erased (the greeting is about to type), so the loading look can end. */
+  onHeroCleared(): void {
+    if (this.heroPhase() === 'greeting') {
+      this.heroLoadingStyle.set(false);
+    }
+  }
+
+  /** Once the loading phrase finishes typing, let it sit a beat, then erase it for the real greeting. */
+  onHeroTyped(): void {
+    if (this.heroPhase() === 'greeting') {
+      this.heroAnimating.set(false);
+      return;
+    }
+    if (this.heroSwapTimer) clearTimeout(this.heroSwapTimer);
+    this.heroSwapTimer = window.setTimeout(() => this.startHeroGreeting(), 1800);
+  }
+
+  private startHeroGreeting(): void {
+    const nudges = HERO_NUDGES[dayPartOf(this.currentTime().getHours())];
+    this.heroNudge.set(nudges[Math.floor(HERO_GREETING_SLOT * nudges.length)]);
+    this.heroPhase.set('greeting');
+  }
+
 
   ngAfterViewInit(): void {
     // Scroll to current time after view is initialized
@@ -720,16 +779,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getGreetingMessage(): string {
-    const hour = this.currentTime().getHours();
-    let greeting = 'Good evening';
-
-    if (hour >= 5 && hour < 12) {
-      greeting = 'Good morning';
-    } else if (hour >= 12 && hour < 18) {
-      greeting = 'Good afternoon';
-    }
-
-    return `${greeting}!`;
+    const pool = HERO_GREETINGS[dayPartOf(this.currentTime().getHours())];
+    return pool[Math.floor(HERO_GREETING_SLOT * pool.length)];
   }
 
   getNotificationCount(): number {
@@ -791,48 +842,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   /**
-   * The single nearest not-yet-passed item from Remi's schedule today — school
-   * start, or the next activity, whichever comes first — for the top homepage
-   * highlight. Returns null once there's nothing left today, rather than
-   * fabricating one from an out-of-date briefing.
-   */
-  private getRemiNextEventHighlight(now: Date): HomeHighlight | null {
-    const briefing = this.remiScheduleService.todayBriefing();
-    if (!briefing) return null;
-
-    const nowMinutes = now.getHours() * 60 + now.getMinutes();
-    const candidates: { minutes: number; highlight: HomeHighlight }[] = [];
-
-    if ((briefing.schoolStatus === 'school' || briefing.schoolStatus === 'early-release') && briefing.startTime) {
-      const startMinutes = this.parseHHmmToMinutes(briefing.startTime);
-      if (startMinutes !== null && startMinutes >= nowMinutes) {
-        candidates.push({
-          minutes: startMinutes,
-          highlight: {
-            icon: 'school',
-            text: `School starts at ${this.formatClockTime(briefing.startTime)}`,
-            quickPrompts: ['What should Remi wear to school?', "What's for lunch?", "What's for dinner?"]
-          }
-        });
-      }
-    }
-
-    for (const activity of briefing.activities || []) {
-      const minutes = this.parseClockLabelToMinutes(activity.time);
-      if (minutes !== null && minutes >= nowMinutes) {
-        candidates.push({
-          minutes,
-          highlight: { icon: 'event', text: `${activity.title} at ${activity.time}` }
-        });
-      }
-    }
-
-    if (!candidates.length) return null;
-    candidates.sort((a, b) => a.minutes - b.minutes);
-    return candidates[0].highlight;
-  }
-
-  /**
    * Appends today's briefing as an assistant chat message, unprompted — once per day,
    * regardless of how much older chat history is already sitting above it. A no-op if
    * no briefing has been generated yet for today, or if today's has already been shown.
@@ -888,21 +897,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const period = hours >= 12 ? 'PM' : 'AM';
     const hour12 = hours % 12 === 0 ? 12 : hours % 12;
     return `${hour12}:${minutes.toString().padStart(2, '0')} ${period}`;
-  }
-
-  private parseHHmmToMinutes(hhmm: string | null): number | null {
-    if (!hhmm) return null;
-    const [hour, minute] = hhmm.split(':').map(Number);
-    return hour * 60 + minute;
-  }
-
-  /** Parses a displayed "H:MM AM/PM" activity time into minutes since midnight. */
-  private parseClockLabelToMinutes(label: string | null): number | null {
-    const match = /^(\d{1,2}):(\d{2})\s*(AM|PM)$/i.exec((label || '').trim());
-    if (!match) return null;
-    let hour = Number(match[1]) % 12;
-    if (match[3].toUpperCase() === 'PM') hour += 12;
-    return hour * 60 + Number(match[2]);
   }
 
   getEventColor(event: CalendarEvent): string {
@@ -1069,13 +1063,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   confirmClearChat(): void {
     this.chatMessages.set([]);
     this.isConfirmingClearChat.set(false);
-  }
-
-  /** Sends a suggested prompt (e.g. from a highlight's quick-prompt chips) as-is. */
-  async sendQuickPrompt(prompt: string): Promise<void> {
-    if (this.isChatLoading()) return;
-    this.chatInput = prompt;
-    await this.sendChatMessage();
   }
 
   // AI Chat methods
