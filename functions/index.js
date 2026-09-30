@@ -286,8 +286,18 @@ const ORCHESTRATOR_TEMPLATES = {
       const todosClause = context.todos.length
         ? `\nOpen to-do items: ${context.todos.join('; ')}.`
         : '';
-      const groceryClause = context.groceryItems.length
-        ? `\nShopping list: ${context.groceryItems.join(', ')}.`
+      const groceryClause = (context.pantryItems || []).length || context.groceryItems.length
+        ? `\nFood on hand: ` +
+          `${(context.pantryItems || []).length ? `${context.pantryItems.join(', ')}` : 'nothing recently bought is recorded'}.` +
+          `\nStill on the shopping list (not bought yet, so NOT in the house): ` +
+          `${context.groceryItems.length ? context.groceryItems.join(', ') : 'nothing'}.` +
+          `\nWhen suggesting meals, treat "on hand" items as available now and keep the two groups clearly ` +
+          `apart: say what can be made right now from what's on hand (plus basic staples like salt, pepper, ` +
+          `oil, and water), and separately what could be made if the outstanding ` +
+          `shopping-list items get bought, naming the items that would be missing. Never present a ` +
+          `shopping-list item as something already available. An ingredient that appears in neither list ` +
+          `might still be in the pantry from earlier — if a meal needs one, flag it as "if you already have ` +
+          `it" rather than counting it as available or missing.`
         : '';
       const alertsClause = context.alerts.length
         ? `\nActive alerts: ${context.alerts.join('; ')}.`
@@ -326,6 +336,9 @@ const ORCHESTRATOR_TEMPLATES = {
     }
   }
 };
+
+/** How long a checked-off shopping-list item counts as "still in the house". */
+const PANTRY_WINDOW_DAYS = 14;
 
 /** The orchestrator context minus the bulky reference-doc text — the log only needs to know which docs were used. */
 function loggableContext(context) {
@@ -395,7 +408,7 @@ async function buildFamilyChatContext(db, payload) {
     db.collection('app-cache').doc('calendar-events').get(),
     db.collection('remi-daily-briefing').doc(today).get(),
     db.collection('todoItems').where('completed', '==', false).get(),
-    db.collection('groceryItems').where('completed', '==', false).get(),
+    db.collection('groceryItems').get(),
     db.collection('smartAlerts').where('status', '==', 'pending').get()
   ]);
 
@@ -512,7 +525,23 @@ async function buildFamilyChatContext(db, payload) {
     .map(t => (t.dueDate ? `${t.title} (due ${t.dueDate.split('T')[0]})` : t.title))
     .slice(0, 20);
 
-  const groceryItems = grocerySnap.docs.map(d => d.data().name).filter(Boolean).slice(0, 30);
+  const groceryDocs = grocerySnap.docs.map(d => d.data()).filter(g => g.name);
+  const groceryItems = groceryDocs.filter(g => !g.completed).map(g => g.name).slice(0, 30);
+
+  // A checked-off item was bought, so it should be in the house. Only recent ones count — a
+  // months-old checkmark says nothing about what's in the pantry now — labeled with how long
+  // ago, since milk from yesterday and milk from two weeks ago aren't the same thing.
+  const pantryCutoff = now.getTime() - PANTRY_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  const pantryItems = groceryDocs
+    .filter(g => g.completed)
+    .map(g => ({ name: g.name, boughtAt: new Date(g.updatedAt || g.createdAt || 0).getTime() }))
+    .filter(g => g.boughtAt >= pantryCutoff)
+    .sort((a, b) => b.boughtAt - a.boughtAt)
+    .slice(0, 40)
+    .map(g => {
+      const days = Math.floor((now.getTime() - g.boughtAt) / (24 * 60 * 60 * 1000));
+      return `${g.name} (bought ${days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`})`;
+    });
 
   const alerts = alertsSnap.docs.map(d => d.data().message).filter(Boolean).slice(0, 10);
 
@@ -520,7 +549,7 @@ async function buildFamilyChatContext(db, payload) {
 
   const referenceDocs = await selectReferenceDocs(db, payload?.message);
 
-  return { today, todayWeekday, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, alerts, referenceDocs };
+  return { today, todayWeekday, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(
