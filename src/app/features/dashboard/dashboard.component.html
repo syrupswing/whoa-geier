@@ -18,7 +18,7 @@
     </div>
 
     <!-- Agent chat -->
-    <div class="home-chat">
+    <div class="home-chat" #homeChat>
       <div class="home-chat-messages" #chatContainer *ngIf="chatMessages().length">
         <div class="chat-message" *ngFor="let message of chatMessages()" [class.user]="message.isUser">
           <p *ngIf="message.isUser">{{ message.text }}</p>
@@ -89,6 +89,17 @@
         </div>
       </div>
 
+      <div class="home-chat-dock" #chatDock>
+      <button
+        type="button"
+        class="scroll-to-bottom-btn"
+        [class.hidden]="!showChatScrollBtn()"
+        (click)="scrollToChatBottom()"
+        aria-label="Scroll to latest message"
+        [attr.aria-hidden]="!showChatScrollBtn()"
+        [tabIndex]="showChatScrollBtn() ? 0 : -1">
+        <mat-icon>expand_more</mat-icon>
+      </button>
       <form class="home-chat-input" (ngSubmit)="sendChatMessage()">
         <textarea
           #chatTextarea
@@ -105,6 +116,7 @@
           <mat-icon>send</mat-icon>
         </button>
       </form>
+      </div>
     </div>
   </section>
 

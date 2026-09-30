@@ -222,6 +222,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   chatMessages = signal<ChatMessage[]>(loadPersistedChatMessages());
   chatInput = '';;
   isChatLoading = signal(false);
+  /** Shown while the sticky input is pinned with a good stretch of chat still below the viewport. */
+  showChatScrollBtn = signal(false);
+  private suppressChatScrollDetection = false;
+  private chatResizeObserver?: ResizeObserver;
   /** The assistant reply currently being corrected (its inline correction form is open). */
   correctingMessage = signal<ChatMessage | null>(null);
   correctionText = '';
@@ -257,6 +261,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
+  @ViewChild('homeChat', { read: ElementRef }) homeChat?: ElementRef<HTMLElement>;
+  @ViewChild('chatDock', { read: ElementRef }) chatDock?: ElementRef<HTMLElement>;
   @ViewChild('chatTextarea', { read: ElementRef }) chatTextarea?: ElementRef<HTMLTextAreaElement>;
   private readonly CHAT_INPUT_MAX_HEIGHT = 300;
 
@@ -377,10 +383,73 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   ngAfterViewInit(): void {
     // Scroll to current time after view is initialized
     setTimeout(() => this.scrollToCurrentTime(), 100);
+
+    // The page scrolls inside .app-container, not the window, and scroll events don't
+    // bubble — so listen in the capture phase (same trick as closePopoverOnScroll).
+    window.addEventListener('scroll', this.updateChatDockState, true);
+    window.addEventListener('resize', this.updateChatDockState);
+    if (this.homeChat && typeof ResizeObserver !== 'undefined') {
+      // The chat grows as replies type out, with no scroll event to notice it.
+      this.chatResizeObserver = new ResizeObserver(() => this.updateChatDockState());
+      this.chatResizeObserver.observe(this.homeChat.nativeElement);
+    }
+  }
+
+  /** Bottom edge of the viewport minus the dock's sticky offset — where the dock rests when pinned. */
+  private static readonly CHAT_DOCK_BOTTOM_OFFSET = 16;
+  /** Hide the button this far before sticky releases, so it doesn't linger to the last pixel. */
+  private static readonly CHAT_SCROLL_BTN_HIDE_MARGIN = 200;
+
+  private updateChatDockState = (): void => {
+    if (this.suppressChatScrollDetection) return;
+    const chat = this.homeChat?.nativeElement;
+    if (!chat) {
+      this.showChatScrollBtn.set(false);
+      return;
+    }
+    const restingBottom = window.innerHeight - DashboardComponent.CHAT_DOCK_BOTTOM_OFFSET;
+    // .home-chat isn't sticky, so its bottom is the dock's unclamped flow position —
+    // how far there still is to scroll before sticky releases.
+    const distanceToRelease = chat.getBoundingClientRect().bottom - restingBottom;
+    this.showChatScrollBtn.set(distanceToRelease > DashboardComponent.CHAT_SCROLL_BTN_HIDE_MARGIN);
+
+    // Keep the message scroll-margin in step with the dock's real height (it changes as the
+    // button shows/hides and the textarea grows).
+    if (this.chatDock) {
+      const clearance = this.chatDock.nativeElement.offsetHeight + DashboardComponent.CHAT_DOCK_BOTTOM_OFFSET + 12;
+      chat.style.setProperty('--chat-dock-clearance', `${clearance}px`);
+    }
+  };
+
+  /** Scrolls until the chat's end meets the dock's resting place, i.e. just past where sticky releases. */
+  scrollToChatBottom(): void {
+    const chat = this.homeChat?.nativeElement;
+    if (!chat) return;
+    const restingBottom = window.innerHeight - DashboardComponent.CHAT_DOCK_BOTTOM_OFFSET;
+    // The button collapses away as the scroll starts, shrinking the chat (and pulling its bottom
+    // edge up) by its own height plus margin. Measured now, that space would still be counted, so
+    // the scroll would overshoot by that much — subtract it to land the input where it will rest.
+    const btn = this.chatDock?.nativeElement.querySelector<HTMLElement>('.scroll-to-bottom-btn');
+    const collapsing = btn ? btn.offsetHeight + (parseFloat(getComputedStyle(btn).marginBottom) || 0) : 0;
+    // A couple of pixels past the threshold: exactly at it, stuck and natural positions coincide.
+    const delta = chat.getBoundingClientRect().bottom - collapsing - restingBottom + 2;
+    const scroller = chat.closest('.app-container') ?? window;
+
+    // Hide now and pause detection so the button doesn't flicker back on mid-scroll.
+    this.showChatScrollBtn.set(false);
+    this.suppressChatScrollDetection = true;
+    scroller.scrollBy({ top: delta, behavior: 'smooth' });
+    setTimeout(() => {
+      this.suppressChatScrollDetection = false;
+      this.updateChatDockState();
+    }, 600);
   }
 
   ngOnDestroy(): void {
     window.removeEventListener('scroll', this.closePopoverOnScroll, true);
+    window.removeEventListener('scroll', this.updateChatDockState, true);
+    window.removeEventListener('resize', this.updateChatDockState);
+    this.chatResizeObserver?.disconnect();
     document.removeEventListener('visibilitychange', this.resyncViewDateOnForeground);
     if (this.timeInterval) {
       clearInterval(this.timeInterval);
@@ -1449,10 +1518,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   scrollChatToBottom(): void {
-    if (this.chatContainer?.nativeElement) {
-      const container = this.chatContainer.nativeElement;
-      container.scrollTop = container.scrollHeight;
-    }
+    // The page (not the message list) scrolls now, so bring the newest message into view;
+    // its scroll-margin-bottom keeps it clear of the sticky input.
+    const container: HTMLElement | undefined = this.chatContainer?.nativeElement;
+    container?.lastElementChild?.scrollIntoView({ block: 'end', behavior: 'smooth' });
   }
 
   getMoonPhase(): string {

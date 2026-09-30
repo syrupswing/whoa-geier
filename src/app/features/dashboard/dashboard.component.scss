@@ -271,6 +271,11 @@
 }
 
 .home-chat {
+  // Input card height + its bottom offset + breathing room.
+  --chat-dock-clearance: 150px;
+  // Grid item of .dashboard-hero: without this, an unbreakable run of text can widen the
+  // track past the viewport and make the whole page scroll sideways.
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -280,14 +285,23 @@
     flex-direction: column;
     gap: 12px;
     padding: 0 4px;
-    max-height: 320px;
-    overflow-y: auto;
 
     .chat-message {
+      // Leaves room for the sticky input dock when a message is scrolled into view
+      // (scrollIntoView block:'end'), so the newest text doesn't land underneath it.
+      scroll-margin-bottom: var(--chat-dock-clearance);
       font-size: 0.85rem;
       line-height: 1.45;
       text-align: left;
       color: var(--color-text-primary);
+      // A long link or unbroken string wraps instead of pushing a narrow viewport sideways.
+      overflow-wrap: anywhere;
+      word-break: break-word;
+      min-width: 0;
+
+      pre {
+        white-space: pre-wrap;
+      }
 
       // Freshness stamp above the auto-posted briefing blurb.
       .chat-message-updated {
@@ -350,6 +364,7 @@
           border-radius: 8px;
           padding: 6px 8px;
           font: inherit;
+          font-size: 16px; // keeps iOS from zooming on focus
           resize: vertical;
         }
       }
@@ -470,6 +485,58 @@
     }
   }
 
+  // Wraps the input and its "scroll to bottom" button so they stick together. Pinned to the
+  // bottom of the viewport while the messages above run long, then settles back into normal
+  // flow at the end of the chat — so the page can scroll on past it to the calendar. Only
+  // `bottom` is set, so it never sticks to the top.
+  .home-chat-dock {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    width: 100%;
+    position: sticky;
+    bottom: calc(16px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
+    z-index: 5;
+  }
+
+  .scroll-to-bottom-btn {
+    width: 28px;
+    height: 28px;
+    margin-bottom: 8px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid rgba(61, 53, 80, 0.14);
+    background: var(--color-surface);
+    color: var(--color-text-secondary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    transition: height 0.2s ease, margin 0.2s ease, opacity 0.2s ease, color 0.15s ease;
+
+    mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    &:hover {
+      color: var(--color-text-primary);
+    }
+
+    // Collapses away (height and margin too) rather than just fading, so the input
+    // doesn't leave a button-sized gap behind.
+    &.hidden {
+      height: 0;
+      margin-bottom: 0;
+      border-width: 0;
+      opacity: 0;
+      pointer-events: none;
+    }
+  }
+
   .home-chat-input {
     display: flex;
     align-items: center;
@@ -481,7 +548,6 @@
     width: 92%;
     max-width: 560px;
     align-self: center;
-
     &:focus-within {
       animation-duration: 2.6s;
     }
@@ -493,6 +559,9 @@
       outline: none;
       background: transparent;
       font: inherit;
+      // iOS Safari zooms the page on focusing any field under 16px, which crops the chat;
+      // 16px is the smallest size that doesn't trigger it.
+      font-size: 16px;
       color: var(--color-text-primary);
       max-height: 300px;
       overflow-y: auto;
