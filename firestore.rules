@@ -209,6 +209,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Per-person Google Calendar refresh tokens — read and written only by the
+    // googleCalendar* Cloud Functions via the Admin SDK, never by a client.
+    match /googleCalendarTokens/{uid} {
+      allow read, write: if false;
+    }
+
     // Default: deny all access unless explicitly granted above
     match /{document=**} {
       allow read, write: if false;

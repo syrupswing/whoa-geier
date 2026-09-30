@@ -1,7 +1,9 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, effect, untracked } from '@angular/core';
+import { getFunctions, httpsCallable } from 'firebase/functions';
 import { environment } from '../../environments/environment';
 import { LocalStorageService } from './local-storage.service';
 import { FirestoreService } from './firestore.service';
+import { AuthService } from './auth.service';
 
 declare const gapi: any;
 
@@ -41,6 +43,12 @@ export interface CalendarInfo {
   foregroundColor?: string;
 }
 
+interface TokenResult {
+  accessToken: string;
+  expiresIn: number;
+  scope?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -60,17 +68,31 @@ export class GoogleCalendarService {
   isLoadingFromCache = signal<boolean>(false);
 
   private gapiInited = false;
-  private tokenClient: any;
-  private needsConsent = false;
+  private codeClient: any;
   private tokenRefreshTimer?: number;
+  private refreshInFlight?: Promise<boolean>;
+  private bootstrappedUid: string | null = null;
 
   constructor(
     private localStorageService: LocalStorageService,
-    private firestoreService: FirestoreService
+    private firestoreService: FirestoreService,
+    private authService: AuthService
   ) {
     this.loadVisibleCalendarPreferences();
     this.loadCachedEvents(); // Show stale events immediately while waiting for auth
     this.initializeGapi();
+
+    // Reconnecting needs both the Google client and the Firebase account (the server keeps
+    // the refresh token per account), and either can resolve first.
+    effect(() => {
+      const uid = this.authService.currentUser()?.uid ?? null;
+      const ready = this.isInitialized();
+      untracked(() => {
+        if (!ready || !uid || this.bootstrappedUid === uid) return;
+        this.bootstrappedUid = uid;
+        this.checkSavedToken(uid);
+      });
+    });
   }
 
   /**
@@ -106,29 +128,16 @@ export class GoogleCalendarService {
         });
       });
 
-      // Initialize token client for OAuth
+      // The code client is only used for the explicit Connect click: it returns a one-time
+      // code the server trades for a long-lived refresh token. Renewals never come back here.
       await this.loadGsiScript();
-      this.tokenClient = (window as any).google.accounts.oauth2.initTokenClient({
+      this.codeClient = (window as any).google.accounts.oauth2.initCodeClient({
         client_id: environment.googleCalendar.clientId,
         scope: environment.googleCalendar.scopes,
-        prompt: '', // Don't show consent screen every time
-        callback: (response: any) => {
-          if (response.error) {
-            this.needsConsent = true;
-            this.error.set(response.error);
-            return;
-          }
-          this.needsConsent = false;
-          // Save token to localStorage
-          this.saveToken(response);
-          this.isSignedIn.set(true);
-          this.scheduleTokenRefresh(Number(response.expires_in) || 3600);
-          this.loadCalendarEvents();
-        },
+        ux_mode: 'popup',
+        callback: (response: any) => this.handleAuthCode(response),
         error_callback: () => {
-          // A silent attempt failed (no Google session / grant not usable here),
-          // so the next explicit sign-in has to be interactive.
-          this.needsConsent = true;
+          // Popup closed or blocked — nothing to do until the next Connect click.
         },
       });
 
@@ -141,8 +150,6 @@ export class GoogleCalendarService {
         }
       });
 
-      // Check for saved token and auto-reconnect
-      this.checkSavedToken();
     } catch (err: any) {
       this.error.set(`Initialization error: ${err.message}`);
       console.error('Error initializing Google Calendar API:', err);
@@ -185,15 +192,57 @@ export class GoogleCalendarService {
     });
   }
 
-  // Silently re-request an access token using the already-granted consent
-  private trySilentRefresh(): void {
-    if (!this.tokenClient) return;
-    try {
-      this.tokenClient.requestAccessToken({ prompt: '' });
-    } catch {
-      // Silent refresh not possible; user will need to sign in manually
-      this.needsConsent = true;
+  /** Exchanges the auth code from a Connect click for tokens; the server stores the refresh token. */
+  private async handleAuthCode(response: any): Promise<void> {
+    if (response.error || !response.code) {
+      this.error.set(response.error || 'Google sign-in was cancelled');
+      return;
     }
+    try {
+      const connect = httpsCallable<{ code: string }, TokenResult>(getFunctions(), 'googleCalendarConnect');
+      const result = await connect({ code: response.code });
+      this.applyToken(result.data);
+    } catch (err: any) {
+      if (err?.message === 'no-refresh-token') {
+        this.error.set('Google didn\'t grant long-term access this time — tap Connect once more.');
+      } else {
+        this.error.set(`Error connecting Google Calendar: ${err?.message || err}`);
+      }
+    }
+  }
+
+  /** Fetches a fresh access token from the server-held refresh token. No Google window is involved. */
+  private refreshAccessToken(): Promise<boolean> {
+    if (this.refreshInFlight) return this.refreshInFlight;
+    this.refreshInFlight = (async () => {
+      try {
+        const getToken = httpsCallable<void, TokenResult>(getFunctions(), 'googleCalendarToken');
+        const result = await getToken();
+        this.applyToken(result.data);
+        return true;
+      } catch (err: any) {
+        if (err?.message === 'not-connected') {
+          // No grant on the server (never connected, or revoked) — a Connect click is needed.
+          this.clearLocalSession();
+        } else {
+          console.error('Google Calendar token refresh failed:', err);
+        }
+        return false;
+      } finally {
+        this.refreshInFlight = undefined;
+      }
+    })();
+    return this.refreshInFlight;
+  }
+
+  private applyToken(token: TokenResult): void {
+    const expiresIn = Number(token.expiresIn) || 3600;
+    gapi.client.setToken({ access_token: token.accessToken, token_type: 'Bearer', scope: token.scope });
+    this.saveToken(token.accessToken, expiresIn, token.scope);
+    this.error.set(null);
+    this.isSignedIn.set(true);
+    this.scheduleTokenRefresh(expiresIn);
+    this.loadCalendarEvents();
   }
 
   /** Renews shortly before expiry so an active session never hits a dead token. */
@@ -202,16 +251,27 @@ export class GoogleCalendarService {
       clearTimeout(this.tokenRefreshTimer);
     }
     const refreshInMs = Math.max((expiresInSeconds - 300) * 1000, 60_000);
-    this.tokenRefreshTimer = window.setTimeout(() => this.trySilentRefresh(), refreshInMs);
+    this.tokenRefreshTimer = window.setTimeout(() => this.refreshAccessToken(), refreshInMs);
   }
 
+  /** Timers are throttled or frozen while a tab/device sleeps, so re-check on return. */
   private refreshTokenIfStale(): void {
-    if (!this.isInitialized()) return;
+    if (!this.isSignedIn()) return;
     const savedToken = this.localStorageService.getItem<any>(this.TOKEN_STORAGE_KEY);
     const expiresAt = savedToken?.expires_at ?? 0;
     if (Date.now() > expiresAt - 300_000) {
-      this.trySilentRefresh();
+      this.refreshAccessToken();
     }
+  }
+
+  private clearLocalSession(): void {
+    if (typeof gapi !== 'undefined' && gapi.client) gapi.client.setToken(null);
+    this.isSignedIn.set(false);
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = undefined;
+    }
+    this.localStorageService.removeItem(this.TOKEN_STORAGE_KEY);
   }
 
   // Load last-cached events from Firestore so the UI shows data before sign-in
@@ -295,67 +355,48 @@ export class GoogleCalendarService {
     const cal = this.calendars().find(c => c.id === calendarId);
     return cal?.backgroundColor || '#2196F3';
   }
+  /** Must run from a click — it opens Google's one-time consent window. */
   signIn(): void {
     if (!this.isInitialized()) {
       this.error.set('Google API not initialized yet');
       return;
     }
+    this.codeClient.requestCode();
+  }
 
-    if (gapi.client.getToken() === null) {
-      // Re-consenting is only needed when a silent attempt has already failed;
-      // forcing it every time is what made mobile re-authorize constantly.
-      this.tokenClient.requestAccessToken({ prompt: this.needsConsent ? 'consent' : '' });
-    } else {
-      // Skip display of account chooser and consent dialog for an existing session
-      this.tokenClient.requestAccessToken({ prompt: '' });
+  /**
+   * Disconnect from Google: the server revokes the grant and forgets the refresh token
+   */
+  async signOut(): Promise<void> {
+    this.clearLocalSession();
+    this.events.set([]);
+    try {
+      await httpsCallable(getFunctions(), 'googleCalendarDisconnect')();
+    } catch (err) {
+      console.error('Error disconnecting Google Calendar:', err);
     }
   }
 
   /**
-   * Sign out from Google
+   * Save the current access token so a reload can reuse it without a server round trip
    */
-  signOut(): void {
-    const token = gapi.client.getToken();
-    if (token !== null) {
-      (window as any).google.accounts.oauth2.revoke(token.access_token);
-      gapi.client.setToken(null);
-      this.isSignedIn.set(false);
-      this.events.set([]);
-      if (this.tokenRefreshTimer) {
-        clearTimeout(this.tokenRefreshTimer);
-        this.tokenRefreshTimer = undefined;
-      }
-      this.needsConsent = true;
-      // Clear saved token
-      this.localStorageService.removeItem(this.TOKEN_STORAGE_KEY);
-    }
+  private saveToken(accessToken: string, expiresIn: number, scope?: string): void {
+    this.localStorageService.setItem(this.TOKEN_STORAGE_KEY, {
+      uid: this.authService.currentUser()?.uid,
+      access_token: accessToken,
+      expires_at: Date.now() + expiresIn * 1000,
+      token_type: 'Bearer',
+      scope
+    });
   }
 
   /**
-   * Save token to localStorage
+   * Reuse a still-valid saved token for this account, otherwise ask the server for a fresh one
    */
-  private saveToken(tokenResponse: any): void {
-    const tokenData = {
-      access_token: tokenResponse.access_token,
-      expires_at: Date.now() + (tokenResponse.expires_in * 1000),
-      token_type: tokenResponse.token_type,
-      scope: tokenResponse.scope
-    };
-    this.localStorageService.setItem(this.TOKEN_STORAGE_KEY, tokenData);
-  }
-
-  /**
-   * Check for saved token and auto-reconnect if valid
-   */
-  private checkSavedToken(): void {
+  private checkSavedToken(uid: string): void {
     const savedToken = this.localStorageService.getItem<any>(this.TOKEN_STORAGE_KEY);
-    
-    if (!savedToken || !savedToken.access_token) {
-      return;
-    }
 
-    // Check if token is still valid (not expired)
-    if (savedToken.expires_at && Date.now() < savedToken.expires_at) {
+    if (savedToken?.uid === uid && savedToken.access_token && savedToken.expires_at && Date.now() < savedToken.expires_at) {
       gapi.client.setToken({
         access_token: savedToken.access_token,
         token_type: savedToken.token_type || 'Bearer',
@@ -365,9 +406,8 @@ export class GoogleCalendarService {
       this.scheduleTokenRefresh(Math.floor((savedToken.expires_at - Date.now()) / 1000));
       this.loadCalendarEvents();
     } else {
-      // Token expired — attempt silent refresh before giving up
       this.localStorageService.removeItem(this.TOKEN_STORAGE_KEY);
-      this.trySilentRefresh();
+      this.refreshAccessToken();
     }
   }
 
@@ -449,7 +489,7 @@ export class GoogleCalendarService {
       this.cacheEventsToFirestore(allEvents);
     } catch (err: any) {
       if (err?.status === 401) {
-        this.trySilentRefresh();
+        this.refreshAccessToken();
         return;
       }
       this.error.set(`Error loading events: ${err.message}`);

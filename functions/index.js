@@ -1395,3 +1395,116 @@ exports.runSmartAlertsNow = onCall(
     }
   }
 );
+
+// ---------------------------------------------------------------------------
+// Google Calendar: per-person server-held refresh token
+//
+// The browser only ever holds a short-lived access token. Renewing it used to need a
+// Google popup (which steals window focus); the refresh token lives here instead, keyed
+// by the caller's Firebase uid in /googleCalendarTokens/{uid} (Admin-SDK only — the
+// Firestore rules deny all client access), so a renewal is just a function call.
+// ---------------------------------------------------------------------------
+
+const googleOAuthClientSecret = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
+const GOOGLE_OAUTH_CLIENT_ID = '457123034868-glfqgt2t2thpbpqcgsqfs0s4k22qobop.apps.googleusercontent.com';
+const GOOGLE_TOKEN_COLLECTION = 'googleCalendarTokens';
+
+async function googleTokenRequest(params) {
+  const response = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
+      client_secret: googleOAuthClientSecret.value(),
+      ...params
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  return { ok: response.ok, body };
+}
+
+async function googleRevoke(token) {
+  await fetch('https://oauth2.googleapis.com/revoke', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ token })
+  }).catch(() => {});
+}
+
+/** Exchanges the one-time auth code from the browser's Connect click for tokens and stores the refresh token. */
+exports.googleCalendarConnect = onCall(
+  { secrets: ['GOOGLE_OAUTH_CLIENT_SECRET'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const code = request.data?.code;
+    if (typeof code !== 'string' || !code) {
+      throw new HttpsError('invalid-argument', 'Missing authorization code');
+    }
+
+    // 'postmessage' is the redirect_uri Google's popup code client uses.
+    const { ok, body } = await googleTokenRequest({ code, grant_type: 'authorization_code', redirect_uri: 'postmessage' });
+    if (!ok) {
+      console.error('googleCalendarConnect exchange failed:', JSON.stringify(body));
+      throw new HttpsError('invalid-argument', body.error_description || 'Google rejected the authorization code');
+    }
+
+    const docRef = admin.firestore().collection(GOOGLE_TOKEN_COLLECTION).doc(request.auth.uid);
+    if (!body.refresh_token) {
+      // Google only issues a refresh token the first time an account grants access. Revoking
+      // the grant forces the next Connect click to show consent again and return one.
+      await googleRevoke(body.access_token);
+      await docRef.delete().catch(() => {});
+      throw new HttpsError('failed-precondition', 'no-refresh-token');
+    }
+
+    await docRef.set({
+      refreshToken: body.refresh_token,
+      scope: body.scope || null,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { accessToken: body.access_token, expiresIn: body.expires_in, scope: body.scope };
+  }
+);
+
+/** Mints a fresh access token from the caller's stored refresh token — no popup involved. */
+exports.googleCalendarToken = onCall(
+  { secrets: ['GOOGLE_OAUTH_CLIENT_SECRET'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const docRef = admin.firestore().collection(GOOGLE_TOKEN_COLLECTION).doc(request.auth.uid);
+    const snap = await docRef.get();
+    if (!snap.exists) {
+      throw new HttpsError('failed-precondition', 'not-connected');
+    }
+
+    const { ok, body } = await googleTokenRequest({ refresh_token: snap.data().refreshToken, grant_type: 'refresh_token' });
+    if (!ok) {
+      console.error('googleCalendarToken refresh failed:', JSON.stringify(body));
+      if (body.error === 'invalid_grant') {
+        // Revoked or expired on Google's side — the person has to reconnect.
+        await docRef.delete().catch(() => {});
+        throw new HttpsError('failed-precondition', 'not-connected');
+      }
+      throw new HttpsError('internal', body.error_description || 'Token refresh failed');
+    }
+    return { accessToken: body.access_token, expiresIn: body.expires_in, scope: body.scope };
+  }
+);
+
+/** Forgets the caller's Google connection and revokes the grant at Google. */
+exports.googleCalendarDisconnect = onCall(async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'Sign-in required');
+  }
+  const docRef = admin.firestore().collection(GOOGLE_TOKEN_COLLECTION).doc(request.auth.uid);
+  const snap = await docRef.get();
+  if (snap.exists) {
+    await googleRevoke(snap.data().refreshToken);
+    await docRef.delete();
+  }
+  return { success: true };
+});
