@@ -195,6 +195,11 @@ body {
   color: var(--color-text-primary);
 }
 
+ol, ul {
+  margin-bottom: 12px;
+  margin-left: 16px;
+}
+
 /* Mobile-First Container Styles */
 .container {
   width: 100%;
