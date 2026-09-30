@@ -222,6 +222,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   chatMessages = signal<ChatMessage[]>(loadPersistedChatMessages());
   chatInput = '';;
   isChatLoading = signal(false);
+  /** Which panel the calendar header's kebab menu shows: its actions, or the calendar checkboxes. */
+  calendarMenuView = signal<'actions' | 'calendars'>('actions');
   /** Shown while the sticky input is pinned with a good stretch of chat still below the viewport. */
   showChatScrollBtn = signal(false);
   private suppressChatScrollDetection = false;
@@ -1515,6 +1517,21 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.chatInput = this.chatHistoryDraft;
     }
     setTimeout(() => this.autoResizeChatInput(), 0);
+  }
+
+  /**
+   * iOS scrolls the page itself to keep a focused field above the keyboard, and often leaves
+   * it shifted after the keyboard closes — exposing a blank strip at the bottom of the screen.
+   * Put the page back once the keyboard's dismiss animation has finished. The app's own scroll
+   * area (.app-container) is untouched; only the page-level offset is reset.
+   */
+  resetViewportAfterKeyboard(): void {
+    [0, 300].forEach(delay => setTimeout(() => {
+      const shifted = window.scrollY !== 0 || (window.visualViewport?.offsetTop ?? 0) !== 0;
+      if (shifted) {
+        window.scrollTo(0, 0);
+      }
+    }, delay));
   }
 
   scrollChatToBottom(): void {

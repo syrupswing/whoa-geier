@@ -40,7 +40,8 @@
                   name="correctionInput"
                   rows="2"
                   placeholder="What should I have said? I'll remember it going forward."
-                  [(ngModel)]="correctionText"></textarea>
+                  [(ngModel)]="correctionText"
+                  (blur)="resetViewportAfterKeyboard()"></textarea>
                 <div class="correct-actions">
                   <button type="submit" class="correct-submit" [disabled]="!correctionText.trim() || isCorrecting()">
                     {{ isCorrecting() ? 'Thinking…' : 'Save correction' }}
@@ -108,6 +109,7 @@
           placeholder="Ask about schedule, todos, or anything else..."
           [(ngModel)]="chatInput"
           (input)="autoResizeChatInput()"
+          (blur)="resetViewportAfterKeyboard()"
           (keydown.enter)="onChatEnter($event)"
           (keydown.arrowup)="onChatArrowUp($event)"
           (keydown.arrowdown)="onChatArrowDown($event)">
@@ -123,54 +125,70 @@
   <!-- Daily Calendar -->
   <section class="day-calendar">
     <div class="cal-nav">
-      <button mat-icon-button (click)="prevDay()" aria-label="Previous day">
+      <button mat-icon-button class="cal-step-btn" (click)="prevDay()" aria-label="Previous day">
         <mat-icon>chevron_left</mat-icon>
       </button>
       <div class="cal-nav-center">
-        <span class="cal-today-badge" *ngIf="!isViewingToday" (click)="goToToday()">Back to today</span>
+        <button
+          mat-icon-button
+          class="cal-today-btn"
+          *ngIf="!isViewingToday"
+          (click)="goToToday()"
+          matTooltip="Back to today"
+          aria-label="Back to today">
+          <mat-icon>event_upcoming</mat-icon>
+        </button>
         <span class="cal-today-badge cal-today-badge--today" *ngIf="isViewingToday">Today</span>
         <span class="cal-date-text">{{ formatViewDate() }}</span>
       </div>
       <div class="cal-nav-actions">
         <button
           mat-icon-button
-          (click)="openAddEventDialog()"
-          matTooltip="Add event"
-          aria-label="Add event">
-          <mat-icon>add</mat-icon>
-        </button>
-        <a
-          mat-icon-button
-          [href]="googleCalendarUrl()"
-          target="_blank"
-          rel="noopener"
-          matTooltip="Edit in Google Calendar"
-          aria-label="Edit in Google Calendar">
-          <mat-icon>open_in_new</mat-icon>
-        </a>
-        <button
-          mat-icon-button
-          *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0"
           [matMenuTriggerFor]="calendarMenu"
-          matTooltip="Choose calendars"
-          aria-label="Choose calendars">
-          <mat-icon>settings</mat-icon>
-        </button>
-        <button mat-icon-button (click)="nextDay()" aria-label="Next day">
-          <mat-icon>chevron_right</mat-icon>
+          (menuClosed)="calendarMenuView.set('actions')"
+          matTooltip="Calendar options"
+          aria-label="Calendar options">
+          <mat-icon>more_vert</mat-icon>
         </button>
       </div>
+      <button mat-icon-button class="cal-step-btn" (click)="nextDay()" aria-label="Next day">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
     </div>
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
-      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
-        <input
-          type="checkbox"
-          [checked]="calendarService.isCalendarVisible(cal.id)"
-          (change)="toggleCalendarVisibility(cal.id, $event)">
-        <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
-        <span class="cal-selector-name">{{ cal.summary }}</span>
-      </label>
+      <ng-container *ngIf="calendarMenuView() === 'actions'">
+        <button mat-menu-item (click)="openAddEventDialog()">
+          <mat-icon>add</mat-icon>
+          <span>Add event</span>
+        </button>
+        <a mat-menu-item [href]="googleCalendarUrl()" target="_blank" rel="noopener">
+          <mat-icon>open_in_new</mat-icon>
+          <span>Edit in Google Calendar</span>
+        </a>
+        <!-- Stays open (stopPropagation) and swaps this menu's content for the calendar checkboxes. -->
+        <button
+          mat-menu-item
+          *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0"
+          (click)="$event.stopPropagation(); calendarMenuView.set('calendars')">
+          <mat-icon>calendar_month</mat-icon>
+          <span>Choose calendars</span>
+        </button>
+      </ng-container>
+      <ng-container *ngIf="calendarMenuView() === 'calendars'">
+        <button mat-menu-item (click)="$event.stopPropagation(); calendarMenuView.set('actions')">
+          <mat-icon>chevron_left</mat-icon>
+          <span>Choose calendars</span>
+        </button>
+        <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
+          <input
+            type="checkbox"
+            [checked]="calendarService.isCalendarVisible(cal.id)"
+            (change)="toggleCalendarVisibility(cal.id, $event)">
+          <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
+          <span class="cal-selector-name">{{ cal.summary }}</span>
+        </label>
+      </ng-container>
     </mat-menu>
 
     <!-- All-day events band -->
