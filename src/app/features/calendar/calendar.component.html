@@ -102,6 +102,8 @@
 
     <!-- Day view -->
     <ng-container *ngIf="!isWideViewport()">
+      <app-todo-lane [date]="currentDate()"></app-todo-lane>
+
       <div class="cal-allday" *ngIf="getAllDayEventsForDay(currentDate()).length > 0">
         <span class="cal-allday-label">All day</span>
         <div class="cal-allday-events">

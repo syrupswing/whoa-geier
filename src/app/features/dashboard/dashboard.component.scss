@@ -289,6 +289,13 @@
       text-align: left;
       color: var(--color-text-primary);
 
+      // Freshness stamp above the auto-posted briefing blurb.
+      .chat-message-updated {
+        margin-bottom: 2px;
+        font-size: 0.7rem;
+        color: var(--color-text-secondary);
+      }
+
       // Markdown-rendered agent replies: paragraphs/lists beyond the first need
       // spacing, but the block shouldn't carry extra margin above/below itself.
       p, ul, ol {

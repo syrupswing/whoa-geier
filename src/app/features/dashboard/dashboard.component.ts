@@ -22,6 +22,7 @@ import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { RemiScheduleService, RemiDailyBriefing } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
+import { TodoLaneComponent } from '../../shared/todo-lane/todo-lane.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
 import { QuickAddCardComponent } from '../../shared/quick-add-card/quick-add-card.component';
@@ -56,6 +57,8 @@ interface ChatMessage {
    *  ("YYYY-MM-DD"). There's one blurb per day; it's rewritten in place as the day moves on
    *  rather than posted again. */
   briefingDate?: string;
+  /** Briefing blurb only: ISO time the blurb's contents were last refreshed, shown as "Updated 24 minutes ago". */
+  updatedAt?: string;
 }
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
@@ -174,7 +177,7 @@ function loadPersistedChatMessages(): ChatMessage[] {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
+  imports: [CommonModule, TodoLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -854,6 +857,19 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${hours}:${minutes}${ampm}`;
   }
 
+  /**
+   * "just now", "24 minutes ago", "3 hours ago" — read against the once-a-minute clock signal so
+   * the label in the template keeps counting up on its own.
+   */
+  relativeAge(when: string | Date | undefined): string {
+    if (!when) return 'just now';
+    const minutes = Math.max(0, Math.floor((this.currentTime().getTime() - new Date(when).getTime()) / 60_000));
+    if (minutes < 1) return 'just now';
+    if (minutes < 60) return `${minutes} ${minutes === 1 ? 'minute' : 'minutes'} ago`;
+    const hours = Math.floor(minutes / 60);
+    return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
+  }
+
   private briefingSeeded = false;
   private lastOutfitRefreshAt = 0;
 
@@ -872,9 +888,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const existing = this.chatMessages().find(m => m.briefingDate === briefing.date);
     if (existing) {
       this.briefingSeeded = true;
-      if (existing.text !== text) {
+      // Fresh when the contents changed just now, or the weather it's built on was re-fetched since.
+      const weatherAt = this.weatherService.lastUpdated();
+      const stampedAt = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
+      const textChanged = existing.text !== text;
+      const weatherNewer = !!weatherAt && weatherAt.getTime() > stampedAt;
+      if (textChanged || weatherNewer || !existing.updatedAt) {
+        const updatedAt = textChanged || !weatherAt ? now : weatherAt;
         this.chatMessages.update(messages =>
-          messages.map(m => (m === existing ? { ...m, text, instant: true } : m))
+          messages.map(m => (m === existing ? { ...m, text, instant: true, updatedAt: updatedAt.toISOString() } : m))
         );
       }
       return;
@@ -887,7 +909,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       text,
       isUser: false,
       timestamp: new Date(),
-      briefingDate: briefing.date
+      briefingDate: briefing.date,
+      updatedAt: (this.weatherService.lastUpdated() ?? now).toISOString()
     }]);
   }
 

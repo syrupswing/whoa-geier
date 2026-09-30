@@ -51,6 +51,18 @@ export interface OverdueSeverity {
 
 type UrgencyType = NonNullable<TodoItem['urgency']>;
 
+/** A to-do as it appears in a calendar day's to-do lane. */
+export interface CalendarTodo {
+  item: TodoItem;
+  /**
+   * due: scheduled for that day. carried: was due earlier and rolled forward to today because it
+   * isn't done. done: finished today (kept visible so it doesn't vanish the moment it's ticked).
+   */
+  state: 'due' | 'carried' | 'done';
+  /** How many days past its due date, for a carried item. */
+  daysOverdue: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -322,6 +334,70 @@ export class TodoService implements OnDestroy {
   /** Remove an active snooze. */
   async unsnoozeTodo(id: string): Promise<void> {
     await this.updateItem(id, { snoozedUntil: undefined });
+  }
+
+  /**
+   * The to-dos a calendar day's lane should show. Today gets everything due today plus anything
+   * overdue — an unfinished item follows the current day until it's marked complete (its due date
+   * isn't rewritten, so overdue severity still builds) — followed by whatever was finished today.
+   * A future day shows only what's due on it; past days show nothing.
+   */
+  getCalendarTodos(day: Date): CalendarTodo[] {
+    const today = this.toStartOfDay(new Date());
+    const target = this.toStartOfDay(day);
+    if (target.getTime() < today.getTime()) return [];
+    const isToday = target.getTime() === today.getTime();
+
+    const open: CalendarTodo[] = [];
+    const done: CalendarTodo[] = [];
+
+    for (const item of this.items()) {
+      if (isToday && this.wasCompletedToday(item, today)) {
+        done.push({ item, state: 'done', daysOverdue: 0 });
+        continue;
+      }
+      if (item.completed || !item.dueDate || this.isSnoozed(item)) continue;
+
+      const due = this.toStartOfDay(new Date(item.dueDate)).getTime();
+      if (isToday ? due <= target.getTime() : due === target.getTime()) {
+        const daysOverdue = Math.max(0, Math.round((target.getTime() - due) / 86_400_000));
+        open.push({ item, state: daysOverdue > 0 ? 'carried' : 'due', daysOverdue });
+      }
+    }
+
+    const importanceRank = { high: 0, medium: 1, low: 2 } as const;
+    open.sort((a, b) =>
+      b.daysOverdue - a.daysOverdue ||
+      importanceRank[a.item.importance ?? 'medium'] - importanceRank[b.item.importance ?? 'medium'] ||
+      a.item.title.localeCompare(b.item.title)
+    );
+    return [...open, ...done];
+  }
+
+  /** A recurring item stays active when completed (its due date just rolls forward), so its last-completed stamp is what says it was done today. */
+  private wasCompletedToday(item: TodoItem, today: Date): boolean {
+    const stamp = item.isRecurring ? item.lastRecurringCompletedAt : item.completed ? item.completedAt : undefined;
+    return !!stamp && this.toStartOfDay(new Date(stamp)).getTime() === today.getTime();
+  }
+
+  /** "Every 2 weeks on Tue", "Monthly on the 5th", "Every 14 days" — null for a one-off. */
+  getRecurrenceLabel(item: TodoItem): string | null {
+    if (!item.isRecurring) return null;
+    if (item.recurrenceType === 'weekday') {
+      const weekday = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][item.recurrenceWeekday ?? 0];
+      const weeks = this.getPositiveInteger(item.recurrenceWeekInterval);
+      return weeks === 1 ? `Weekly on ${weekday}` : `Every ${weeks} weeks on ${weekday}`;
+    }
+    if (item.recurrenceType === 'month-day') {
+      const day = this.getPositiveInteger(item.recurrenceMonthDay);
+      const suffix = day % 10 === 1 && day !== 11 ? 'st' : day % 10 === 2 && day !== 12 ? 'nd' : day % 10 === 3 && day !== 13 ? 'rd' : 'th';
+      return `Monthly on the ${day}${suffix}`;
+    }
+    if (item.recurrenceType === 'day-interval') {
+      const days = this.getPositiveInteger(item.recurrenceDayInterval);
+      return days === 1 ? 'Daily' : `Every ${days} days`;
+    }
+    return 'Repeats';
   }
 
   /**

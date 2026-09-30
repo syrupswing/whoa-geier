@@ -23,6 +23,9 @@
         <div class="chat-message" *ngFor="let message of chatMessages()" [class.user]="message.isUser">
           <p *ngIf="message.isUser">{{ message.text }}</p>
           <ng-container *ngIf="!message.isUser">
+            <div class="chat-message-updated" *ngIf="message.briefingDate">
+              Updated {{ relativeAge(message.updatedAt ?? message.timestamp) }}
+            </div>
             <div [appTypewriter]="message.text" [typewriterMarkdown]="true" [typewriterInstant]="!!message.instant"></div>
             <div class="chat-message-cards" *ngIf="message.cards?.length">
               <app-quick-add-card
@@ -137,6 +140,8 @@
     </mat-menu>
 
     <!-- All-day events band -->
+    <app-todo-lane [date]="viewDate()"></app-todo-lane>
+
     <div class="cal-allday" *ngIf="getAllDayEvents().length > 0">
       <span class="cal-allday-label">All day</span>
       <div class="cal-allday-events">

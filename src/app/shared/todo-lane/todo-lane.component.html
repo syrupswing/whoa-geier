@@ -1,0 +1,32 @@
+<section class="todo-lane" *ngIf="rows().length">
+  <button
+    type="button"
+    class="todo-lane-head"
+    [attr.aria-expanded]="!collapsed()"
+    (click)="toggleCollapsed(); $event.stopPropagation()">
+    <mat-icon>checklist</mat-icon>
+    <span class="todo-lane-title">{{ isToday() ? 'To do today' : 'To do' }}</span>
+    <span class="todo-lane-count" *ngIf="openCount()">{{ openCount() }}</span>
+    <mat-icon class="todo-lane-chevron">{{ collapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+  </button>
+
+  <div
+    class="todo-lane-row"
+    *ngFor="let row of collapsed() ? [] : rows(); trackBy: trackById"
+    [class.done]="row.state === 'done'"
+    [class.carried]="row.state === 'carried'">
+    <button
+      type="button"
+      class="todo-check"
+      [disabled]="row.state === 'done'"
+      [attr.aria-label]="row.state === 'done' ? row.item.title + ' is done' : 'Mark ' + row.item.title + ' done'"
+      (click)="complete(row); $event.stopPropagation()">
+      <mat-icon>{{ row.state === 'done' ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+    </button>
+    <span class="todo-title">{{ row.item.title }}</span>
+    <mat-icon class="todo-private" *ngIf="row.item.isPrivate" aria-label="Private">lock</mat-icon>
+    <span class="todo-meta" *ngIf="meta(row) as text">{{ text }}</span>
+  </div>
+
+  <a class="todo-lane-more" *ngIf="!collapsed() && hiddenCount()" routerLink="/todos">+{{ hiddenCount() }} more</a>
+</section>

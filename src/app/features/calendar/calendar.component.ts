@@ -11,6 +11,7 @@ import { AppCalendarEventService } from '../../services/app-calendar-event.servi
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
+import { TodoLaneComponent } from '../../shared/todo-lane/todo-lane.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 
@@ -40,7 +41,8 @@ const WIDE_VIEWPORT_QUERY = '(min-width: 1024px)';
     MatTooltipModule,
     MatSnackBarModule,
     GlobalNavMenuComponent,
-    HomeLogoBtnComponent
+    HomeLogoBtnComponent,
+    TodoLaneComponent
   ],
   templateUrl: './calendar.component.html',
   styleUrls: ['./calendar.component.scss'],

@@ -41,6 +41,8 @@ export class WeatherService {
   
   weather = signal<WeatherData | null>(null);
   forecast = signal<RemainingForecast | null>(null);
+  /** When the current conditions were last successfully fetched. */
+  lastUpdated = signal<Date | null>(null);
   isLoading = signal<boolean>(false);
   error = signal<string | null>(null);
 
@@ -140,6 +142,7 @@ export class WeatherService {
       const data = await response.json();
       console.log('Weather data received:', data);
       this.weather.set(this.parseWeatherData(data));
+      this.lastUpdated.set(new Date());
     } catch (error: any) {
       console.error('Error fetching weather by zipcode:', error);
       this.error.set(error.message);
@@ -168,6 +171,7 @@ export class WeatherService {
       const data = await response.json();
       console.log('Weather data received:', data);
       this.weather.set(this.parseWeatherData(data));
+      this.lastUpdated.set(new Date());
     } catch (error: any) {
       console.error('Error fetching weather by city:', error);
       this.error.set(error.message);
