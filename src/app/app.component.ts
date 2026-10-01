@@ -1,4 +1,3 @@
-import { startViewportDebug } from './utils/viewport-debug';
 import { Component, OnInit, signal, effect, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -88,7 +87,6 @@ export class AppComponent implements OnInit, AfterViewChecked {
   }
   
   ngOnInit(): void {
-    startViewportDebug();
     // Initialize push notifications (no-op on unsupported browsers)
     this.pushNotificationService.initialize();
 
