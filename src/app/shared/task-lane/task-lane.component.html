@@ -1,0 +1,32 @@
+<div class="task-lane" *ngIf="rows().length">
+  <button
+    type="button"
+    class="task-lane-label"
+    [attr.aria-expanded]="!collapsed()"
+    (click)="toggleCollapsed(); $event.stopPropagation()">
+    <mat-icon>{{ collapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+    <div>
+      <span>Tasks</span>
+      <span class="task-lane-count" *ngIf="openCount()">{{ openCount() }}</span>
+    </div>
+  </button>
+
+  <div class="task-lane-items" *ngIf="!collapsed()">
+    <div
+      class="task-lane-item"
+      *ngFor="let row of rows(); trackBy: trackByRow"
+      [class.carried]="row.daysOverdue > 0"
+      (click)="taskSelect.emit({ event: row.event, domEvent: $event })">
+      <button
+        type="button"
+        class="task-check"
+        [attr.aria-label]="row.done ? row.event.summary + ' is done — tap to undo' : 'Mark ' + row.event.summary + ' done'"
+        (click)="taskToggle.emit({ event: row.event, domEvent: $event })">
+        <mat-icon>{{ row.done ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+      </button>
+      <span class="task-title" [class.task-done]="row.done">{{ row.event.summary }}</span>
+      <mat-icon class="task-private" *ngIf="row.event.isPrivate" aria-label="Private">lock</mat-icon>
+      <span class="task-meta" *ngIf="meta(row) as text">{{ text }}</span>
+    </div>
+  </div>
+</div>

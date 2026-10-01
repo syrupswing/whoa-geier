@@ -8,11 +8,11 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
-import { expandRecurringForDay } from '../../utils/recurrence';
+import { completionFor, expandRecurringForDay, occurrenceKey } from '../../utils/recurrence';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
-import { TodoLaneComponent } from '../../shared/todo-lane/todo-lane.component';
+import { TaskLaneComponent } from '../../shared/task-lane/task-lane.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 
@@ -43,7 +43,7 @@ const WIDE_VIEWPORT_QUERY = '(min-width: 1024px)';
     MatSnackBarModule,
     GlobalNavMenuComponent,
     HomeLogoBtnComponent,
-    TodoLaneComponent
+    TaskLaneComponent
   ],
   templateUrl: './calendar.component.html',
   styleUrls: ['./calendar.component.scss'],
@@ -52,7 +52,7 @@ const WIDE_VIEWPORT_QUERY = '(min-width: 1024px)';
 export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   currentDate = signal<Date>(new Date());
   currentTime = signal<Date>(new Date());
-  selectedEvent = signal<TimelineEvent | null>(null);
+  selectedEvent = signal<CalendarEvent | null>(null);
   /** Sunday–Saturday week view when there's room for it; a single day otherwise. */
   isWideViewport = signal<boolean>(false);
 
@@ -256,6 +256,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.getEventsForDay(date).filter(event => this.isAllDayEvent(event));
   }
 
+  /** All-day events for the day view, where all-day tasks live in the task checklist instead. */
+  getAllDayNonTaskEventsForDay(date: Date): TimelineEvent[] {
+    return this.getAllDayEventsForDay(date).filter(event => event.kind !== 'task');
+  }
+
   getTimedEventsForDay(date: Date): TimelineEvent[] {
     const events = this.getEventsForDay(date).filter(event => !this.isAllDayEvent(event));
     return this.assignOverlapColumns(events);
@@ -452,7 +457,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     return event.colorId ? colorMap[event.colorId] : calendarColor;
   }
 
-  selectEvent(event: TimelineEvent, mouseEvent: Event): void {
+  selectEvent(event: CalendarEvent, mouseEvent: Event): void {
     mouseEvent.stopPropagation();
     const target = mouseEvent.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
@@ -461,6 +466,17 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     // The popover is position: fixed, so it needs a viewport-relative offset.
     this.popoverTop = this.popoverAbove ? rect.top - 8 : rect.bottom + 8;
     this.selectedEvent.set(event);
+  }
+
+  /** Ticks a task off (or back on) straight from the checklist. */
+  async toggleTask(event: CalendarEvent, domEvent: Event): Promise<void> {
+    domEvent.stopPropagation();
+    const key = occurrenceKey(event);
+    if (completionFor(event)) {
+      await this.appCalendarEventService.clearCompletion(event.id, key);
+    } else {
+      await this.appCalendarEventService.completeOccurrence(event.id, key);
+    }
   }
 
   clearSelectedEvent(): void {

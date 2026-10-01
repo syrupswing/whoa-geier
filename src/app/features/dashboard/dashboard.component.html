@@ -227,7 +227,75 @@
     </mat-menu>
 
     <!-- All-day events band -->
-    <app-todo-lane [date]="viewDate()"></app-todo-lane>
+    <app-task-lane
+      [date]="viewDate()"
+      (taskSelect)="selectEvent($event.event, $event.domEvent)"
+      (taskToggle)="askTaskToggle($event.event, $event.domEvent)"></app-task-lane>
+
+    <!-- Rendered as a sibling rather than nested in the event block above, since an
+         approximate event's mask-image would otherwise clip this fixed-position
+         popover (it renders far outside that block's own small box). -->
+    <div
+      class="cal-popover"
+      *ngIf="selectedHoistedEvent() as sel"
+      [class.cal-popover--above]="popoverAbove"
+      [style.top.px]="popoverTop"
+      (click)="$event.stopPropagation()">
+      <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(sel)"></div>
+      <div class="cal-popover-body">
+        <p class="cal-popover-title">{{ sel.summary }}</p>
+        <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
+        <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name">
+          <mat-icon>{{ sel.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ sel.isPrivate ? 'Private — only you' : 'For ' + name }}
+        </p>
+        <p class="cal-popover-person" *ngIf="!sel.isPrivate && sel.createdByName"><mat-icon>person_add</mat-icon>Created by {{ sel.createdByName }}</p>
+        <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
+        <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
+        <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
+      </div>
+      <button
+        mat-icon-button
+        *ngIf="sel.source === 'app'"
+        class="cal-popover-edit"
+        (click)="openEditEventDialog(sel)"
+        aria-label="Edit item">
+        <mat-icon>edit</mat-icon>
+      </button>
+      <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <!-- "Mark complete?" prompt for a task's checkbox — a popover like the details one, so it
+         doesn't take space inside the (often small) item in the timeline. -->
+    <div
+      class="cal-popover cal-popover--confirm"
+      *ngIf="confirmingTask() as task"
+      [class.cal-popover--above]="confirmAbove"
+      [style.top.px]="confirmTop"
+      (click)="$event.stopPropagation()">
+      <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(task)"></div>
+      <div class="cal-popover-body">
+        <p class="cal-popover-title">{{ isTaskDone(task) ? 'Mark not complete?' : 'Mark complete?' }}</p>
+        <p class="cal-popover-time">{{ task.summary }}</p>
+      </div>
+      <button
+        mat-icon-button
+        class="cal-popover-edit task-confirm-icon task-confirm-icon--yes"
+        [matTooltip]="isTaskDone(task) ? 'Mark not complete' : 'Complete'"
+        [attr.aria-label]="isTaskDone(task) ? 'Mark task not complete' : 'Complete task'"
+        (click)="confirmTaskToggle(task, $event)">
+        <!-- Undoing a completed task shows the boxes instead: green is the empty box it becomes,
+             red is the checked box it stays as if you cancel. -->
+        <mat-icon>{{ isTaskDone(task) ? 'check_box_outline_blank' : 'check' }}</mat-icon>
+      </button>
+      <button
+        mat-icon-button
+        class="cal-popover-close task-confirm-icon task-confirm-icon--no"
+        [matTooltip]="isTaskDone(task) ? 'Leave complete' : 'Cancel'"
+        [attr.aria-label]="isTaskDone(task) ? 'Leave task complete' : 'Cancel'"
+        (click)="cancelTaskPrompt($event)">
+        <mat-icon>{{ isTaskDone(task) ? 'check_box' : 'close' }}</mat-icon>
+      </button>
+    </div>
 
     <div class="cal-allday" *ngIf="getAllDayEvents().length > 0">
       <span class="cal-allday-label">All day</span>
@@ -353,71 +421,6 @@
                 <span class="cal-event-title" [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
               </div>
             </div>
-          </div>
-
-          <!-- Rendered as a sibling rather than nested in the event block above, since an
-               approximate event's mask-image would otherwise clip this fixed-position
-               popover (it renders far outside that block's own small box). -->
-          <div
-            class="cal-popover"
-            *ngIf="selectedTimedEvent() as sel"
-            [class.cal-popover--above]="popoverAbove"
-            [style.top.px]="popoverTop"
-            (click)="$event.stopPropagation()">
-            <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(sel)"></div>
-            <div class="cal-popover-body">
-              <p class="cal-popover-title">{{ sel.summary }}</p>
-              <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
-              <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name">
-                <mat-icon>{{ sel.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ sel.isPrivate ? 'Private — only you' : 'For ' + name }}
-              </p>
-              <p class="cal-popover-person" *ngIf="!sel.isPrivate && sel.createdByName"><mat-icon>person_add</mat-icon>Created by {{ sel.createdByName }}</p>
-              <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
-              <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
-              <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
-            </div>
-            <button
-              mat-icon-button
-              *ngIf="sel.source === 'app'"
-              class="cal-popover-edit"
-              (click)="openEditEventDialog(sel)"
-              aria-label="Edit item">
-              <mat-icon>edit</mat-icon>
-            </button>
-            <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
-          </div>
-
-          <!-- "Mark complete?" prompt for a task's checkbox — a popover like the details one, so it
-               doesn't take space inside the (often small) item in the timeline. -->
-          <div
-            class="cal-popover cal-popover--confirm"
-            *ngIf="confirmingTask() as task"
-            [class.cal-popover--above]="confirmAbove"
-            [style.top.px]="confirmTop"
-            (click)="$event.stopPropagation()">
-            <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(task)"></div>
-            <div class="cal-popover-body">
-              <p class="cal-popover-title">{{ isTaskDone(task) ? 'Mark not complete?' : 'Mark complete?' }}</p>
-              <p class="cal-popover-time">{{ task.summary }}</p>
-            </div>
-            <button
-              mat-icon-button
-              class="cal-popover-edit task-confirm-icon task-confirm-icon--yes"
-              [matTooltip]="isTaskDone(task) ? 'Mark not complete' : 'Complete'"
-              [attr.aria-label]="isTaskDone(task) ? 'Mark task not complete' : 'Complete task'"
-              (click)="confirmTaskToggle(task, $event)">
-              <!-- Undoing a completed task shows the boxes instead: green is the empty box it becomes,
-                   red is the checked box it stays as if you cancel. -->
-              <mat-icon>{{ isTaskDone(task) ? 'check_box_outline_blank' : 'check' }}</mat-icon>
-            </button>
-            <button
-              mat-icon-button
-              class="cal-popover-close task-confirm-icon task-confirm-icon--no"
-              [matTooltip]="isTaskDone(task) ? 'Leave complete' : 'Cancel'"
-              [attr.aria-label]="isTaskDone(task) ? 'Leave task complete' : 'Cancel'"
-              (click)="cancelTaskPrompt($event)">
-              <mat-icon>{{ isTaskDone(task) ? 'check_box' : 'close' }}</mat-icon>
-            </button>
           </div>
 
           <!-- Empty state -->

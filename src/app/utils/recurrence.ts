@@ -104,3 +104,61 @@ export function occurrenceKey(event: CalendarEvent): string {
 export function completionFor(event: CalendarEvent): TaskCompletion | null {
   return event.completions?.[occurrenceKey(event)] ?? null;
 }
+
+export interface TaskChecklistRow {
+  /** The task occurrence (dated to the day it falls on). */
+  event: CalendarEvent;
+  done: boolean;
+  /** Whole days since the occurrence's day, for a task carried over from an earlier day; otherwise 0. */
+  daysOverdue: number;
+}
+
+/** How far back a repeating task is searched for an unfinished occurrence to carry over. */
+const CARRY_LOOKBACK_DAYS = 60;
+
+/** The occurrence of a (single-day) task that falls on `day`, if any. */
+function taskOccurrenceOn(task: CalendarEvent, day: Date): CalendarEvent | null {
+  const occurrence = expandRecurringForDay([task], day, day)[0];
+  return occurrence && toIsoDate(firstDay(occurrence)) === toIsoDate(day) ? occurrence : null;
+}
+
+/** The most recent unfinished occurrence of a task before `today`. */
+function latestOpenBefore(task: CalendarEvent, today: Date): CalendarEvent | null {
+  if (!task.repeat) {
+    return firstDay(task) < today && !completionFor(task) ? task : null;
+  }
+  for (let back = 1; back <= CARRY_LOOKBACK_DAYS; back++) {
+    const occurrence = taskOccurrenceOn(task, new Date(today.getFullYear(), today.getMonth(), today.getDate() - back));
+    if (occurrence && !completionFor(occurrence)) return occurrence;
+  }
+  return null;
+}
+
+/**
+ * The checklist for one calendar day: that day's tasks with no specific time (time-specific ones
+ * sit on the timeline), plus — on today — every unfinished task from earlier days, carried over
+ * until it's ticked off. A repeating task carries over only its most recent unfinished occurrence.
+ */
+export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date = new Date()): TaskChecklistRow[] {
+  const dayStart = startOfDay(day);
+  const today = startOfDay(now);
+  const isToday = toIsoDate(dayStart) === toIsoDate(today);
+  const carried: TaskChecklistRow[] = [];
+  const onDay: TaskChecklistRow[] = [];
+
+  for (const task of events) {
+    if (task.kind !== 'task') continue;
+    if (!task.start.dateTime) {
+      const occurrence = taskOccurrenceOn(task, dayStart);
+      if (occurrence) onDay.push({ event: occurrence, done: !!completionFor(occurrence), daysOverdue: 0 });
+    }
+    if (isToday) {
+      const open = latestOpenBefore(task, today);
+      if (open) carried.push({ event: open, done: false, daysOverdue: daysBetween(firstDay(open), today) });
+    }
+  }
+
+  carried.sort((a, b) => b.daysOverdue - a.daysOverdue);
+  onDay.sort((a, b) => Number(a.done) - Number(b.done) || a.event.summary.localeCompare(b.event.summary));
+  return [...carried, ...onDay];
+}

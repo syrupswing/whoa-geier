@@ -15,6 +15,7 @@ import { MatNativeDateModule } from '@angular/material/core';
 import { CalendarEvent, CalendarItemKind, RepeatRule } from '../../services/google-calendar.service';
 import { HouseholdService } from '../../services/household.service';
 import { AuthService } from '../../services/auth.service';
+import { TimeFieldComponent } from '../time-field/time-field.component';
 import { nextDayIso } from '../../services/app-calendar-event.service';
 
 export type AppCalendarEventFormResult = Omit<CalendarEvent, 'id' | 'source'>;
@@ -31,40 +32,17 @@ export interface CalendarEventDialogData {
   defaultDate?: Date;
 }
 
-type TimeType = 'timed' | 'all-day' | 'point';
 type Scope = 'private' | 'family';
 type RepeatUnit = RepeatRule['unit'];
 
-interface TimeOption {
-  value: string;
-  label: string;
-}
-
 const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-
-/** "HH:mm" → "9:05 AM". */
-function timeLabel(value: string): string {
-  const [h, m] = value.split(':').map(Number);
-  const suffix = h >= 12 ? 'PM' : 'AM';
-  return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${suffix}`;
-}
-
-/** Every 15 minutes across the day. */
-function buildTimeOptions(): TimeOption[] {
-  const options: TimeOption[] = [];
-  for (let minutes = 0; minutes < 24 * 60; minutes += 15) {
-    const value = `${String(Math.floor(minutes / 60)).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
-    options.push({ value, label: timeLabel(value) });
-  }
-  return options;
-}
 
 /**
  * Add/edit form for app-native calendar items (stored in Firestore, merged alongside Google
  * Calendar events since this app only has read access there). An item is either an Event
- * (timing only) or a Task (can be completed). Both can be all-day (the default), point-in-time,
- * or — events only — timed, including across several days; both can repeat, and both are
- * private to their creator (the default) or shared with the family.
+ * (timing only) or a Task (can be completed). Both can be all-day (the default) or have a time of
+ * day (a point in time); events can also have a duration and span several days. Both can repeat,
+ * and both are private to their creator (the default) or shared with the family.
  */
 @Component({
   selector: 'app-calendar-event-dialog',
@@ -82,7 +60,8 @@ function buildTimeOptions(): TimeOption[] {
     MatCheckboxModule,
     MatSelectModule,
     MatDatepickerModule,
-    MatNativeDateModule
+    MatNativeDateModule,
+    TimeFieldComponent
   ],
   template: `
     <h2 mat-dialog-title>
@@ -105,7 +84,7 @@ function buildTimeOptions(): TimeOption[] {
           A task can be checked off. It can be all day or at a specific time.
         </p>
 
-        <mat-form-field appearance="outline" class="full-width">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width title-field">
           <mat-label>Title</mat-label>
           <input
             matInput
@@ -113,77 +92,95 @@ function buildTimeOptions(): TimeOption[] {
             [(ngModel)]="formData.title"
             [placeholder]="formData.itemKind === 'task' ? 'e.g., Renew car registration' : 'e.g., Dentist appointment'"
             required>
-          <mat-icon matPrefix>title</mat-icon>
         </mat-form-field>
 
-        <mat-radio-group class="kind-group" name="timeType" [(ngModel)]="formData.timeType">
-          <mat-radio-button value="all-day">All day</mat-radio-button>
-          <mat-radio-button value="timed" *ngIf="formData.itemKind === 'event'">Timed</mat-radio-button>
-          <mat-radio-button value="point">Point in time</mat-radio-button>
-        </mat-radio-group>
-        <p class="kind-hint" *ngIf="formData.timeType === 'point'">
-          A specific moment with no duration — a flight departure, a reminder to call someone.
-        </p>
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+          <mat-label>{{ formData.multiDay ? 'Start date' : 'Date' }}</mat-label>
+          <input matInput [matDatepicker]="datePicker" name="startDate" [(ngModel)]="formData.startDate" (dateChange)="onStartDateChange()" required>
+          <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
+          <mat-datepicker #datePicker></mat-datepicker>
+        </mat-form-field>
 
-        <!-- All day and point in time: one date (plus one time for a point). -->
-        <div class="time-row" *ngIf="formData.timeType !== 'timed'">
-          <mat-form-field appearance="outline">
-            <mat-label>Date</mat-label>
-            <input matInput [matDatepicker]="datePicker" name="startDate" [(ngModel)]="formData.startDate" (dateChange)="onStartDateChange()" required>
-            <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
-            <mat-datepicker #datePicker></mat-datepicker>
-          </mat-form-field>
-          <mat-form-field appearance="outline" *ngIf="formData.timeType === 'point'">
-            <mat-label>Time</mat-label>
-            <mat-select name="startTime" [(ngModel)]="formData.startTime" required>
-              <mat-option *ngFor="let t of timeOptions" [value]="t.value">{{ t.label }}</mat-option>
-            </mat-select>
-          </mat-form-field>
-        </div>
-
-        <!-- Timed: a start and an end, each with its own date so it can span several days. -->
-        <ng-container *ngIf="formData.timeType === 'timed'">
-          <div class="time-row">
-            <mat-form-field appearance="outline">
-              <mat-label>Start date</mat-label>
-              <input matInput [matDatepicker]="startPicker" name="startDate" [(ngModel)]="formData.startDate" (dateChange)="onStartDateChange()" required>
-              <mat-datepicker-toggle matIconSuffix [for]="startPicker"></mat-datepicker-toggle>
-              <mat-datepicker #startPicker></mat-datepicker>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>Start time</mat-label>
-              <mat-select name="startTime" [(ngModel)]="formData.startTime" required>
-                <mat-option *ngFor="let t of timeOptions" [value]="t.value">{{ t.label }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-          <mat-checkbox name="startApproximate" [(ngModel)]="formData.startApproximate">~ Start time is approximate</mat-checkbox>
-          <div class="time-row">
-            <mat-form-field appearance="outline">
-              <mat-label>End date</mat-label>
-              <input matInput [matDatepicker]="endPicker" name="endDate" [(ngModel)]="formData.endDate" [min]="formData.startDate" required>
-              <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
-              <mat-datepicker #endPicker></mat-datepicker>
-            </mat-form-field>
-            <mat-form-field appearance="outline">
-              <mat-label>End time</mat-label>
-              <mat-select name="endTime" [(ngModel)]="formData.endTime" required>
-                <mat-option *ngFor="let t of timeOptions" [value]="t.value">{{ t.label }}</mat-option>
-              </mat-select>
-            </mat-form-field>
-          </div>
-          <mat-checkbox name="endApproximate" [(ngModel)]="formData.endApproximate">~ End time is approximate</mat-checkbox>
+        <!-- With a start and end time on a multi-day item, the end date moves down between the two times. -->
+        <ng-container *ngIf="formData.multiDay && !endDateBetweenTimes()">
+          <ng-container *ngTemplateOutlet="endDateField"></ng-container>
         </ng-container>
 
-        <mat-checkbox name="repeats" [(ngModel)]="formData.repeats">Repeats</mat-checkbox>
+        <div class="chip-row" *ngIf="!formData.hasTime || (!formData.multiDay && formData.itemKind === 'event')">
+          <button mat-stroked-button type="button" *ngIf="!formData.hasTime" (click)="setHasTime(true)">
+            <mat-icon>schedule</mat-icon>
+            Time of day
+          </button>
+          <button mat-stroked-button type="button" *ngIf="!formData.multiDay && formData.itemKind === 'event'" (click)="setMultiDay(true)">
+            <mat-icon>date_range</mat-icon>
+            Multi-day
+          </button>
+        </div>
+
+        <ng-container *ngIf="formData.hasTime">
+          <div class="field-with-action">
+            <app-time-field
+              [label]="formData.hasDuration ? 'Start time' : 'Time of day'"
+              [value]="formData.startTime"
+              (valueChange)="onStartTimeChange($event)"></app-time-field>
+            <button mat-button type="button" class="remove-action" (click)="setHasTime(false)">
+              <mat-icon class="icon-remove">cancel</mat-icon>
+              Cancel time-specificity
+            </button>
+          </div>
+          <mat-checkbox class="approx-check" name="startApproximate" *ngIf="formData.hasDuration" [(ngModel)]="formData.startApproximate">~ Approximate time</mat-checkbox>
+
+          <ng-container *ngIf="endDateBetweenTimes()">
+            <ng-container *ngTemplateOutlet="endDateField"></ng-container>
+          </ng-container>
+
+          <ng-container *ngIf="formData.itemKind === 'event'">
+            <div class="field-with-action" *ngIf="formData.hasDuration; else addDuration">
+              <app-time-field
+                label="End time"
+                [value]="formData.endTime"
+                (valueChange)="formData.endTime = $event"></app-time-field>
+              <button mat-button type="button" class="remove-action" (click)="setHasDuration(false)">
+                <mat-icon class="icon-remove">cancel</mat-icon>
+                Cancel duration
+              </button>
+            </div>
+            <mat-checkbox class="approx-check" name="endApproximate" *ngIf="formData.hasDuration" [(ngModel)]="formData.endApproximate">~ Approximate time</mat-checkbox>
+            <ng-template #addDuration>
+              <div class="chip-row">
+                <button mat-button type="button" class="add-action" (click)="setHasDuration(true)">
+                  <mat-icon class="icon-add">add_circle</mat-icon>
+                  Add duration
+                </button>
+              </div>
+            </ng-template>
+          </ng-container>
+        </ng-container>
+
+        <ng-template #endDateField>
+        <div class="field-with-action">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>End date</mat-label>
+            <input matInput [matDatepicker]="endPicker" name="endDate" [(ngModel)]="formData.endDate" [min]="formData.startDate" required>
+            <mat-datepicker-toggle matIconSuffix [for]="endPicker"></mat-datepicker-toggle>
+            <mat-datepicker #endPicker></mat-datepicker>
+          </mat-form-field>
+          <button mat-button type="button" class="remove-action" (click)="setMultiDay(false)">
+            <mat-icon class="icon-remove">cancel</mat-icon>
+            Cancel multi-day
+          </button>
+        </div>
+        </ng-template>
+
+        <mat-checkbox name="repeats" [(ngModel)]="formData.repeats"><span class="scope-label"><mat-icon>event_repeat</mat-icon>Repeats</span></mat-checkbox>
         <ng-container *ngIf="formData.repeats">
           <div class="time-row repeat-row">
             <span class="repeat-label">Every</span>
-            <mat-form-field appearance="outline" class="repeat-interval">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="repeat-interval">
               <mat-label>Number</mat-label>
               <input matInput type="number" min="1" step="1" name="repeatInterval" [(ngModel)]="formData.repeatInterval">
             </mat-form-field>
-            <mat-form-field appearance="outline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
               <mat-label>Unit</mat-label>
               <mat-select name="repeatUnit" [(ngModel)]="formData.repeatUnit">
                 <mat-option value="day">{{ formData.repeatInterval == 1 ? 'day' : 'days' }}</mat-option>
@@ -195,7 +192,7 @@ function buildTimeOptions(): TimeOption[] {
           <p class="kind-hint">{{ repeatSummary() }}</p>
         </ng-container>
 
-        <mat-form-field appearance="outline" class="full-width" *ngIf="householdService.members().length">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="householdService.members().length">
           <mat-label>For</mat-label>
           <mat-select name="memberId" [(ngModel)]="formData.memberId">
             <mat-option [value]="null">Whole household</mat-option>
@@ -207,8 +204,8 @@ function buildTimeOptions(): TimeOption[] {
         </mat-form-field>
 
         <mat-radio-group class="kind-group" name="scope" [(ngModel)]="formData.scope" [disabled]="!canChangeScope()">
-          <mat-radio-button value="private">Private</mat-radio-button>
-          <mat-radio-button value="family">Shared with family</mat-radio-button>
+          <mat-radio-button value="private"><span class="scope-label"><mat-icon>lock_person</mat-icon>Private</span></mat-radio-button>
+          <mat-radio-button value="family"><span class="scope-label"><mat-icon>family_restroom</mat-icon>Shared with family</span></mat-radio-button>
         </mat-radio-group>
         <p class="kind-hint">
           {{ !canChangeScope()
@@ -241,9 +238,16 @@ function buildTimeOptions(): TimeOption[] {
     .dialog-form {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
       min-width: 400px;
-      padding: 16px 0;
+      padding: 6px 0;
+
+      /* Compact: shorter inputs and dense buttons/checkboxes throughout the form. */
+      --mat-form-field-container-height: 40px;
+      --mat-form-field-container-vertical-padding: 8px;
+      --mdc-text-button-container-height: 40px;
+      --mdc-outlined-button-container-height: 40px;
+      --mdc-checkbox-state-layer-size: 32px;
 
       @media (max-width: 600px) {
         min-width: 280px;
@@ -254,6 +258,10 @@ function buildTimeOptions(): TimeOption[] {
       width: 100%;
     }
 
+    .title-field {
+      margin-bottom: 8px;
+    }
+
     .item-kind-toggle {
       align-self: flex-start;
     }
@@ -261,11 +269,11 @@ function buildTimeOptions(): TimeOption[] {
     .kind-group {
       display: flex;
       flex-wrap: wrap;
-      gap: 16px;
+      gap: 12px;
     }
 
     .kind-hint {
-      margin: -8px 0 0;
+      margin: -4px 0 0;
       font-size: 0.8rem;
       color: var(--color-text-secondary);
     }
@@ -273,7 +281,7 @@ function buildTimeOptions(): TimeOption[] {
     .time-row {
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 8px;
 
       mat-form-field {
         flex: 1;
@@ -281,9 +289,52 @@ function buildTimeOptions(): TimeOption[] {
       }
     }
 
+    .field-with-action {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+
+      mat-form-field,
+      app-time-field {
+        flex: 1;
+        min-width: 0;
+      }
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .approx-check {
+      margin: -10px 0 0;
+      font-size: 0.85rem;
+    }
+
+    .icon-remove {
+      color: #d32f2f;
+    }
+
+    .icon-add {
+      color: #2e7d32;
+    }
+
+    .scope-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+
+      mat-icon {
+        font-size: 20px;
+        width: 20px;
+        height: 20px;
+      }
+    }
+
     .repeat-row {
       .repeat-label {
-        padding-bottom: 22px;
+        padding-bottom: 0;
       }
 
       .repeat-interval {
@@ -305,7 +356,7 @@ function buildTimeOptions(): TimeOption[] {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding: 16px 12px 0 16px;
+      padding: 12px 12px 0 16px;
 
       mat-icon {
         color: var(--color-primary);
@@ -317,7 +368,10 @@ export class CalendarEventDialogComponent {
   formData: {
     itemKind: CalendarItemKind;
     title: string;
-    timeType: TimeType;
+    /** Off = all day. On without a duration = a point in time. */
+    hasTime: boolean;
+    hasDuration: boolean;
+    multiDay: boolean;
     startDate: Date;
     endDate: Date;
     startTime: string;
@@ -331,8 +385,6 @@ export class CalendarEventDialogComponent {
     scope: Scope;
   };
 
-  timeOptions: TimeOption[] = buildTimeOptions();
-
   constructor(
     public dialogRef: MatDialogRef<CalendarEventDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: CalendarEventDialogData,
@@ -343,11 +395,21 @@ export class CalendarEventDialogComponent {
     if (event) {
       const isAllDay = !!event.start.date && !event.start.dateTime;
       const startDate = event.start.dateTime ? new Date(event.start.dateTime) : this.parseIsoDate(event.start.date!);
-      const endDate = event.end.dateTime ? new Date(event.end.dateTime) : startDate;
+      let endDate = startDate;
+      if (event.end.dateTime) {
+        endDate = new Date(event.end.dateTime);
+      } else if (event.end.date) {
+        // An all-day end.date is exclusive (the day after the last day).
+        endDate = this.parseIsoDate(event.end.date);
+        endDate.setDate(endDate.getDate() - 1);
+        if (endDate < startDate) endDate = startDate;
+      }
       this.formData = {
         itemKind: event.kind ?? 'event',
         title: event.summary,
-        timeType: isAllDay ? 'all-day' : (event.isPointInTime ? 'point' : 'timed'),
+        hasTime: !isAllDay,
+        hasDuration: !isAllDay && !event.isPointInTime,
+        multiDay: this.dateOnly(endDate) > this.dateOnly(startDate),
         startDate: this.dateOnly(startDate),
         endDate: this.dateOnly(endDate),
         startTime: event.start.dateTime ? this.toTimeValue(startDate) : '09:00',
@@ -366,7 +428,9 @@ export class CalendarEventDialogComponent {
         itemKind: 'event',
         title: '',
         // All day on the day being viewed, private to the creator, unless the user says otherwise.
-        timeType: 'all-day',
+        hasTime: false,
+        hasDuration: false,
+        multiDay: false,
         startDate: day,
         endDate: day,
         startTime: '09:00',
@@ -380,9 +444,6 @@ export class CalendarEventDialogComponent {
         scope: 'private'
       };
     }
-
-    // An existing time that isn't on the 15-minute grid still needs to be selectable.
-    [this.formData.startTime, this.formData.endTime].forEach(value => this.ensureTimeOption(value));
   }
 
   /**
@@ -397,16 +458,70 @@ export class CalendarEventDialogComponent {
 
   onItemKindChange(kind: CalendarItemKind): void {
     this.formData.itemKind = kind;
-    // Tasks can't be timed (yet), so fall back to all day rather than keep a hidden option selected.
-    if (kind === 'task' && this.formData.timeType === 'timed') {
-      this.formData.timeType = 'all-day';
+    // Tasks have no duration or multi-day span, so drop them rather than keep hidden state.
+    if (kind === 'task') {
+      this.formData.hasDuration = false;
+      this.setMultiDay(false);
     }
   }
 
+  endDateBetweenTimes(): boolean {
+    const f = this.formData;
+    return f.multiDay && f.hasTime && f.hasDuration;
+  }
+
+  setHasTime(on: boolean): void {
+    const f = this.formData;
+    f.hasTime = on;
+    if (on) {
+      f.hasDuration = f.itemKind === 'event';
+      if (f.hasDuration) this.setEndOneHourAfterStart();
+    } else {
+      f.hasDuration = false;
+    }
+  }
+
+  setHasDuration(on: boolean): void {
+    this.formData.hasDuration = on;
+    if (on) this.setEndOneHourAfterStart();
+  }
+
+  setMultiDay(on: boolean): void {
+    const f = this.formData;
+    f.multiDay = on;
+    if (on) {
+      if (f.endDate <= f.startDate) f.endDate = this.addDays(f.startDate, 1);
+    } else {
+      f.endDate = f.startDate;
+    }
+  }
+
+  onStartTimeChange(value: string): void {
+    this.formData.startTime = value;
+    if (this.formData.hasDuration) this.setEndOneHourAfterStart();
+  }
+
   onStartDateChange(): void {
+    const f = this.formData;
+    if (!f.startDate) return;
     // Keep the end from landing before the start when the start moves later.
-    if (this.formData.startDate && this.formData.endDate < this.formData.startDate) {
-      this.formData.endDate = this.formData.startDate;
+    if (!f.multiDay || f.endDate < f.startDate) {
+      f.endDate = f.startDate;
+    }
+  }
+
+  /** The end time follows the start (one hour later); running past midnight makes the item multi-day. */
+  private setEndOneHourAfterStart(): void {
+    const f = this.formData;
+    if (!f.startDate || !f.startTime) return;
+    const end = new Date(this.combine(f.startDate, f.startTime).getTime() + 60 * 60 * 1000);
+    f.endTime = this.toTimeValue(end);
+    if (!f.multiDay) {
+      f.endDate = f.startDate;
+      if (this.dateOnly(end) > f.startDate) {
+        f.multiDay = true;
+        f.endDate = this.dateOnly(end);
+      }
     }
   }
 
@@ -425,11 +540,12 @@ export class CalendarEventDialogComponent {
     const f = this.formData;
     if (!f.title.trim() || !f.startDate) return false;
     if (f.repeats && !(Number.isInteger(Number(f.repeatInterval)) && Number(f.repeatInterval) >= 1)) return false;
-    if (f.timeType === 'all-day') return true;
+    if (f.multiDay && (!f.endDate || f.endDate < f.startDate)) return false;
+    if (!f.hasTime) return true;
     if (!f.startTime) return false;
-    if (f.timeType === 'point') return true;
-    if (!f.endDate || !f.endTime) return false;
-    return this.combine(f.endDate, f.endTime) > this.combine(f.startDate, f.startTime);
+    if (!f.hasDuration) return true;
+    if (!f.endTime) return false;
+    return this.combine(f.multiDay ? f.endDate : f.startDate, f.endTime) > this.combine(f.startDate, f.startTime);
   }
 
   onCancel(): void {
@@ -448,15 +564,12 @@ export class CalendarEventDialogComponent {
     this.dialogRef.close(result);
   }
 
-  private ensureTimeOption(value: string): void {
-    if (value && !this.timeOptions.some(t => t.value === value)) {
-      this.timeOptions = [...this.timeOptions, { value, label: timeLabel(value) }]
-        .sort((a, b) => a.value.localeCompare(b.value));
-    }
-  }
-
   private dateOnly(d: Date): Date {
     return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  private addDays(d: Date, days: number): Date {
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate() + days);
   }
 
   private parseIsoDate(iso: string): Date {
@@ -484,16 +597,17 @@ export class CalendarEventDialogComponent {
     const isEdit = this.data.mode === 'edit';
 
     let result: AppCalendarEventFormResult;
-    if (f.timeType === 'all-day') {
+    if (!f.hasTime) {
       const date = this.toIsoDate(f.startDate);
-      // end.date is exclusive (the day after), like Google Calendar.
-      result = { summary, start: { date }, end: { date: nextDayIso(date) } };
+      const lastDate = f.multiDay ? this.toIsoDate(f.endDate) : date;
+      // end.date is exclusive (the day after the last day), like Google Calendar.
+      result = { summary, start: { date }, end: { date: nextDayIso(lastDate) } };
     } else {
       const startIso = this.combine(f.startDate, f.startTime).toISOString();
-      if (f.timeType === 'point') {
+      if (!f.hasDuration) {
         result = { summary, start: { dateTime: startIso }, end: { dateTime: startIso } };
       } else {
-        const endIso = this.combine(f.endDate, f.endTime).toISOString();
+        const endIso = this.combine(f.multiDay ? f.endDate : f.startDate, f.endTime).toISOString();
         result = { summary, start: { dateTime: startIso }, end: { dateTime: endIso } };
       }
     }
@@ -507,9 +621,9 @@ export class CalendarEventDialogComponent {
     // `undefined` here becomes a real field delete (see FirestoreService.updateDocument).
     // Adding has nothing to clear yet, and Firestore's create path rejects literal
     // `undefined` values outright, so a falsy field is simply left off the new document.
-    this.setOptionalField(result, 'isPointInTime', true, f.timeType === 'point', isEdit);
-    this.setOptionalField(result, 'startApproximate', true, f.timeType === 'timed' && f.startApproximate, isEdit);
-    this.setOptionalField(result, 'endApproximate', true, f.timeType === 'timed' && f.endApproximate, isEdit);
+    this.setOptionalField(result, 'isPointInTime', true, f.hasTime && !f.hasDuration, isEdit);
+    this.setOptionalField(result, 'startApproximate', true, f.hasTime && f.hasDuration && f.startApproximate, isEdit);
+    this.setOptionalField(result, 'endApproximate', true, f.hasTime && f.hasDuration && f.endApproximate, isEdit);
     this.setOptionalField(result, 'memberId', f.memberId as string, !!f.memberId, isEdit);
     this.setOptionalField(
       result, 'repeat', { unit: f.repeatUnit, interval: Number(f.repeatInterval) }, f.repeats, isEdit

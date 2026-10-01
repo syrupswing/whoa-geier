@@ -23,7 +23,7 @@ import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { RemiScheduleService, RemiDailyBriefing } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { TodoLaneComponent } from '../../shared/todo-lane/todo-lane.component';
+import { TaskLaneComponent } from '../../shared/task-lane/task-lane.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
 import { QuickAddCardComponent } from '../../shared/quick-add-card/quick-add-card.component';
@@ -191,7 +191,7 @@ function loadPersistedChatMessages(): ChatMessage[] {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, TodoLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
+  imports: [CommonModule, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -220,7 +220,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     : `${this.getGreetingMessage()} ${this.heroNudge()}`.trim());
   /** True once the user has explicitly stepped away from today's view — blocks the auto re-sync on resume. */
   private hasNavigatedAwayFromToday = false;
-  selectedEvent = signal<TimelineEvent | null>(null);
+  selectedEvent = signal<CalendarEvent | null>(null);
   popoverAbove = false;
   popoverTop = 0;
   readonly HOUR_PX = 20;
@@ -602,7 +602,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   getAllDayEvents(): TimelineEvent[] {
     return this.getViewDayEvents().filter(e =>
-      !e.start.dateTime && (e.source === 'app' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
+      !e.start.dateTime && e.kind !== 'task' && (e.source === 'app' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
     );
   }
 
@@ -832,7 +832,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return (minutes / 60) * this.HOUR_PX;
   }
 
-  selectEvent(event: TimelineEvent, mouseEvent: Event): void {
+  selectEvent(event: CalendarEvent, mouseEvent: Event): void {
     mouseEvent.stopPropagation();
     const target = mouseEvent.currentTarget as HTMLElement;
     const rect = target.getBoundingClientRect();
@@ -902,9 +902,14 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${this.formatShortDate(d)} at ${this.formatTime(d)}`;
   }
 
-  selectedTimedEvent(): TimelineEvent | null {
+  /**
+   * The selected event when its popover is rendered up by the task list rather than inside an
+   * all-day chip: timed events (hoisted so the timeline's clipping can't cut them off) and tasks
+   * (which live in the checklist, not the all-day band).
+   */
+  selectedHoistedEvent(): CalendarEvent | null {
     const event = this.selectedEvent();
-    return event && event.start.dateTime ? event : null;
+    return event && (event.start.dateTime || event.kind === 'task') ? event : null;
   }
 
   // getAllDayEvents()/getTimedEvents() rebuild their arrays (and TimelineEvent objects) on

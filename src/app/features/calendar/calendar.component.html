@@ -102,13 +102,16 @@
 
     <!-- Day view -->
     <ng-container *ngIf="!isWideViewport()">
-      <app-todo-lane [date]="currentDate()"></app-todo-lane>
+      <app-task-lane
+        [date]="currentDate()"
+        (taskSelect)="selectEvent($event.event, $event.domEvent)"
+        (taskToggle)="toggleTask($event.event, $event.domEvent)"></app-task-lane>
 
-      <div class="cal-allday" *ngIf="getAllDayEventsForDay(currentDate()).length > 0">
+      <div class="cal-allday" *ngIf="getAllDayNonTaskEventsForDay(currentDate()).length > 0">
         <span class="cal-allday-label">All day</span>
         <div class="cal-allday-events">
           <div
-            *ngFor="let event of getAllDayEventsForDay(currentDate()); trackBy: trackByEventId"
+            *ngFor="let event of getAllDayNonTaskEventsForDay(currentDate()); trackBy: trackByEventId"
             class="cal-allday-chip"
             [style.--event-color]="getEventColor(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
@@ -153,7 +156,7 @@
         </div>
       </div>
 
-      <div class="cal-no-events" *ngIf="getTimedEventsForDay(currentDate()).length === 0 && getAllDayEventsForDay(currentDate()).length === 0">
+      <div class="cal-no-events" *ngIf="getTimedEventsForDay(currentDate()).length === 0 && getAllDayNonTaskEventsForDay(currentDate()).length === 0">
         <mat-icon>event_available</mat-icon>
         <p>No events scheduled</p>
       </div>
