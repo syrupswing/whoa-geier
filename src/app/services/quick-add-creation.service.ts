@@ -36,6 +36,8 @@ export interface QuickAddCard {
   isLowConfidence: boolean;
   isEditing: boolean;
   status: 'pending' | 'confirmed' | 'discarded';
+  /** Set on a fact proposed from the user correcting an assistant reply, so the chat can label it as a memory to review. */
+  fromCorrection?: boolean;
 }
 
 export const QUICK_ADD_TYPE_ICONS: Record<QuickAddItemType, string> = {

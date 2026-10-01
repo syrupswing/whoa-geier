@@ -33,32 +33,46 @@
                 class="correct-btn"
                 *ngIf="correctingMessage() !== message"
                 (click)="startCorrection(message)">
-                Correct this
+                <mat-icon>edit_note</mat-icon>Correct this
               </button>
               <form class="correct-form" *ngIf="correctingMessage() === message" (ngSubmit)="submitCorrection(message)">
+                <div class="correct-heading">
+                  <mat-icon>psychology</mat-icon>
+                  <div>
+                    <p class="correct-title">What should I have said?</p>
+                    <p class="correct-help">I'll turn this into a fact to remember. You'll get to review it before it's saved.</p>
+                  </div>
+                </div>
                 <textarea
                   name="correctionInput"
-                  rows="2"
-                  placeholder="What should I have said? I'll remember it going forward."
+                  rows="3"
+                  aria-label="What the reply should have said"
+                  placeholder="e.g., Field trip days aren't Mpls Kids days. Those are on…"
                   [(ngModel)]="correctionText"
                   (blur)="resetViewportAfterKeyboard()"></textarea>
                 <div class="correct-actions">
-                  <button type="submit" class="correct-submit" [disabled]="!correctionText.trim() || isCorrecting()">
-                    {{ isCorrecting() ? 'Thinking…' : 'Save correction' }}
-                  </button>
                   <button type="button" class="correct-cancel" (click)="cancelCorrection()">Cancel</button>
+                  <button type="submit" class="correct-submit" [disabled]="!correctionText.trim() || isCorrecting()">
+                    <mat-icon>{{ isCorrecting() ? 'hourglass_top' : 'check' }}</mat-icon>
+                    {{ isCorrecting() ? 'Working on it…' : 'Save correction' }}
+                  </button>
                 </div>
               </form>
             </div>
             <div class="chat-message-cards" *ngIf="message.cards?.length">
-              <app-quick-add-card
-                *ngFor="let card of message.cards"
-                [card]="card"
-                (toggleEdit)="toggleCardEdit(message, card)"
-                (fieldChange)="updateCardField(message, card, $event.field, $event.value)"
-                (confirm)="confirmCard(message, card)"
-                (discard)="discardCard(message, card)">
-              </app-quick-add-card>
+              <div class="chat-card-group" *ngFor="let card of message.cards">
+                <p class="correction-card-label" *ngIf="card.fromCorrection && card.status === 'pending'">
+                  <mat-icon>psychology</mat-icon>
+                  {{ card.item.replacesFactId ? 'Review: this will replace a fact I already had' : 'Review: I\'ll remember this' }}
+                </p>
+                <app-quick-add-card
+                  [card]="card"
+                  (toggleEdit)="toggleCardEdit(message, card)"
+                  (fieldChange)="updateCardField(message, card, $event.field, $event.value)"
+                  (confirm)="confirmCard(message, card)"
+                  (discard)="discardCard(message, card)">
+                </app-quick-add-card>
+              </div>
               <button
                 type="button"
                 class="confirm-all-chip"
@@ -303,6 +317,7 @@
             <div
               class="cal-event-body"
               [class.is-point-in-time]="event.isPointInTime"
+              [class.is-task]="isTask(event)"
               [class.is-approximate-start]="event.startApproximate"
               [class.is-approximate-end]="event.endApproximate">
               <div class="cal-event-title-row">
@@ -363,11 +378,25 @@
             <div class="cal-popover-body">
               <p class="cal-popover-title">{{ isTaskDone(task) ? 'Mark not complete?' : 'Mark complete?' }}</p>
               <p class="cal-popover-time">{{ task.summary }}</p>
-              <div class="task-confirm-actions">
-                <button type="button" class="task-prompt-btn task-prompt-btn--confirm" (click)="confirmTaskToggle(task, $event)">{{ isTaskDone(task) ? 'Reopen' : 'Complete' }}</button>
-                <button type="button" class="task-prompt-btn" (click)="cancelTaskPrompt($event)">Cancel</button>
-              </div>
             </div>
+            <button
+              mat-icon-button
+              class="cal-popover-edit task-confirm-icon task-confirm-icon--yes"
+              [matTooltip]="isTaskDone(task) ? 'Mark not complete' : 'Complete'"
+              [attr.aria-label]="isTaskDone(task) ? 'Mark task not complete' : 'Complete task'"
+              (click)="confirmTaskToggle(task, $event)">
+              <!-- Undoing a completed task shows the boxes instead: green is the empty box it becomes,
+                   red is the checked box it stays as if you cancel. -->
+              <mat-icon>{{ isTaskDone(task) ? 'check_box_outline_blank' : 'check' }}</mat-icon>
+            </button>
+            <button
+              mat-icon-button
+              class="cal-popover-close task-confirm-icon task-confirm-icon--no"
+              [matTooltip]="isTaskDone(task) ? 'Leave complete' : 'Cancel'"
+              [attr.aria-label]="isTaskDone(task) ? 'Leave task complete' : 'Cancel'"
+              (click)="cancelTaskPrompt($event)">
+              <mat-icon>{{ isTaskDone(task) ? 'check_box' : 'close' }}</mat-icon>
+            </button>
           </div>
 
           <!-- Empty state -->

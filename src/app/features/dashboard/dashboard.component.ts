@@ -212,7 +212,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   popoverTop = 0;
   readonly HOUR_PX = 20;
   /** Smallest on-screen height (px) of an event block — one title line plus padding; keep in sync with .cal-event-block's min-height. */
-  readonly MIN_EVENT_BLOCK_PX = 29;
+  readonly MIN_EVENT_BLOCK_PX = 31;
   readonly TOTAL_TIMELINE_HEIGHT = 480; // fixed container height
   readonly allHours = Array.from({ length: 24 }, (_, i) => i);
   private timeInterval?: number;
@@ -1443,13 +1443,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       if (!result.factText) {
         throw new Error('Could not turn that into a fact — try rephrasing');
       }
-      const card = this.quickAddCreation.buildCard({
-        type: 'fact',
-        title: result.factText,
-        factText: result.factText,
-        category: result.category,
-        replacesFactId: result.replacesFactId
-      }, null);
+      const card: QuickAddCard = {
+        ...this.quickAddCreation.buildCard({
+          type: 'fact',
+          title: result.factText,
+          factText: result.factText,
+          category: result.category,
+          replacesFactId: result.replacesFactId
+        }, null),
+        fromCorrection: true
+      };
       this.chatMessages.update(all => all.map(m =>
         m === message ? { ...m, cards: [...(m.cards || []), card] } : m
       ));

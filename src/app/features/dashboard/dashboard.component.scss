@@ -339,55 +339,169 @@
     }
 
     .chat-message-correct {
-      margin-top: 4px;
+      margin-top: 6px;
 
-      .correct-btn,
-      .correct-cancel {
+      // Quiet by default so it doesn't compete with the reply, but reads as a button.
+      .correct-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
         border: none;
+        border-radius: 999px;
         background: transparent;
-        padding: 0;
-        font-size: 0.7rem;
+        padding: 3px 10px 3px 6px;
+        font: inherit;
+        font-size: 0.72rem;
+        font-weight: 500;
         color: var(--color-text-secondary);
-        text-decoration: underline;
         cursor: pointer;
+        transition: background-color 0.15s ease, color 0.15s ease;
+
+        mat-icon {
+          font-size: 16px;
+          width: 16px;
+          height: 16px;
+        }
+
+        &:hover {
+          background: rgba(61, 53, 80, 0.07);
+          color: var(--color-text-primary);
+        }
       }
 
       .correct-form {
         display: flex;
         flex-direction: column;
-        gap: 6px;
+        gap: 10px;
+        padding: 12px;
+        border: 1px solid rgba(61, 53, 80, 0.12);
+        border-radius: 14px;
+        background: rgba(61, 53, 80, 0.035);
 
         textarea {
           width: 100%;
           box-sizing: border-box;
-          border: 1px solid rgba(61, 53, 80, 0.14);
-          border-radius: 8px;
-          padding: 6px 8px;
+          border: 1px solid rgba(61, 53, 80, 0.18);
+          border-radius: 10px;
+          padding: 8px 10px;
+          background: var(--color-surface, #fff);
           font: inherit;
           font-size: 16px; // keeps iOS from zooming on focus
+          color: var(--color-text-primary);
           resize: vertical;
+
+          &:focus {
+            outline: 2px solid color-mix(in srgb, var(--color-electric-cobalt) 45%, transparent);
+            outline-offset: 0;
+          }
         }
+      }
+
+      .correct-heading {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+
+        mat-icon {
+          flex: none;
+          color: var(--color-iris-bloom, var(--color-text-secondary));
+        }
+
+        p {
+          margin: 0;
+        }
+      }
+
+      .correct-title {
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: var(--color-text-primary);
+      }
+
+      .correct-help {
+        margin-top: 2px;
+        font-size: 0.74rem;
+        line-height: 1.35;
+        color: var(--color-text-secondary);
       }
 
       .correct-actions {
         display: flex;
         align-items: center;
-        gap: 12px;
+        justify-content: flex-end;
+        gap: 8px;
       }
 
-      .correct-submit {
-        border: 1px solid rgba(61, 53, 80, 0.14);
+      .correct-cancel {
+        border: none;
         border-radius: 999px;
         background: transparent;
-        padding: 4px 12px;
-        font-size: 0.76rem;
-        color: var(--color-text-primary);
+        padding: 6px 12px;
+        font: inherit;
+        font-size: 0.8rem;
+        color: var(--color-text-secondary);
         cursor: pointer;
+
+        &:hover {
+          background: rgba(61, 53, 80, 0.07);
+          color: var(--color-text-primary);
+        }
+      }
+
+      // The one clear primary action.
+      .correct-submit {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        border: none;
+        border-radius: 999px;
+        background: var(--color-void-indigo, #3d3550);
+        padding: 6px 14px 6px 10px;
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: #fff;
+        cursor: pointer;
+        transition: filter 0.15s ease, opacity 0.15s ease;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: inherit;
+        }
+
+        &:hover:not(:disabled) {
+          filter: brightness(1.15);
+        }
 
         &:disabled {
           opacity: 0.5;
           cursor: default;
         }
+      }
+    }
+
+    .chat-card-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    // Tells the user a proposed fact came from their correction and still needs their OK.
+    .correction-card-label {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin: 0;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--color-iris-bloom, var(--color-text-secondary));
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
       }
     }
 
@@ -2565,14 +2679,14 @@
   z-index: 1;
   // Never shorter than one full line of title plus the body's padding, so a very short
   // event doesn't clip its own label.
-  min-height: calc(1.2 * 0.68rem + 16px);
+  min-height: calc(1.2 * 0.78rem + 16px);
 
   &.has-popover { z-index: 100; }
 }
 
 .cal-event-body {
   height: 100%;
-  min-height: calc(1.2 * 0.68rem + 16px);
+  min-height: calc(1.2 * 0.78rem + 16px);
   border-radius: 5px;
   padding: 8px;
 
@@ -2628,6 +2742,15 @@
       background: var(--event-color, #a4bdfc);
       pointer-events: none;
     }
+  }
+
+  // A task at a specific time: its row (checkbox + title) is taller than plain text, so give it
+  // the same body height as other events *below* the 4px pinpoint bar, and center the row in that
+  // space — instead of letting the bar eat into the top padding and the row sit off-center.
+  &.is-point-in-time.is-task {
+    padding: 4px 8px 0;
+    min-height: calc(1.2 * 0.78rem + 16px + 4px);
+    justify-content: center;
   }
 
   // Approximate start centers the label instead of top-aligning it, and fades the
@@ -2687,7 +2810,9 @@
 .cal-event-title {
   position: relative;
   z-index: 1;
-  font-size: 0.68rem;
+  // Same size and weight as the all-day chips' titles.
+  font-size: 0.78rem;
+  font-weight: 500;
   line-height: 1.2;
   color: var(--color-midnight-bloom);
   white-space: nowrap;
@@ -2936,27 +3061,36 @@
 // Checkbox + title side by side inside a timeline item (the item's body stacks its children).
 .cal-event-title-row {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 4px;
   min-width: 0;
 }
 
-.task-confirm-actions {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
+// Icon-only confirm/cancel in the top-right of the "Mark complete?" popover, like the details
+// popover's edit/close buttons — green check to confirm, red X to back out. Labels are tooltips.
+.task-confirm-icon {
+  // Tint the details popover's neutral icon colour; the hover state deepens it.
+  &--yes {
+    background: color-mix(in srgb, var(--color-aura-sage, #4a8a50) 14%, transparent) !important;
 
-.task-prompt-btn {
-  border: 1px solid currentColor;
-  border-radius: 999px;
-  background: transparent;
-  padding: 1px 8px;
-  font: inherit;
-  color: inherit;
-  cursor: pointer;
+    mat-icon {
+      color: var(--color-aura-sage, #4a8a50) !important;
+    }
+  }
 
-  &--confirm {
-    background: rgba(61, 53, 80, 0.14);
+  &--no {
+    background: color-mix(in srgb, var(--color-dusk-rose, #b3455a) 14%, transparent) !important;
+
+    mat-icon {
+      color: var(--color-dusk-rose, #b3455a) !important;
+    }
+  }
+
+  &--yes:hover {
+    background: color-mix(in srgb, var(--color-aura-sage, #4a8a50) 26%, transparent) !important;
+  }
+
+  &--no:hover {
+    background: color-mix(in srgb, var(--color-dusk-rose, #b3455a) 26%, transparent) !important;
   }
 }
