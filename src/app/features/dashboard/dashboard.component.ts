@@ -60,7 +60,20 @@ interface ChatMessage {
   briefingDate?: string;
   /** Briefing blurb only: ISO time the blurb's contents were last refreshed, shown as "Updated 24 minutes ago". */
   updatedAt?: string;
+  /** Briefing blurb only: which of the lines currently in it can be refreshed on their own. */
+  refreshTargets?: BriefingRefreshTarget[];
 }
+
+/** A line of the daily blurb that can be refreshed individually. */
+type BriefingRefreshTarget = 'weather' | 'clothing' | 'breakfast' | 'lunch' | 'dinner';
+
+const BRIEFING_TARGET_LABELS: Record<BriefingRefreshTarget, string> = {
+  weather: 'Weather',
+  clothing: 'Outfit',
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner'
+};
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
 const CHAT_MESSAGES_KEY = 'dashboardChatMessages';
@@ -1023,7 +1036,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     void this.refreshStaleOutfit(briefing, now);
 
-    const text = this.buildBriefingBlurb(briefing, now);
+    const { text, targets } = this.buildBriefingBlurb(briefing, now);
     const existing = this.chatMessages().find(m => m.briefingDate === briefing.date);
     if (existing) {
       this.briefingSeeded = true;
@@ -1032,10 +1045,12 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       const stampedAt = existing.updatedAt ? new Date(existing.updatedAt).getTime() : 0;
       const textChanged = existing.text !== text;
       const weatherNewer = !!weatherAt && weatherAt.getTime() > stampedAt;
-      if (textChanged || weatherNewer || !existing.updatedAt) {
-        const updatedAt = textChanged || !weatherAt ? now : weatherAt;
+      const targetsChanged = (existing.refreshTargets ?? []).join() !== targets.join();
+      const contentsChanged = textChanged || weatherNewer || !existing.updatedAt;
+      if (contentsChanged || targetsChanged) {
+        const updatedAt = contentsChanged ? (textChanged || !weatherAt ? now : weatherAt).toISOString() : existing.updatedAt;
         this.chatMessages.update(messages =>
-          messages.map(m => (m === existing ? { ...m, text, instant: true, updatedAt: updatedAt.toISOString() } : m))
+          messages.map(m => (m === existing ? { ...m, text, instant: true, updatedAt, refreshTargets: targets } : m))
         );
       }
       return;
@@ -1049,8 +1064,50 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       isUser: false,
       timestamp: new Date(),
       briefingDate: briefing.date,
-      updatedAt: (this.weatherService.lastUpdated() ?? now).toISOString()
+      updatedAt: (this.weatherService.lastUpdated() ?? now).toISOString(),
+      refreshTargets: targets
     }]);
+  }
+
+  briefingTargetLabel(target: BriefingRefreshTarget): string {
+    return BRIEFING_TARGET_LABELS[target];
+  }
+
+  /** Whether that line of the blurb (or the whole thing) is being refreshed right now. */
+  isRefreshingBriefingItem(target: BriefingRefreshTarget): boolean {
+    return target === 'weather'
+      ? this.weatherService.isLoading()
+      : this.remiScheduleService.regeneratingFacet() === target;
+  }
+
+  isRefreshingBriefing(): boolean {
+    return this.remiScheduleService.isRegeneratingBriefing() || this.weatherService.isLoading()
+      || this.remiScheduleService.regeneratingFacet() !== null;
+  }
+
+  /** Refreshes one line of the blurb: the weather is re-fetched, an idea is regenerated. */
+  async refreshBriefingItem(target: BriefingRefreshTarget): Promise<void> {
+    if (this.isRefreshingBriefing()) return;
+    if (target === 'weather') {
+      this.weatherService.loadWeather();
+      return;
+    }
+    await this.remiScheduleService.regenerateFacet(target);
+    this.reportBriefingError('Could not refresh that — try again');
+  }
+
+  /** Rebuilds the whole briefing (schedule, calendar and every idea) and re-reads the weather. */
+  async refreshWholeBriefing(): Promise<void> {
+    if (this.isRefreshingBriefing()) return;
+    this.weatherService.loadWeather();
+    await this.remiScheduleService.regenerateBriefing();
+    this.reportBriefingError('Could not refresh the briefing — try again');
+  }
+
+  private reportBriefingError(fallback: string): void {
+    if (this.remiScheduleService.error()) {
+      this.snackBar.open(fallback, 'Close', { duration: 3000 });
+    }
   }
 
   /** Whether there's still somewhere for Remi to go today that an outfit suggestion would matter for. */
@@ -1085,7 +1142,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
    * school lunch once he's there, and activities that already happened are all dropped, and
    * the weather comes from the live conditions and the rest-of-day forecast, not the morning's.
    */
-  private buildBriefingBlurb(briefing: RemiDailyBriefing, now: Date): string {
+  private buildBriefingBlurb(briefing: RemiDailyBriefing, now: Date): { text: string; targets: BriefingRefreshTarget[] } {
     const nowMin = now.getHours() * 60 + now.getMinutes();
     const startMin = this.parseHHmmToMinutes(briefing.startTime);
     const endMin = this.parseHHmmToMinutes(briefing.endTime);
@@ -1094,6 +1151,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const note = briefing.scheduleNote ? ` (${briefing.scheduleNote})` : '';
 
     const bullets: string[] = [];
+    // Lines in the blurb that have their own refresh button.
+    const targets: BriefingRefreshTarget[] = [];
 
     if (briefing.schoolStatus === 'no-school') {
       bullets.push(briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today');
@@ -1120,6 +1179,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // Breakfast is over by 10, or once school has started (whichever is sooner).
     if (briefing.breakfastIdea && nowMin < 10 * 60 && !atSchoolOrDone) {
       bullets.push(`Breakfast: ${briefing.breakfastIdea}`);
+      targets.push('breakfast');
     }
 
     // School lunch only matters before Remi is at school.
@@ -1127,26 +1187,33 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       bullets.push(briefing.lunchPlan === 'pack'
         ? `Lunch: packed${briefing.packedLunchIdea ? ` — ${briefing.packedLunchIdea}` : ''}`
         : `Lunch: hot lunch${briefing.lunchMenuText ? ` — ${briefing.lunchMenuText}` : ''}`);
+      // Only a packed lunch is an AI idea; a hot lunch is just the school menu.
+      if (briefing.lunchPlan === 'pack') targets.push('lunch');
     }
 
     const weatherLine = this.formatWeatherForBlurb();
-    if (weatherLine) bullets.push(weatherLine);
+    if (weatherLine) {
+      bullets.push(weatherLine);
+      targets.push('weather');
+    }
 
     if (briefing.clothingIdea && this.isOutfitRelevant(briefing, nowMin)) {
       bullets.push(`Wear: ${briefing.clothingIdea}`);
+      targets.push('clothing');
     }
 
     if (briefing.dinnerIdea && nowMin >= 12 * 60 && nowMin < 21 * 60) {
       bullets.push(`Dinner: ${briefing.dinnerIdea}`);
+      targets.push('dinner');
     }
 
     const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
     const part = dayPartOf(now.getHours());
     const lead = `Here's what's ahead this ${weekday} ${part}:`;
     if (!bullets.length) {
-      return `${lead}\nNothing else is on the schedule.`;
+      return { text: `${lead}\nNothing else is on the schedule.`, targets };
     }
-    return `${lead}\n${bullets.map(b => `• ${b}`).join('\n')}`;
+    return { text: `${lead}\n${bullets.map(b => `• ${b}`).join('\n')}`, targets };
   }
 
   /** "Weather: 62°F and light rain now. Evening 55°F, 60% chance of rain." — live conditions plus what's left of the day. */

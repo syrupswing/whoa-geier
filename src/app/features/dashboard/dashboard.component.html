@@ -25,8 +25,29 @@
           <ng-container *ngIf="!message.isUser">
             <div class="chat-message-updated" *ngIf="message.briefingDate">
               Updated {{ relativeAge(message.updatedAt ?? message.timestamp) }}
+              <button
+                type="button"
+                class="briefing-refresh-all"
+                [disabled]="isRefreshingBriefing()"
+                (click)="refreshWholeBriefing()"
+                matTooltip="Refresh the whole briefing"
+                aria-label="Refresh the whole briefing">
+                <mat-icon [class.spinning]="isRefreshingBriefing()">refresh</mat-icon>
+              </button>
             </div>
             <div [appTypewriter]="message.text" [typewriterMarkdown]="true" [typewriterInstant]="!!message.instant"></div>
+            <div class="briefing-refresh" *ngIf="message.briefingDate && message.refreshTargets?.length">
+              <span class="briefing-refresh-label">Refresh:</span>
+              <button
+                type="button"
+                class="briefing-chip"
+                *ngFor="let target of message.refreshTargets"
+                [disabled]="isRefreshingBriefing()"
+                (click)="refreshBriefingItem(target)"
+                [attr.aria-label]="'Refresh ' + briefingTargetLabel(target)">
+                <mat-icon [class.spinning]="isRefreshingBriefingItem(target)">refresh</mat-icon>{{ briefingTargetLabel(target) }}
+              </button>
+            </div>
             <div class="chat-message-correct">
               <button
                 type="button"

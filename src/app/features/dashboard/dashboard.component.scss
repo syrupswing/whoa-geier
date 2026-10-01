@@ -338,6 +338,85 @@
       }
     }
 
+    // Refresh controls under the daily blurb: one chip per refreshable line.
+    .briefing-refresh {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+
+      .briefing-refresh-label {
+        font-size: 0.72rem;
+        color: var(--color-text-secondary);
+      }
+    }
+
+    .briefing-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      border: 1px solid rgba(61, 53, 80, 0.16);
+      border-radius: 999px;
+      background: transparent;
+      padding: 3px 10px 3px 6px;
+      font: inherit;
+      font-size: 0.72rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      transition: background-color 0.15s ease;
+
+      mat-icon {
+        font-size: 15px;
+        width: 15px;
+        height: 15px;
+      }
+
+      &:hover:not(:disabled) {
+        background: rgba(61, 53, 80, 0.07);
+      }
+
+      &:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+    }
+
+    .briefing-refresh-all {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      vertical-align: middle;
+      margin-left: 2px;
+      border: none;
+      border-radius: 50%;
+      background: transparent;
+      padding: 2px;
+      color: var(--color-text-secondary);
+      cursor: pointer;
+
+      mat-icon {
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+      }
+
+      &:hover:not(:disabled) {
+        background: rgba(61, 53, 80, 0.08);
+        color: var(--color-text-primary);
+      }
+
+      &:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+    }
+
+    .spinning {
+      animation: briefing-spin 0.9s linear infinite;
+    }
+
     .chat-message-correct {
       margin-top: 6px;
 
@@ -3092,5 +3171,15 @@
 
   &--no:hover {
     background: color-mix(in srgb, var(--color-dusk-rose, #b3455a) 26%, transparent) !important;
+  }
+}
+
+@keyframes briefing-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinning {
+    animation-duration: 2.4s;
   }
 }
