@@ -4,7 +4,14 @@
  * `?vvdebug=1`; it shows the viewport numbers that tell the likely causes apart.
  */
 export function startViewportDebug(): void {
-  if (!new URLSearchParams(location.search).has('vvdebug')) return;
+  // The app routes with a URL hash (/#/path), so accept the flag either before the # or inside it,
+  // and remember it for the tab — a later navigation can rewrite the URL and drop the parameter.
+  if (/[?&]vvdebug\b/.test(location.href)) {
+    try { sessionStorage.setItem('vvdebug', '1'); } catch { /* storage can be blocked; the URL flag still works */ }
+  }
+  let enabled = /[?&]vvdebug\b/.test(location.href);
+  try { enabled = enabled || sessionStorage.getItem('vvdebug') === '1'; } catch { /* ignore */ }
+  if (!enabled) return;
 
   const panel = document.createElement('pre');
   panel.style.cssText =

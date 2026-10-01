@@ -2238,13 +2238,30 @@
 // overflow:hidden and rounded corners clip them to shape) for a big touch target.
 .cal-step-btn {
   align-self: stretch;
-  width: 56px;
+  width: 48px;
   height: auto;
   padding: 0;
   border-radius: 0;
+  margin-bottom: 4px;
   background: rgba(61, 53, 80, 0.08);
   color: var(--color-slate-smoke);
   transition: background-color 0.15s ease;
+
+  &:first-of-type {
+    border-bottom-right-radius: 20px;
+
+    &::ng-deep .mat-mdc-button-persistent-ripple {
+      border-bottom-right-radius: 20px;
+    }
+  }
+
+  &:last-of-type {
+    border-bottom-left-radius: 20px;
+
+    &::ng-deep .mat-mdc-button-persistent-ripple {
+      border-bottom-left-radius: 20px;
+    }
+  }
 
   &:hover {
     background: rgba(61, 53, 80, 0.14);
@@ -2899,10 +2916,11 @@
   border: none;
   background: transparent;
   padding: 0;
-  margin-right: 4px;
+  margin: 0 4px 0 0;
   color: inherit;
   cursor: pointer;
 
+  // The icon is the whole hit area — the rest of the item opens its details instead.
   mat-icon {
     font-size: 18px;
     width: 18px;
@@ -2915,14 +2933,18 @@
   opacity: 0.65;
 }
 
-// Inline "Mark complete?" prompt that replaces the title while a checkbox tap is being confirmed.
-.task-prompt {
-  display: inline-flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px 6px;
-  font-size: 0.72rem;
-  font-weight: 600;
+// Checkbox + title side by side inside a timeline item (the item's body stacks its children).
+.cal-event-title-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.task-confirm-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
 }
 
 .task-prompt-btn {

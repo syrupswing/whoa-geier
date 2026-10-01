@@ -213,11 +213,6 @@
           </button>
           <mat-icon *ngIf="!isTask(event)">event</mat-icon>
           <span [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
-          <span class="task-prompt" *ngIf="isConfirmingTask(event)" (click)="$event.stopPropagation()">
-            {{ isTaskDone(event) ? 'Mark not complete?' : 'Mark complete?' }}
-            <button type="button" class="task-prompt-btn task-prompt-btn--confirm" (click)="confirmTaskToggle(event, $event)">{{ isTaskDone(event) ? 'Reopen' : 'Complete' }}</button>
-            <button type="button" class="task-prompt-btn" (click)="cancelTaskPrompt($event)">Cancel</button>
-          </span>
           <div
             class="cal-popover"
             *ngIf="selectedEvent()?.id === event.id"
@@ -310,20 +305,17 @@
               [class.is-point-in-time]="event.isPointInTime"
               [class.is-approximate-start]="event.startApproximate"
               [class.is-approximate-end]="event.endApproximate">
-              <button
-                type="button"
-                class="task-check"
-                *ngIf="isTask(event)"
-                (click)="askTaskToggle(event, $event)"
-                [attr.aria-label]="isTaskDone(event) ? 'Completed — tap to mark not complete' : 'Mark complete'">
-                <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
-              </button>
-              <span class="cal-event-title" [class.task-done]="isTaskDone(event)" *ngIf="!isConfirmingTask(event)">{{ event.summary }}</span>
-              <span class="task-prompt" *ngIf="isConfirmingTask(event)" (click)="$event.stopPropagation()">
-                {{ isTaskDone(event) ? 'Mark not complete?' : 'Mark complete?' }}
-                <button type="button" class="task-prompt-btn task-prompt-btn--confirm" (click)="confirmTaskToggle(event, $event)">{{ isTaskDone(event) ? 'Reopen' : 'Complete' }}</button>
-                <button type="button" class="task-prompt-btn" (click)="cancelTaskPrompt($event)">Cancel</button>
-              </span>
+              <div class="cal-event-title-row">
+                <button
+                  type="button"
+                  class="task-check"
+                  *ngIf="isTask(event)"
+                  (click)="askTaskToggle(event, $event)"
+                  [attr.aria-label]="isTaskDone(event) ? 'Completed — tap to mark not complete' : 'Mark complete'">
+                  <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+                </button>
+                <span class="cal-event-title" [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
+              </div>
             </div>
           </div>
 
@@ -357,6 +349,25 @@
               <mat-icon>edit</mat-icon>
             </button>
             <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
+          </div>
+
+          <!-- "Mark complete?" prompt for a task's checkbox — a popover like the details one, so it
+               doesn't take space inside the (often small) item in the timeline. -->
+          <div
+            class="cal-popover cal-popover--confirm"
+            *ngIf="confirmingTask() as task"
+            [class.cal-popover--above]="confirmAbove"
+            [style.top.px]="confirmTop"
+            (click)="$event.stopPropagation()">
+            <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(task)"></div>
+            <div class="cal-popover-body">
+              <p class="cal-popover-title">{{ isTaskDone(task) ? 'Mark not complete?' : 'Mark complete?' }}</p>
+              <p class="cal-popover-time">{{ task.summary }}</p>
+              <div class="task-confirm-actions">
+                <button type="button" class="task-prompt-btn task-prompt-btn--confirm" (click)="confirmTaskToggle(task, $event)">{{ isTaskDone(task) ? 'Reopen' : 'Complete' }}</button>
+                <button type="button" class="task-prompt-btn" (click)="cancelTaskPrompt($event)">Cancel</button>
+              </div>
+            </div>
           </div>
 
           <!-- Empty state -->

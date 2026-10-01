@@ -107,7 +107,38 @@ export class AppComponent implements OnInit, AfterViewChecked {
     window.addEventListener('orientationchange', this.scheduleSafeAreaSync);
     window.addEventListener('pageshow', this.scheduleSafeAreaSync);
     window.visualViewport?.addEventListener('resize', this.scheduleSafeAreaSync);
+    window.visualViewport?.addEventListener('resize', this.repaintAfterKeyboardCloses);
     window.screen.orientation?.addEventListener('change', this.scheduleSafeAreaSync);
+  }
+
+  private keyboardWasOpen = false;
+
+  /**
+   * iOS can leave a stale blank strip at the bottom of the screen after the on-screen keyboard
+   * closes — the layout numbers are all correct, it just doesn't repaint until something scrolls
+   * (scrolling past the top fixes it). So once the visual viewport grows back to full height,
+   * nudge the app's scroll box by a pixel and back, which is what that gesture does.
+   */
+  private repaintAfterKeyboardCloses = (): void => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    if (vv.height < window.innerHeight - 100) {
+      this.keyboardWasOpen = true;
+      return;
+    }
+    if (this.keyboardWasOpen) {
+      this.keyboardWasOpen = false;
+      // The close animation and its last resize events finish over a few hundred ms.
+      [0, 150, 400].forEach(delay => setTimeout(() => this.nudgeRepaint(), delay));
+    }
+  };
+
+  private nudgeRepaint(): void {
+    const el = this.appContainer?.nativeElement;
+    if (!el) return;
+    const top = el.scrollTop;
+    el.scrollTop = top > 0 ? top - 1 : top + 1;
+    requestAnimationFrame(() => { el.scrollTop = top; });
   }
 
   private scheduleSafeAreaSync = (): void => {

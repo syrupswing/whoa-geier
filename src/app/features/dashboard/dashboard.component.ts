@@ -827,6 +827,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.popoverAbove = (window.innerHeight - rect.bottom) < 210;
     // The popover is position: fixed, so it needs a viewport-relative offset.
     this.popoverTop = this.popoverAbove ? rect.top - 8 : rect.bottom + 8;
+    this.confirmingTask.set(null);
     this.selectedEvent.set(event);
   }
 
@@ -837,8 +838,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   /** The selected event, only when it's a timed (non-all-day) event — used to gate the
    * hoisted timed-event popover so it doesn't double up with the all-day chip's own. */
   // ── Tasks ──────────────────────────────────────────────────────
-  /** The task occurrence showing its "Mark complete?" prompt, as "<id>|<occurrence date>". */
-  private confirmingTaskKey = signal<string | null>(null);
+  /** The task occurrence whose "Mark complete?" popover is open. */
+  confirmingTask = signal<CalendarEvent | null>(null);
+  confirmAbove = false;
+  confirmTop = 0;
 
   isTask(event: CalendarEvent): boolean {
     return event.kind === 'task';
@@ -850,24 +853,24 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   completionFor = completionFor;
 
-  isConfirmingTask(event: CalendarEvent): boolean {
-    return this.confirmingTaskKey() === `${event.id}|${occurrenceKey(event)}`;
-  }
-
-  /** Tapping the checkbox asks first, rather than toggling straight away. */
+  /** Tapping the checkbox asks first (in a popover under it), rather than toggling straight away. */
   askTaskToggle(event: CalendarEvent, domEvent: Event): void {
     domEvent.stopPropagation();
-    this.confirmingTaskKey.set(`${event.id}|${occurrenceKey(event)}`);
+    const rect = (domEvent.currentTarget as HTMLElement).getBoundingClientRect();
+    this.confirmAbove = (window.innerHeight - rect.bottom) < 150;
+    this.confirmTop = this.confirmAbove ? rect.top - 8 : rect.bottom + 8;
+    this.clearSelectedEvent();
+    this.confirmingTask.set(event);
   }
 
-  cancelTaskPrompt(domEvent: Event): void {
-    domEvent.stopPropagation();
-    this.confirmingTaskKey.set(null);
+  cancelTaskPrompt(domEvent?: Event): void {
+    domEvent?.stopPropagation();
+    this.confirmingTask.set(null);
   }
 
   async confirmTaskToggle(event: CalendarEvent, domEvent: Event): Promise<void> {
     domEvent.stopPropagation();
-    this.confirmingTaskKey.set(null);
+    this.confirmingTask.set(null);
     const key = occurrenceKey(event);
     try {
       if (this.isTaskDone(event)) {
@@ -911,6 +914,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private readonly closePopoverOnScroll = (): void => {
     if (this.selectedEvent()) {
       this.clearSelectedEvent();
+    }
+    if (this.confirmingTask()) {
+      this.confirmingTask.set(null);
     }
   };
 
@@ -1206,6 +1212,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (this.selectedEvent()) {
       this.clearSelectedEvent();
     }
+    this.confirmingTask.set(null);
   }
 
   @HostListener('document:click')
@@ -1213,6 +1220,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (this.selectedEvent()) {
       this.clearSelectedEvent();
     }
+    this.confirmingTask.set(null);
   }
 
   toggleCalendarVisibility(calendarId: string, event: Event): void {
