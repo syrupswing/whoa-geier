@@ -19,6 +19,13 @@
   <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
   
+  <!-- Flag the installed (home-screen) app early, so the layout can size to the real screen — see .app-container -->
+  <script>
+    if (navigator.standalone === true || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) {
+      document.documentElement.classList.add('is-standalone');
+    }
+  </script>
+
   <!-- GitHub Pages SPA redirect handler -->
   <script>
     (function(){

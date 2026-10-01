@@ -837,3 +837,25 @@
     opacity: 0.7;
   }
 }
+
+// In the installed (home-screen) app there is no browser toolbar, so the large viewport is the real
+// screen. After the on-screen keyboard closes, iOS leaves 100dvh stuck about 59px short (the height of
+// the status bar), which left a blank strip at the bottom — 100lvh never changes, so size by that.
+@mixin standalone-viewport {
+  .app-container {
+    height: 100lvh;
+    min-height: 100lvh;
+  }
+
+  .content {
+    min-height: 100lvh;
+  }
+}
+
+@media (display-mode: standalone) {
+  @include standalone-viewport;
+}
+
+:host-context(html.is-standalone) {
+  @include standalone-viewport;
+}
