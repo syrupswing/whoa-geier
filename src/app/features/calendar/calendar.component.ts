@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, AfterViewInit, signal, ViewChild, ElementRef, ChangeDetectionStrategy } from '@angular/core';
+import { Component, OnInit, OnDestroy, HostListener, computed, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -10,11 +10,10 @@ import { OutlookTokenDialogComponent } from '../../components/outlook-token-dial
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
-import { completionFor, expandRecurringForDay, occurrenceKey } from '../../utils/recurrence';
+import { buildTaskChecklist, completionFor, expandRecurringForDay, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
-import { TaskLaneComponent } from '../../shared/task-lane/task-lane.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 
@@ -30,7 +29,6 @@ interface TimelineEvent extends CalendarEvent {
 }
 
 // Keep in sync with the week-view breakpoint in calendar.component.scss.
-const WIDE_VIEWPORT_QUERY = '(min-width: 1024px)';
 
 @Component({
   selector: 'app-calendar',
@@ -44,31 +42,68 @@ const WIDE_VIEWPORT_QUERY = '(min-width: 1024px)';
     MatTooltipModule,
     MatSnackBarModule,
     GlobalNavMenuComponent,
-    HomeLogoBtnComponent,
-    TaskLaneComponent
+    HomeLogoBtnComponent
   ],
   templateUrl: './calendar.component.html',
   styleUrls: ['./calendar.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
 })
-export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
+export class CalendarComponent implements OnInit, OnDestroy {
   currentDate = signal<Date>(new Date());
+
+  /** Whether the task band is folded down to just each day's count; remembered, and shared with the dashboard's task list. */
+  tasksCollapsed = signal(CalendarComponent.loadTasksCollapsed());
+
+  /** Each day of the viewed week with its checklist of tasks (see buildTaskChecklist). */
+  weekTasks = computed(() => {
+    const events = this.appCalendarEventService.events();
+    const start = new Date(this.currentDate());
+    start.setHours(0, 0, 0, 0);
+    start.setDate(start.getDate() - start.getDay());
+    return Array.from({ length: 7 }, (_, i) => {
+      const day = new Date(start);
+      day.setDate(start.getDate() + i);
+      return { day, rows: buildTaskChecklist(events, day) };
+    });
+  });
+  weekHasTasks = computed(() => this.weekTasks().some(d => d.rows.length > 0));
+
+  private static loadTasksCollapsed(): boolean {
+    try {
+      return localStorage.getItem('taskLaneCollapsed') === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  toggleTasksCollapsed(): void {
+    const next = !this.tasksCollapsed();
+    this.tasksCollapsed.set(next);
+    try {
+      localStorage.setItem('taskLaneCollapsed', String(next));
+    } catch {
+      // Not persisted, but it still works for this visit
+    }
+  }
+
+  trackByTaskRow(_: number, row: TaskChecklistRow): string {
+    return row.event.id + occurrenceKey(row.event);
+  }
   currentTime = signal<Date>(new Date());
   selectedEvent = signal<CalendarEvent | null>(null);
+  /** Which view the calendar options menu is showing: its actions, or the calendar checkboxes. */
+  calendarMenuView = signal<'actions' | 'calendars'>('actions');
   /** Sunday–Saturday week view when there's room for it; a single day otherwise. */
-  isWideViewport = signal<boolean>(false);
 
   popoverAbove = false;
   popoverTop = 0;
   readonly HOUR_PX = 60;
   readonly allHours = Array.from({ length: 24 }, (_, i) => i);
 
-  @ViewChild('timelineScroll') timelineScroll?: ElementRef<HTMLElement>;
 
   private timeInterval?: number;
   /** True once the user has explicitly stepped away from today's view — blocks the auto re-sync on resume. */
   private hasNavigatedAwayFromToday = false;
-  private readonly wideViewportQuery = window.matchMedia(WIDE_VIEWPORT_QUERY);
 
   constructor(
     public calendarService: GoogleCalendarService,
@@ -78,7 +113,6 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     private dialog: MatDialog,
     private snackBar: MatSnackBar
   ) {
-    this.isWideViewport.set(this.wideViewportQuery.matches);
   }
 
   ngOnInit(): void {
@@ -90,14 +124,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     // Catches a day rollover while this component stayed alive in the background
     // (mobile tab suspend/resume, a kiosk tablet left open, etc).
     document.addEventListener('visibilitychange', this.resyncViewDateOnForeground);
-    this.wideViewportQuery.addEventListener('change', this.onViewportChange);
+    window.addEventListener('scroll', this.closePopoverOnScroll, true);
 
     this.loadEventsForCurrentView();
-  }
-
-  ngAfterViewInit(): void {
-    // Scroll to current time after view is initialized
-    setTimeout(() => this.scrollToCurrentTime(), 300);
   }
 
   ngOnDestroy(): void {
@@ -105,12 +134,8 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
       clearInterval(this.timeInterval);
     }
     document.removeEventListener('visibilitychange', this.resyncViewDateOnForeground);
-    this.wideViewportQuery.removeEventListener('change', this.onViewportChange);
+    window.removeEventListener('scroll', this.closePopoverOnScroll, true);
   }
-
-  private readonly onViewportChange = (event: MediaQueryListEvent): void => {
-    this.isWideViewport.set(event.matches);
-  };
 
   private readonly resyncViewDateOnForeground = (): void => {
     if (document.visibilityState === 'visible') {
@@ -128,13 +153,6 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     if (now.toDateString() !== this.currentDate().toDateString()) {
       this.currentDate.set(now);
     }
-  }
-
-  scrollToCurrentTime(): void {
-    const el = this.timelineScroll?.nativeElement;
-    if (!el) return;
-    const currentTimePos = this.getCurrentTimePosition();
-    el.scrollTop = Math.max(0, currentTimePos - el.clientHeight * 0.2);
   }
 
   signIn(): void {
@@ -203,32 +221,27 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   previousPeriod(): void {
     this.hasNavigatedAwayFromToday = true;
     const d = new Date(this.currentDate());
-    d.setDate(d.getDate() - (this.isWideViewport() ? 7 : 1));
+    d.setDate(d.getDate() - 7);
     this.currentDate.set(d);
   }
 
   nextPeriod(): void {
     this.hasNavigatedAwayFromToday = true;
     const d = new Date(this.currentDate());
-    d.setDate(d.getDate() + (this.isWideViewport() ? 7 : 1));
+    d.setDate(d.getDate() + 7);
     this.currentDate.set(d);
   }
 
   goToToday(): void {
     this.hasNavigatedAwayFromToday = false;
     this.currentDate.set(new Date());
-    setTimeout(() => this.scrollToCurrentTime(), 50);
   }
 
   get isViewingToday(): boolean {
-    if (!this.isWideViewport()) return this.isToday(this.currentDate());
     return this.getWeekDays().some(day => this.isToday(day));
   }
 
   formatViewLabel(): string {
-    if (!this.isWideViewport()) {
-      return this.currentDate().toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
-    }
     const [start, end] = [this.getWeekDays()[0], this.getWeekDays()[6]];
     const sameMonth = start.getMonth() === end.getMonth();
     const startLabel = start.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
@@ -251,7 +264,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   /** Google-synced events plus app-native events (see AppCalendarEventService), merged for display. */
   getAllEvents(): CalendarEvent[] {
     return [
-      ...this.calendarService.events().map(event => ({ ...event, source: event.source ?? 'google' as const })),
+      ...this.calendarService.events()
+        .filter(event => this.calendarService.isCalendarVisible(event.calendarId || 'primary'))
+        .map(event => ({ ...event, source: event.source ?? 'google' as const })),
       ...this.outlookService.events().filter(event => this.outlookService.isCalendarVisible(event.calendarId!)),
       ...this.appCalendarEventService.events()
     ];
@@ -261,7 +276,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     return this.getEventsForDay(date).filter(event => this.isAllDayEvent(event));
   }
 
-  /** All-day events for the day view, where all-day tasks live in the task checklist instead. */
+  /** The week's all-day row skips tasks: those live in the task band above it. */
   getAllDayNonTaskEventsForDay(date: Date): TimelineEvent[] {
     return this.getAllDayEventsForDay(date).filter(event => event.kind !== 'task');
   }
@@ -462,8 +477,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
-    const view = this.isWideViewport() ? 'week' : 'day';
-    return `https://calendar.google.com/calendar/r/${view}/${year}/${month}/${day}`;
+    return `https://calendar.google.com/calendar/r/week/${year}/${month}/${day}`;
   }
 
   getEventColor(event: CalendarEvent): string {
@@ -496,18 +510,77 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     this.popoverAbove = (window.innerHeight - rect.bottom) < 210;
     // The popover is position: fixed, so it needs a viewport-relative offset.
     this.popoverTop = this.popoverAbove ? rect.top - 8 : rect.bottom + 8;
+    this.confirmingTask.set(null);
     this.selectedEvent.set(event);
   }
 
-  /** Ticks a task off (or back on) straight from the checklist. */
-  async toggleTask(event: CalendarEvent, domEvent: Event): Promise<void> {
+  // ── Tasks ──────────────────────────────────────────────────────
+  /** The task occurrence whose "Mark complete?" popover is open. */
+  confirmingTask = signal<CalendarEvent | null>(null);
+  confirmAbove = false;
+  confirmTop = 0;
+
+  isTask(event: CalendarEvent): boolean {
+    return event.kind === 'task';
+  }
+
+  isTaskDone(event: CalendarEvent): boolean {
+    return !!completionFor(event);
+  }
+
+  completionFor = completionFor;
+
+  /** Tapping the checkbox asks first (in a popover under it), rather than toggling straight away. */
+  askTaskToggle(event: CalendarEvent, domEvent: Event): void {
     domEvent.stopPropagation();
+    const rect = (domEvent.currentTarget as HTMLElement).getBoundingClientRect();
+    this.confirmAbove = (window.innerHeight - rect.bottom) < 150;
+    this.confirmTop = this.confirmAbove ? rect.top - 8 : rect.bottom + 8;
+    this.clearSelectedEvent();
+    this.confirmingTask.set(event);
+  }
+
+  cancelTaskPrompt(domEvent?: Event): void {
+    domEvent?.stopPropagation();
+    this.confirmingTask.set(null);
+  }
+
+  async confirmTaskToggle(event: CalendarEvent, domEvent: Event): Promise<void> {
+    domEvent.stopPropagation();
+    this.confirmingTask.set(null);
     const key = occurrenceKey(event);
-    if (completionFor(event)) {
-      await this.appCalendarEventService.clearCompletion(event.id, key);
-    } else {
-      await this.appCalendarEventService.completeOccurrence(event.id, key);
+    try {
+      if (this.isTaskDone(event)) {
+        await this.appCalendarEventService.clearCompletion(event.id, key);
+      } else {
+        await this.appCalendarEventService.completeOccurrence(event.id, key);
+      }
+    } catch (error) {
+      console.error('Error updating task completion:', error);
+      this.snackBar.open('Could not update the task — try again', 'Close', { duration: 3000 });
     }
+  }
+
+  formatCompletionTime(iso: string): string {
+    const d = new Date(iso);
+    return `${d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} at ${this.formatTime(d)}`;
+  }
+
+  private readonly closePopoverOnScroll = (): void => {
+    if (this.selectedEvent()) this.clearSelectedEvent();
+    if (this.confirmingTask()) this.confirmingTask.set(null);
+  };
+
+  @HostListener('document:keydown.escape')
+  onEscapeKey(): void {
+    this.clearSelectedEvent();
+    this.confirmingTask.set(null);
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.clearSelectedEvent();
+    this.confirmingTask.set(null);
   }
 
   clearSelectedEvent(): void {
@@ -522,6 +595,10 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   // recreate its DOM node, which drops :hover state and reads as a flicker.
   trackByEventId(_index: number, item: { id: string }): string {
     return item.id;
+  }
+
+  trackByWeekTask(_index: number, entry: { day: Date }): number {
+    return entry.day.getTime();
   }
 
   trackByDate(_index: number, date: Date): number {

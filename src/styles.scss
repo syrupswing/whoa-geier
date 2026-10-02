@@ -200,6 +200,12 @@ ol, ul {
   margin-left: 16px;
 }
 
+/* The calendar page is a full week, so it gets 200px more width than other pages (880px + 200px). */
+/* Doubled class: the app component's own scoped `.app-container` rule has the same specificity and loads later, so it would otherwise win. */
+.app-container.app-container:has(.calendar-container) {
+  --app-content-max-width: 1080px;
+}
+
 /* Mobile-First Container Styles */
 .container {
   width: 100%;

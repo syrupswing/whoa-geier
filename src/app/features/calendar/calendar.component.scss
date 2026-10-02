@@ -85,7 +85,11 @@
   position: relative;
   background: rgb(255 255 255 / 0.9);
   border-radius: 22px;
-  overflow: hidden;
+  // `clip` rounds the corners like `hidden` did, but doesn't make this a scroll container,
+  // which would stop the headers below from sticking to the page's scroll.
+  overflow: clip;
+  --cal-nav-height: 52px;
+  --cal-sticky-top: var(--app-mobile-top-inset, 0px);
   box-shadow: 0 6px 16px rgba(26, 10, 46, 0.08);
   border: 1px solid rgba(61, 53, 80, 0.06);
 }
@@ -93,14 +97,68 @@
 .cal-nav {
   display: flex;
   align-items: center;
+  gap: 4px;
   justify-content: space-between;
-  padding: 8px 6px;
+  // No padding: the previous/next buttons run flush to the top corners of the card.
+  min-height: var(--cal-nav-height);
+  box-sizing: border-box;
+  // Stays pinned to the top while the page scrolls.
+  position: sticky;
+  top: var(--cal-sticky-top);
+  z-index: 120;
+  background: #fff;
   border-bottom: 1px solid rgba(61, 53, 80, 0.07);
+}
+
+// Previous/next day: full-height tiles filling the card's top corners (the card's
+// overflow:hidden and rounded corners clip them to shape) for a big touch target.
+.cal-step-btn {
+  align-self: stretch;
+  width: 48px;
+  height: auto;
+  padding: 0;
+  border-radius: 0;
+  margin-bottom: 4px;
+  background: rgba(61, 53, 80, 0.08);
+  color: var(--color-slate-smoke);
+  transition: background-color 0.15s ease;
+
+  &:first-of-type {
+    border-bottom-right-radius: 20px;
+
+    &::ng-deep .mat-mdc-button-persistent-ripple,
+    &::ng-deep .mat-ripple {
+      border-bottom-right-radius: 20px;
+    }
+  }
+
+  &:last-of-type {
+    border-bottom-left-radius: 20px;
+
+    &::ng-deep .mat-mdc-button-persistent-ripple,
+    &::ng-deep .mat-ripple {
+      border-bottom-left-radius: 20px;
+    }
+  }
+
+  &:hover {
+    background: rgba(61, 53, 80, 0.14);
+  }
+
+  // Material's state-layer/ripple is circular by default; match the square tile.
+  ::ng-deep .mat-mdc-button-persistent-ripple,
+  ::ng-deep .mat-ripple {
+    border-radius: 0;
+  }
 }
 
 .cal-nav-center {
   display: flex;
   align-items: center;
+  // Takes the space between the two step tiles; the kebab menu sits at its right.
+  flex: 1;
+  justify-content: center;
+  min-width: 0;
   gap: 8px;
   font-size: 0.92rem;
   font-weight: 600;
@@ -121,6 +179,21 @@
     background: var(--color-aura-sage);
     color: #fff;
     cursor: default;
+  }
+}
+
+// Compact so the icon button doesn't make the header row taller than the badge it replaces.
+.cal-today-btn {
+  --mdc-icon-button-state-layer-size: 32px;
+  width: 32px;
+  height: 32px;
+  padding: 4px;
+  color: var(--color-slate-smoke);
+
+  mat-icon {
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
   }
 }
 
@@ -260,11 +333,9 @@
   }
 }
 
+// The week isn't a scrolling box of its own: it grows to its full 24 hours and the page scrolls.
 .cal-timeline-scroll {
   position: relative;
-  overflow-y: auto;
-  overflow-x: hidden;
-  max-height: 70vh;
 }
 
 .cal-timeline-inner {
@@ -530,6 +601,10 @@
   color: var(--color-text-primary);
   margin: 0 0 4px;
   word-break: break-word;
+
+  .task-check {
+    margin-top: 2px;
+  }
 }
 
 .cal-popover-time {
@@ -590,6 +665,11 @@
 .cal-week-header {
   display: flex;
   border-bottom: 1px solid rgba(61, 53, 80, 0.07);
+  // Stays pinned under the date-range row while the page scrolls.
+  position: sticky;
+  top: calc(var(--cal-sticky-top) + var(--cal-nav-height));
+  z-index: 119;
+  background: #fff;
 }
 
 .cal-week-header-spacer {
@@ -599,7 +679,7 @@
 
 .cal-week-day-header {
   flex: 1;
-  min-width: 110px;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -651,12 +731,8 @@
 
 .cal-week-allday-col {
   flex: 1;
-  min-width: 110px;
+  min-width: 0;
   padding: 0 4px;
-}
-
-.cal-timeline-scroll--week {
-  overflow-x: auto;
 }
 
 .cal-week-grid {
@@ -667,6 +743,8 @@
 .cal-week-hours {
   width: 56px;
   flex-shrink: 0;
+  // Labels stay inside the gutter instead of spilling over the first day's column.
+  overflow: hidden;
   position: sticky;
   left: 0;
   z-index: 2;
@@ -676,7 +754,7 @@
 .cal-week-day-col {
   position: relative;
   flex: 1;
-  min-width: 110px;
+  min-width: 0;
   border-left: 1px solid rgba(61, 53, 80, 0.07);
 
   &.today {
@@ -709,5 +787,300 @@
 
   .cal-event-title {
     font-size: 0.68rem;
+  }
+}
+
+// The week always shows all seven days, so on narrow screens the columns shrink to fit
+// (rather than scrolling sideways) and the hour gutter gets slimmer.
+@media (max-width: 767px) {
+  .cal-week-allday-spacer,
+  .cal-week-tasks-spacer,
+  .cal-week-hours,
+  .cal-week-header-spacer {
+    width: 36px;
+  }
+
+  .cal-week-allday-col,
+  .cal-week-tasks-col,
+  .cal-week-day-col,
+  .cal-week-day-header {
+    min-width: 0;
+  }
+}
+
+// Checkbox + title side by side inside a timeline item (the item's body stacks its children).
+.cal-event-title-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+
+// Icon-only confirm/cancel in the top-right of the "Mark complete?" popover, like the details
+// popover's edit/close buttons — green check to confirm, red X to back out. Labels are tooltips.
+.task-confirm-icon {
+  // Tint the details popover's neutral icon colour; the hover state deepens it.
+  &--yes {
+    background: color-mix(in srgb, var(--color-aura-sage, #4a8a50) 14%, transparent) !important;
+
+    mat-icon {
+      color: var(--color-aura-sage, #4a8a50) !important;
+    }
+  }
+
+  &--no {
+    background: color-mix(in srgb, var(--color-dusk-rose, #b3455a) 14%, transparent) !important;
+
+    mat-icon {
+      color: var(--color-dusk-rose, #b3455a) !important;
+    }
+  }
+
+  &--yes:hover {
+    background: color-mix(in srgb, var(--color-aura-sage, #4a8a50) 26%, transparent) !important;
+  }
+
+  &--no:hover {
+    background: color-mix(in srgb, var(--color-dusk-rose, #b3455a) 26%, transparent) !important;
+  }
+}
+
+
+// ── Task items on the calendar ─────────────────────────────────
+.task-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin: 0 3px 0 0;
+  color: inherit;
+  cursor: pointer;
+
+  // The icon is the whole hit area — the rest of the item opens its details instead.
+  mat-icon {
+    font-size: 16px;
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.task-done {
+  text-decoration: line-through;
+  opacity: 0.65;
+}
+
+// A task at a specific time: its row (checkbox + title) is taller than plain text, so give it
+// room below the 4px pinpoint bar and center the row in that space.
+.cal-event-body.is-point-in-time.is-task {
+  padding: 4px 6px 0;
+  min-height: calc(1.2 * 0.68rem + 16px + 4px);
+  justify-content: center;
+}
+
+.cal-allday-chip--compact .task-check {
+  margin-right: 2px;
+}
+
+// ── Week view: tasks band and the "All day" label ──────────────
+.cal-week-tasks {
+  display: flex;
+  padding: 6px 0;
+  background: rgba(61, 53, 80, 0.02);
+  border-bottom: 1px solid rgba(61, 53, 80, 0.07);
+}
+
+.cal-week-tasks-spacer,
+.cal-week-allday-spacer {
+  width: 56px;
+  flex-shrink: 0;
+}
+
+.cal-week-allday-spacer {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.cal-week-band-label {
+  padding-top: 3px;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+
+.cal-week-tasks-toggle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.62rem;
+  line-height: 1.1;
+  color: var(--color-text-secondary);
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}
+
+.cal-week-tasks-col {
+  flex: 1;
+  min-width: 0;
+  padding: 0 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  justify-content: center;
+}
+
+// Just the number of tasks that day, centered in its column, while the band is folded.
+.cal-week-tasks-count {
+  align-self: center;
+  min-width: 18px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #8E6BC9;
+  color: #fff;
+  font-size: 0.68rem;
+  font-weight: 600;
+  line-height: 18px;
+  text-align: center;
+}
+
+.cal-week-task {
+  --task-color: #8E6BC9;
+
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  padding: 3px 6px 6px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--task-color) 18%, white);
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--color-text-primary);
+  position: relative;
+  cursor: pointer;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: var(--task-color);
+    border-radius: 0 0 8px 8px;
+    pointer-events: none;
+  }
+
+  &.carried {
+    background: color-mix(in srgb, var(--task-color) 28%, white);
+  }
+}
+
+.cal-week-task-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+// Same narrow-screen sizing as the week grid above (repeated here so it wins over the base rules just above).
+@media (max-width: 767px) {
+  .cal-week-tasks-spacer,
+  .cal-week-allday-spacer {
+    width: 36px;
+  }
+
+  .cal-week-tasks-col {
+    min-width: 0;
+  }
+}
+
+// The hour labels have a 50px minimum width in the single-column layout; inside the week's
+// (narrower) gutter they fill it instead, and shrink a little on small screens.
+.cal-week-hours .cal-hour-label {
+  min-width: 0;
+  width: 100%;
+  padding-right: 6px;
+  box-sizing: border-box;
+}
+
+@media (max-width: 767px) {
+  .cal-week-hours .cal-hour-label {
+    padding-right: 3px;
+    font-size: 0.58rem;
+  }
+}
+
+// ── Small screens: no room for labels inside the week's narrow columns ──
+@media (max-width: 767px) {
+  // A point in time (no duration) is just its 5px pinpoint bar — no body or label. Clicking
+  // it still opens the details popover; the extra bottom padding below is only hit area.
+  .cal-week-day-col .cal-event-block:has(> .is-point-in-time) {
+    min-height: 0;
+    padding-bottom: 6px;
+  }
+
+  .cal-week-day-col .cal-event-body.is-point-in-time {
+    height: 5px;
+    min-height: 0;
+    margin-left: 0;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+    overflow: visible;
+
+    &::before {
+      left: 0;
+      width: 100%;
+      height: 5px;
+      border-radius: 2px;
+    }
+
+    .cal-event-title-row,
+    .cal-event-title {
+      display: none;
+    }
+  }
+
+  // Tasks lose their checkbox — in the timeline and in the tasks band — and it moves into the
+  // details popover instead. The task's pill/block itself stays.
+  .cal-event-body .task-check,
+  .cal-week-task .task-check,
+  .cal-allday-chip .task-check {
+    display: none;
+  }
+
+  .cal-week-task {
+    padding-left: 8px;
+  }
+}
+
+// The details popover's checkbox (before a task's title) stands in for the one hidden in the
+// timeline and tasks band on small screens; wider screens keep using those.
+.cal-popover-title {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+@media (min-width: 768px) {
+  .cal-popover .cal-popover-task-check {
+    display: none;
   }
 }

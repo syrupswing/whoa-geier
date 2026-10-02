@@ -1,4 +1,4 @@
-import { Component, ElementRef, NgZone, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { Component, ElementRef, Input, NgZone, OnDestroy, OnInit, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterLink } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -29,6 +29,9 @@ export class GlobalNavMenuComponent implements OnInit, OnDestroy {
 
   /** Gap kept between the pinned button and the top of the screen (below the status bar). */
   private static readonly STICKY_TOP_GAP = 10;
+
+  /** Whether the button pins to the top of the screen once the page scrolls past it; a page with its own sticky headers turns this off. */
+  @Input() pinOnScroll = true;
 
   /** True once the page has scrolled the button's resting place off the top — it then pins to the top of the screen. */
   stuck = signal(false);
@@ -61,6 +64,10 @@ export class GlobalNavMenuComponent implements OnInit, OnDestroy {
   };
 
   private update(): void {
+    if (!this.pinOnScroll) {
+      if (this.stuck()) this.stuck.set(false);
+      return;
+    }
     // The host keeps its 46px footprint in the header even while the button is pinned, so its
     // rect is always the button's natural (unpinned) position.
     const rect = this.host.nativeElement.getBoundingClientRect();

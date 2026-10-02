@@ -2,7 +2,7 @@
   <div class="header">
     <app-home-logo-btn></app-home-logo-btn>
     <h1>Family calendar</h1>
-    <app-global-nav-menu></app-global-nav-menu>
+    <app-global-nav-menu [pinOnScroll]="false"></app-global-nav-menu>
   </div>
 
   <div class="actions" *ngIf="!calendarService.isSignedIn()">
@@ -13,13 +13,6 @@
       [disabled]="!calendarService.isInitialized()">
       <mat-icon>login</mat-icon>
       Sign In with Google
-    </button>
-  </div>
-
-  <div class="actions" *ngIf="!outlookService.isSignedIn()">
-    <button mat-stroked-button (click)="connectOutlook()">
-      <mat-icon>mail</mat-icon>
-      {{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook calendar' }}
     </button>
   </div>
 
@@ -54,132 +47,86 @@
        extended with a Sunday–Saturday week view for wide viewports. -->
   <section class="day-calendar" *ngIf="calendarService.isInitialized()">
     <div class="cal-nav">
-      <button mat-icon-button (click)="previousPeriod()" aria-label="Previous">
+      <button mat-icon-button class="cal-step-btn" (click)="previousPeriod()" aria-label="Previous week">
         <mat-icon>chevron_left</mat-icon>
       </button>
       <div class="cal-nav-center">
-        <span class="cal-today-badge" *ngIf="!isViewingToday" (click)="goToToday()">Back to today</span>
+        <button
+          mat-icon-button
+          class="cal-today-btn"
+          *ngIf="!isViewingToday"
+          (click)="goToToday()"
+          matTooltip="Back to today"
+          aria-label="Back to today">
+          <mat-icon>event_upcoming</mat-icon>
+        </button>
         <span class="cal-today-badge cal-today-badge--today" *ngIf="isViewingToday">Today</span>
         <span class="cal-date-text">{{ formatViewLabel() }}</span>
       </div>
       <div class="cal-nav-actions">
         <button
           mat-icon-button
-          (click)="openAddEventDialog()"
-          matTooltip="Add item"
-          aria-label="Add item">
-          <mat-icon>add</mat-icon>
-        </button>
-        <a
-          mat-icon-button
-          [href]="googleCalendarUrl()"
-          target="_blank"
-          rel="noopener"
-          matTooltip="Edit in Google Calendar"
-          aria-label="Edit in Google Calendar">
-          <mat-icon>open_in_new</mat-icon>
-        </a>
-        <button
-          mat-icon-button
-          *ngIf="selectableCalendars().length > 0"
           [matMenuTriggerFor]="calendarMenu"
-          matTooltip="Choose calendars"
-          aria-label="Choose calendars">
-          <mat-icon>settings</mat-icon>
-        </button>
-        <button
-          mat-icon-button
-          *ngIf="calendarService.isSignedIn() || outlookService.isSignedIn()"
-          (click)="refreshEvents()"
-          matTooltip="Refresh"
-          aria-label="Refresh">
-          <mat-icon>refresh</mat-icon>
-        </button>
-        <button mat-icon-button (click)="nextPeriod()" aria-label="Next">
-          <mat-icon>chevron_right</mat-icon>
+          (menuClosed)="calendarMenuView.set('actions')"
+          matTooltip="Calendar options"
+          aria-label="Calendar options">
+          <mat-icon>more_vert</mat-icon>
         </button>
       </div>
+      <button mat-icon-button class="cal-step-btn" (click)="nextPeriod()" aria-label="Next week">
+        <mat-icon>chevron_right</mat-icon>
+      </button>
     </div>
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
-      <label class="cal-selector-item" *ngFor="let cal of selectableCalendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
-        <input
-          type="checkbox"
-          [checked]="isCalendarChecked(cal.id)"
-          (change)="toggleCalendarVisibility(cal.id, $event)">
-        <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
-        <span class="cal-selector-name">{{ cal.summary }}</span>
-      </label>
-      <button mat-menu-item *ngIf="outlookService.isSignedIn() || outlookService.hasCache()" (click)="disconnectOutlook()">
-        <mat-icon>link_off</mat-icon>
-        <span>Disconnect Outlook calendar</span>
-      </button>
+      <ng-container *ngIf="calendarMenuView() === 'actions'">
+        <button mat-menu-item (click)="openAddEventDialog()">
+          <mat-icon>add</mat-icon>
+          <span>Add item</span>
+        </button>
+        <a mat-menu-item [href]="googleCalendarUrl()" target="_blank" rel="noopener">
+          <mat-icon>open_in_new</mat-icon>
+          <span>Edit in Google Calendar</span>
+        </a>
+        <!-- Stays open (stopPropagation) and swaps this menu's content for the calendar checkboxes. -->
+        <button
+          mat-menu-item
+          *ngIf="selectableCalendars().length > 0"
+          (click)="$event.stopPropagation(); calendarMenuView.set('calendars')">
+          <mat-icon>calendar_month</mat-icon>
+          <span>Choose calendars</span>
+        </button>
+        <button mat-menu-item *ngIf="calendarService.isSignedIn() || outlookService.isSignedIn()" (click)="refreshEvents()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
+        <button mat-menu-item *ngIf="!outlookService.isSignedIn()" (click)="connectOutlook()">
+          <mat-icon>mail</mat-icon>
+          <span>{{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook calendar' }}</span>
+        </button>
+        <button mat-menu-item *ngIf="outlookService.isSignedIn() || outlookService.hasCache()" (click)="disconnectOutlook()">
+          <mat-icon>link_off</mat-icon>
+          <span>Disconnect Outlook calendar</span>
+        </button>
+      </ng-container>
+      <ng-container *ngIf="calendarMenuView() === 'calendars'">
+        <button mat-menu-item (click)="$event.stopPropagation(); calendarMenuView.set('actions')">
+          <mat-icon>chevron_left</mat-icon>
+          <span>Choose calendars</span>
+        </button>
+        <label class="cal-selector-item" *ngFor="let cal of selectableCalendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
+          <input
+            type="checkbox"
+            [checked]="isCalendarChecked(cal.id)"
+            (change)="toggleCalendarVisibility(cal.id, $event)">
+          <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
+          <span class="cal-selector-name">{{ cal.summary }}</span>
+        </label>
+      </ng-container>
     </mat-menu>
 
-    <!-- Day view -->
-    <ng-container *ngIf="!isWideViewport()">
-      <app-task-lane
-        [date]="currentDate()"
-        (taskSelect)="selectEvent($event.event, $event.domEvent)"
-        (taskToggle)="toggleTask($event.event, $event.domEvent)"></app-task-lane>
-
-      <div class="cal-allday" *ngIf="getAllDayNonTaskEventsForDay(currentDate()).length > 0">
-        <span class="cal-allday-label">All day</span>
-        <div class="cal-allday-events">
-          <div
-            *ngFor="let event of getAllDayNonTaskEventsForDay(currentDate()); trackBy: trackByEventId"
-            class="cal-allday-chip"
-            [style.--event-color]="getEventColor(event)"
-            [class.has-popover]="selectedEvent()?.id === event.id"
-            (click)="selectEvent(event, $event)">
-            <mat-icon>event</mat-icon>
-            {{ event.summary }}
-          </div>
-        </div>
-      </div>
-
-      <div class="cal-timeline-scroll" #timelineScroll (click)="clearSelectedEvent()">
-        <div class="cal-timeline-inner">
-          <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour">
-            <span class="cal-hour-label">{{ formatHour(hour) }}</span>
-          </div>
-
-          <div class="cal-events-layer">
-            <div
-              class="cal-event-block"
-              *ngFor="let event of getTimedEventsForDay(currentDate()); trackBy: trackByEventId"
-              [style.top.px]="event.topPosition"
-              [style.height.px]="event.isPointInTime ? null : event.height"
-              [style.--event-color]="getEventColor(event)"
-              [style.--actual-h.px]="event.isPointInTime ? null : event.actualHeight"
-              [ngStyle]="getEventLayoutStyle(event)"
-              [class.has-popover]="selectedEvent()?.id === event.id"
-              (click)="selectEvent(event, $event)">
-              <div
-                class="cal-event-body"
-                [class.is-point-in-time]="event.isPointInTime"
-                [class.is-approximate-start]="event.startApproximate"
-                [class.is-approximate-end]="event.endApproximate">
-                <span class="cal-event-title">{{ event.summary }}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="cal-playhead" *ngIf="isToday(currentDate())" [style.top.px]="getCurrentTimePosition()">
-            <span class="cal-playhead-dot"></span>
-            <div class="cal-playhead-line"></div>
-          </div>
-        </div>
-      </div>
-
-      <div class="cal-no-events" *ngIf="getTimedEventsForDay(currentDate()).length === 0 && getAllDayNonTaskEventsForDay(currentDate()).length === 0">
-        <mat-icon>event_available</mat-icon>
-        <p>No events scheduled</p>
-      </div>
-    </ng-container>
-
     <!-- Week view -->
-    <ng-container *ngIf="isWideViewport()">
+    <ng-container>
       <div class="cal-week-header">
         <div class="cal-week-header-spacer"></div>
         <div class="cal-week-day-header" *ngFor="let day of getWeekDays(); trackBy: trackByDate" [class.today]="isToday(day)">
@@ -188,21 +135,60 @@
         </div>
       </div>
 
+      <!-- Tasks without a specific time: just each day's count when folded, the checklist when open. -->
+      <div class="cal-week-tasks" *ngIf="weekHasTasks()">
+        <div class="cal-week-tasks-spacer">
+          <button type="button" class="cal-week-tasks-toggle" [attr.aria-expanded]="!tasksCollapsed()" (click)="toggleTasksCollapsed(); $event.stopPropagation()">
+            <span>Tasks</span>
+            <mat-icon>{{ tasksCollapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
+          </button>
+        </div>
+        <div class="cal-week-tasks-col" *ngFor="let entry of weekTasks(); trackBy: trackByWeekTask">
+          <ng-container *ngIf="tasksCollapsed(); else taskItems">
+            <span class="cal-week-tasks-count" *ngIf="entry.rows.length">{{ entry.rows.length }}</span>
+          </ng-container>
+          <ng-template #taskItems>
+            <div
+              class="cal-week-task"
+              *ngFor="let row of entry.rows; trackBy: trackByTaskRow"
+              [class.carried]="row.daysOverdue > 0"
+              (click)="selectEvent(row.event, $event)">
+              <button
+                type="button"
+                class="task-check"
+                (click)="askTaskToggle(row.event, $event)"
+                [attr.aria-label]="row.done ? 'Completed — tap to mark not complete' : 'Mark complete'">
+                <mat-icon>{{ row.done ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+              </button>
+              <span class="cal-week-task-title" [class.task-done]="row.done">{{ row.event.summary }}</span>
+            </div>
+          </ng-template>
+        </div>
+      </div>
+
       <div class="cal-week-allday">
-        <div class="cal-week-allday-spacer"></div>
+        <div class="cal-week-allday-spacer"><span class="cal-week-band-label">All day</span></div>
         <div class="cal-week-allday-col" *ngFor="let day of getWeekDays(); trackBy: trackByDate">
           <div
-            *ngFor="let event of getAllDayEventsForDay(day); trackBy: trackByEventId"
+            *ngFor="let event of getAllDayNonTaskEventsForDay(day); trackBy: trackByEventId"
             class="cal-allday-chip cal-allday-chip--compact"
             [style.--event-color]="getEventColor(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
             (click)="selectEvent(event, $event)">
-            {{ event.summary }}
+            <button
+              type="button"
+              class="task-check"
+              *ngIf="isTask(event)"
+              (click)="askTaskToggle(event, $event)"
+              [attr.aria-label]="isTaskDone(event) ? 'Completed — tap to mark not complete' : 'Mark complete'">
+              <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+            </button>
+            <span [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
           </div>
         </div>
       </div>
 
-      <div class="cal-timeline-scroll cal-timeline-scroll--week" #timelineScroll (click)="clearSelectedEvent()">
+      <div class="cal-timeline-scroll cal-timeline-scroll--week" (click)="clearSelectedEvent()">
         <div class="cal-week-grid">
           <div class="cal-timeline-inner cal-week-hours">
             <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour">
@@ -227,9 +213,20 @@
                 <div
                   class="cal-event-body"
                   [class.is-point-in-time]="event.isPointInTime"
+                  [class.is-task]="isTask(event)"
                   [class.is-approximate-start]="event.startApproximate"
                   [class.is-approximate-end]="event.endApproximate">
-                  <span class="cal-event-title">{{ event.summary }}</span>
+                  <div class="cal-event-title-row">
+                    <button
+                      type="button"
+                      class="task-check"
+                      *ngIf="isTask(event)"
+                      (click)="askTaskToggle(event, $event)"
+                      [attr.aria-label]="isTaskDone(event) ? 'Completed — tap to mark not complete' : 'Mark complete'">
+                      <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+                    </button>
+                    <span class="cal-event-title" [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -251,11 +248,23 @@
       (click)="$event.stopPropagation()">
       <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(sel)"></div>
       <div class="cal-popover-body">
-        <p class="cal-popover-title">{{ sel.summary }}</p>
+        <p class="cal-popover-title">
+          <button
+            type="button"
+            class="task-check cal-popover-task-check"
+            *ngIf="isTask(sel)"
+            (click)="askTaskToggle(sel, $event)"
+            [attr.aria-label]="isTaskDone(sel) ? 'Completed — tap to mark not complete' : 'Mark complete'">
+            <mat-icon>{{ isTaskDone(sel) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
+          </button>
+          <span [class.task-done]="isTaskDone(sel)">{{ sel.summary }}</span>
+        </p>
         <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
         <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name">
           <mat-icon>{{ sel.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ sel.isPrivate ? 'Private — only you' : 'For ' + name }}
         </p>
+        <p class="cal-popover-person" *ngIf="!sel.isPrivate && sel.createdByName"><mat-icon>person_add</mat-icon>Created by {{ sel.createdByName }}</p>
+        <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
         <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
         <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
       </div>
@@ -268,6 +277,37 @@
         <mat-icon>edit</mat-icon>
       </button>
       <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
+    </div>
+
+    <!-- "Mark complete?" prompt for a task's checkbox — a popover like the details one, so it
+         doesn't take space inside the (often small) item in the timeline. -->
+    <div
+      class="cal-popover cal-popover--confirm"
+      *ngIf="confirmingTask() as task"
+      [class.cal-popover--above]="confirmAbove"
+      [style.top.px]="confirmTop"
+      (click)="$event.stopPropagation()">
+      <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(task)"></div>
+      <div class="cal-popover-body">
+        <p class="cal-popover-title">{{ isTaskDone(task) ? 'Mark not complete?' : 'Mark complete?' }}</p>
+        <p class="cal-popover-time">{{ task.summary }}</p>
+      </div>
+      <button
+        mat-icon-button
+        class="cal-popover-edit task-confirm-icon task-confirm-icon--yes"
+        [matTooltip]="isTaskDone(task) ? 'Mark not complete' : 'Complete'"
+        [attr.aria-label]="isTaskDone(task) ? 'Mark task not complete' : 'Complete task'"
+        (click)="confirmTaskToggle(task, $event)">
+        <mat-icon>{{ isTaskDone(task) ? 'check_box_outline_blank' : 'check' }}</mat-icon>
+      </button>
+      <button
+        mat-icon-button
+        class="cal-popover-close task-confirm-icon task-confirm-icon--no"
+        [matTooltip]="isTaskDone(task) ? 'Leave complete' : 'Cancel'"
+        [attr.aria-label]="isTaskDone(task) ? 'Leave task complete' : 'Cancel'"
+        (click)="cancelTaskPrompt($event)">
+        <mat-icon>{{ isTaskDone(task) ? 'check_box' : 'close' }}</mat-icon>
+      </button>
     </div>
   </section>
 </div>
