@@ -8,7 +8,9 @@ import { ActivatedRoute } from '@angular/router';
 import { Subscription } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
+import { externalEditLabel, externalEditUrl } from '../../utils/external-edit-link';
+import { CalendarSkeletonComponent } from '../../shared/calendar-skeleton/calendar-skeleton.component';
+import { GRAPH_EXPLORER_URL, OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
@@ -44,6 +46,7 @@ interface TimelineEvent extends CalendarEvent {
     LoadingAnimationComponent,
     MatTooltipModule,
     MatSnackBarModule,
+    CalendarSkeletonComponent,
     GlobalNavMenuComponent,
     HomeLogoBtnComponent
   ],
@@ -131,6 +134,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
     window.addEventListener('scroll', this.closePopoverOnScroll, true);
 
     // A link such as /calendar?date=2026-10-05 (from a chat confirmation) opens that week.
+    this.calendarTimeout = window.setTimeout(
+      () => this.calendarLoadTimedOut.set(true),
+      CalendarComponent.CALENDAR_LOAD_TIMEOUT_MS
+    );
+
     this.dateParamSub = this.route.queryParamMap.subscribe(params => {
       const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(params.get('date') ?? '');
       if (!match) return;
@@ -145,8 +153,32 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   private dateParamSub?: Subscription;
 
+  /** How long the calendar shows its loading skeleton before giving up on a connection. */
+  private static readonly CALENDAR_LOAD_TIMEOUT_MS = 10_000;
+  private calendarTimeout?: number;
+  calendarLoadTimedOut = signal(false);
+
+  /** True while nothing is loaded yet and a connection may still arrive (at most the timeout above). */
+  calendarWaiting = computed(() =>
+    !this.calendarLoadTimedOut() &&
+    !(this.calendarService.isInitialized() && (
+      this.calendarService.isSignedIn() ||
+      this.calendarService.events().length > 0 ||
+      this.outlookService.events().length > 0 ||
+      this.appCalendarEventService.events().length > 0
+    ))
+  );
+
+  /** Past the timeout with no Google connection and nothing cached from it. */
+  calendarConnectionFailed = computed(() =>
+    this.calendarLoadTimedOut() &&
+    !this.calendarService.isSignedIn() &&
+    this.calendarService.events().length === 0
+  );
+
   ngOnDestroy(): void {
     this.dateParamSub?.unsubscribe();
+    if (this.calendarTimeout) clearTimeout(this.calendarTimeout);
     if (this.timeInterval) {
       clearInterval(this.timeInterval);
     }
@@ -460,6 +492,9 @@ export class CalendarComponent implements OnInit, OnDestroy {
     });
   }
 
+  externalEditUrl = externalEditUrl;
+  externalEditLabel = externalEditLabel;
+
   /** Google and Outlook calendars together, for the "Choose calendars" lists. */
   selectableCalendars(): CalendarInfo[] {
     return [...this.calendarService.calendars(), ...this.outlookService.calendars()];
@@ -472,6 +507,11 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   connectOutlook(): void {
+    // Renewing means a trip to Graph Explorer for a fresh token, so open it for them right away
+    // (from this click, so it isn't blocked) — the dialog is already waiting when they come back.
+    if (this.outlookService.hasCache()) {
+      window.open(GRAPH_EXPLORER_URL, '_blank', 'noopener');
+    }
     this.dialog.open(OutlookTokenDialogComponent, { width: '480px', maxWidth: '95vw' });
   }
 

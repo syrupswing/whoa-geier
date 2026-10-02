@@ -8,6 +8,8 @@ import { MatInputModule } from '@angular/material/input';
 import { MatIconModule } from '@angular/material/icon';
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 
+export const GRAPH_EXPLORER_URL = 'https://developer.microsoft.com/graph/graph-explorer';
+
 /** Asks for an access token copied from Microsoft Graph Explorer and connects Outlook with it. */
 @Component({
   selector: 'app-outlook-token-dialog',
@@ -21,7 +23,7 @@ import { OutlookCalendarService } from '../../services/outlook-calendar.service'
 
     <mat-dialog-content>
       <div class="open-row">
-        <a mat-stroked-button href="https://developer.microsoft.com/graph/graph-explorer" target="_blank" rel="noopener">
+        <a mat-stroked-button [href]="graphExplorerUrl" target="_blank" rel="noopener">
           Open Graph Explorer
         </a>
         <span>and copy Access Token</span>
@@ -31,6 +33,7 @@ import { OutlookCalendarService } from '../../services/outlook-calendar.service'
         <mat-label>Paste Access Token</mat-label>
         <input
           matInput
+          cdkFocusInitial
           name="token"
           [(ngModel)]="token"
           [disabled]="connecting()"
@@ -55,6 +58,8 @@ import { OutlookCalendarService } from '../../services/outlook-calendar.service'
 export class OutlookTokenDialogComponent {
   private outlookService = inject(OutlookCalendarService);
   dialogRef = inject(MatDialogRef<OutlookTokenDialogComponent>);
+
+  readonly graphExplorerUrl = GRAPH_EXPLORER_URL;
 
   token = '';
   connecting = signal(false);

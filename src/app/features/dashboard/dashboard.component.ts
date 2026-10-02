@@ -10,7 +10,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
+import { externalEditLabel, externalEditUrl } from '../../utils/external-edit-link';
+import { CalendarSkeletonComponent } from '../../shared/calendar-skeleton/calendar-skeleton.component';
+import { GRAPH_EXPLORER_URL, OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
@@ -193,7 +195,7 @@ function loadPersistedChatMessages(): ChatMessage[] {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
+  imports: [CommonModule, CalendarSkeletonComponent, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -326,7 +328,38 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
+  /** How long the calendar shows its loading skeleton before giving up on a connection. */
+  private static readonly CALENDAR_LOAD_TIMEOUT_MS = 10_000;
+  private calendarTimeout?: number;
+  calendarLoadTimedOut = signal(false);
+
+  /**
+   * True while the calendar has nothing to show yet and is still waiting on a connection (Google's
+   * client and token, or the first events from any source): the skeleton stands in for it, for at
+   * most the timeout above.
+   */
+  calendarWaiting = computed(() =>
+    !this.calendarLoadTimedOut() &&
+    !(this.calendarService.isInitialized() && (
+      this.calendarService.isSignedIn() ||
+      this.calendarService.events().length > 0 ||
+      this.outlookService.events().length > 0 ||
+      this.appCalendarEventService.events().length > 0
+    ))
+  );
+
+  /** Past the timeout with no Google connection and nothing cached from it. */
+  calendarConnectionFailed = computed(() =>
+    this.calendarLoadTimedOut() &&
+    !this.calendarService.isSignedIn() &&
+    this.calendarService.events().length === 0
+  );
+
   ngOnInit(): void {
+    this.calendarTimeout = window.setTimeout(
+      () => this.calendarLoadTimedOut.set(true),
+      DashboardComponent.CALENDAR_LOAD_TIMEOUT_MS
+    );
     // Update current time every minute
     this.timeInterval = window.setInterval(() => {
       this.currentTime.set(new Date());
@@ -465,6 +498,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   ngOnDestroy(): void {
+    if (this.calendarTimeout) clearTimeout(this.calendarTimeout);
     window.removeEventListener('scroll', this.closePopoverOnScroll, true);
     window.removeEventListener('scroll', this.updateChatDockState, true);
     window.removeEventListener('resize', this.updateChatDockState);
@@ -545,13 +579,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     });
   }
 
-  /** Deep-links to Google Calendar's own day view for whatever date the widget is showing. */
+  /** Deep-links to Google Calendar's own week view containing whatever date the widget is showing. */
   googleCalendarUrl(): string {
     const d = this.viewDate();
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
-    return `https://calendar.google.com/calendar/r/day/${year}/${month}/${day}`;
+    return `https://calendar.google.com/calendar/r/week/${year}/${month}/${day}`;
   }
 
   /** Google-synced events plus app-native events (see AppCalendarEventService), merged for display. */
@@ -1311,6 +1345,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.confirmingTask.set(null);
   }
 
+  externalEditUrl = externalEditUrl;
+  externalEditLabel = externalEditLabel;
+
   /** Google and Outlook calendars together, for the "Choose calendars" lists. */
   selectableCalendars(): CalendarInfo[] {
     return [...this.calendarService.calendars(), ...this.outlookService.calendars()];
@@ -1331,6 +1368,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   connectOutlook(): void {
+    // Renewing means a trip to Graph Explorer for a fresh token, so open it for them right away
+    // (from this click, so it isn't blocked) — the dialog is already waiting when they come back.
+    if (this.outlookService.hasCache()) {
+      window.open(GRAPH_EXPLORER_URL, '_blank', 'noopener');
+    }
     this.dialog.open(OutlookTokenDialogComponent, { width: '480px', maxWidth: '95vw' });
   }
 

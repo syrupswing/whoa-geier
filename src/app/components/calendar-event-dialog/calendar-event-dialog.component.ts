@@ -71,15 +71,23 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
 
     <mat-dialog-content>
       <div class="dialog-form">
-        <mat-button-toggle-group
-          class="item-kind-toggle"
-          name="itemKind"
-          [ngModel]="formData.itemKind"
-          (ngModelChange)="onItemKindChange($event)"
-          aria-label="Item type">
-          <mat-button-toggle value="event">Event</mat-button-toggle>
-          <mat-button-toggle value="task">Task</mat-button-toggle>
-        </mat-button-toggle-group>
+        <div class="kind-row">
+          <mat-button-toggle-group
+            class="item-kind-toggle"
+            name="itemKind"
+            [ngModel]="formData.itemKind"
+            (ngModelChange)="onItemKindChange($event)"
+            aria-label="Item type">
+            <mat-button-toggle value="event">Event</mat-button-toggle>
+            <mat-button-toggle value="task">Task</mat-button-toggle>
+          </mat-button-toggle-group>
+          <!-- Not item types here: these open a new event in Google Calendar / Outlook (prefilled
+               from this form), so it's created at that source instead of in the app. -->
+          <ng-container *ngIf="data.mode === 'add'">
+            <a class="external-btn" [href]="googleEventUrl()" target="_blank" rel="noopener">Google<mat-icon>open_in_new</mat-icon></a>
+            <a class="external-btn" [href]="outlookEventUrl()" target="_blank" rel="noopener">Outlook<mat-icon>open_in_new</mat-icon></a>
+          </ng-container>
+        </div>
         <p class="kind-hint" *ngIf="formData.itemKind === 'task'">
           A task can be checked off. It can be all day or at a specific time.
         </p>
@@ -262,8 +270,51 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       margin-bottom: 8px;
     }
 
-    .item-kind-toggle {
+    // One connected button bar: the Event/Task toggle plus the Google/Outlook links, sharing a
+    // single outline and rounded ends, with a divider between each segment.
+    .kind-row {
+      --kind-bar-border: var(--mat-standard-button-toggle-divider-color, rgba(0, 0, 0, 0.12));
+      display: inline-flex;
+      align-items: stretch;
       align-self: flex-start;
+      border: 1px solid var(--kind-bar-border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    .item-kind-toggle {
+      border: 0;
+      border-radius: 0;
+    }
+
+    .external-btn {
+      display: inline-flex;
+      align-items: center;
+      padding: 0 12px;
+      border-left: 1px solid var(--kind-bar-border);
+      text-decoration: none;
+      white-space: nowrap;
+      cursor: pointer;
+      // The same type and colors the Event/Task toggles use.
+      color: var(--mat-standard-button-toggle-text-color);
+      background-color: var(--mat-standard-button-toggle-background-color);
+      font-family: var(--mat-standard-button-toggle-label-text-font);
+      font-size: var(--mat-standard-button-toggle-label-text-size);
+      line-height: var(--mat-standard-button-toggle-height);
+      font-weight: var(--mat-standard-button-toggle-label-text-weight);
+      letter-spacing: var(--mat-standard-button-toggle-label-text-tracking);
+
+      &:hover {
+        background: rgba(0, 0, 0, 0.04);
+      }
+
+      mat-icon {
+        margin-left: 4px;
+        font-size: 16px;
+        width: 16px;
+        height: 16px;
+        line-height: 16px;
+      }
     }
 
     .kind-group {
@@ -583,6 +634,51 @@ export class CalendarEventDialogComponent {
 
   private toTimeValue(d: Date): string {
     return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  }
+
+  /** The form's date/time as a range for another calendar's "new event" page. */
+  private externalEventRange(): { allDay: boolean; start: Date; end: Date } {
+    const f = this.formData;
+    if (!f.hasTime) {
+      // An all-day end is exclusive (the day after the last day), like Google Calendar's.
+      return { allDay: true, start: f.startDate, end: this.addDays(f.multiDay ? f.endDate : f.startDate, 1) };
+    }
+    const start = this.combine(f.startDate, f.startTime);
+    const end = f.hasDuration
+      ? this.combine(f.multiDay ? f.endDate : f.startDate, f.endTime)
+      : new Date(start.getTime() + 60 * 60 * 1000);
+    return { allDay: false, start, end };
+  }
+
+  /** Opens Google Calendar's new-event form, prefilled with this form's title and date/time. */
+  googleEventUrl(): string {
+    const { allDay, start, end } = this.externalEventRange();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const ymd = (d: Date) => `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}`;
+    const stamp = (d: Date) => `${ymd(d)}T${pad(d.getHours())}${pad(d.getMinutes())}00`;
+    const params = new URLSearchParams({
+      action: 'TEMPLATE',
+      text: this.formData.title.trim(),
+      dates: allDay ? `${ymd(start)}/${ymd(end)}` : `${stamp(start)}/${stamp(end)}`
+    });
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  /** Opens Outlook's new-event form, prefilled with this form's title and date/time. */
+  outlookEventUrl(): string {
+    const { allDay, start, end } = this.externalEventRange();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+    const stamp = (d: Date) => `${ymd(d)}T${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+    const params = new URLSearchParams({
+      path: '/calendar/action/compose',
+      rru: 'addevent',
+      subject: this.formData.title.trim(),
+      startdt: allDay ? ymd(start) : stamp(start),
+      enddt: allDay ? ymd(end) : stamp(end),
+      allday: String(allDay)
+    });
+    return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
   }
 
   /** A local date plus an "HH:mm" time → a Date. */
