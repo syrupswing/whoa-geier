@@ -6,7 +6,9 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
+import { OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
+import { OutlookCalendarService } from '../../services/outlook-calendar.service';
+import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { completionFor, expandRecurringForDay, occurrenceKey } from '../../utils/recurrence';
 import { HouseholdService } from '../../services/household.service';
@@ -70,6 +72,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
 
   constructor(
     public calendarService: GoogleCalendarService,
+    public outlookService: OutlookCalendarService,
     public appCalendarEventService: AppCalendarEventService,
     private householdService: HouseholdService,
     private dialog: MatDialog,
@@ -139,10 +142,11 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   }
 
   async loadEventsForCurrentView(): Promise<void> {
-    if (!this.calendarService.isSignedIn()) return;
-
     // Load events for the next 60 days to cache them
-    await this.calendarService.loadCalendarEvents(60);
+    await Promise.all([
+      this.calendarService.isSignedIn() ? this.calendarService.loadCalendarEvents(60) : undefined,
+      this.outlookService.isSignedIn() ? this.outlookService.sync(60) : undefined
+    ]);
   }
 
   async refreshEvents(): Promise<void> {
@@ -248,6 +252,7 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
   getAllEvents(): CalendarEvent[] {
     return [
       ...this.calendarService.events().map(event => ({ ...event, source: event.source ?? 'google' as const })),
+      ...this.outlookService.events().filter(event => this.outlookService.isCalendarVisible(event.calendarId!)),
       ...this.appCalendarEventService.events()
     ];
   }
@@ -423,8 +428,31 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     });
   }
 
+  /** Google and Outlook calendars together, for the "Choose calendars" lists. */
+  selectableCalendars(): CalendarInfo[] {
+    return [...this.calendarService.calendars(), ...this.outlookService.calendars()];
+  }
+
+  isCalendarChecked(calendarId: string): boolean {
+    return calendarId.startsWith('outlook:')
+      ? this.outlookService.isCalendarVisible(calendarId)
+      : this.calendarService.isCalendarVisible(calendarId);
+  }
+
+  connectOutlook(): void {
+    this.dialog.open(OutlookTokenDialogComponent, { width: '480px', maxWidth: '95vw' });
+  }
+
+  disconnectOutlook(): void {
+    this.outlookService.signOut();
+  }
+
   toggleCalendarVisibility(calendarId: string, event: Event): void {
     const checkbox = event.target as HTMLInputElement;
+    if (calendarId.startsWith('outlook:')) {
+      this.outlookService.toggleCalendar(calendarId, checkbox.checked);
+      return;
+    }
     this.calendarService.toggleCalendar(calendarId, checkbox.checked);
   }
 
@@ -443,6 +471,9 @@ export class CalendarComponent implements OnInit, OnDestroy, AfterViewInit {
     // colorId, so they're visually told apart from synced events.
     if (event.source === 'app') {
       return '#8E6BC9';
+    }
+    if (event.source === 'outlook') {
+      return this.outlookService.getCalendarColor(event.calendarId!);
     }
     const calendarColor = this.calendarService.getCalendarColor(event.calendarId || 'primary');
     if (calendarColor && calendarColor !== '#2196F3') {

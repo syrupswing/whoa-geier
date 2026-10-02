@@ -40,7 +40,7 @@ export interface CalendarEvent {
   htmlLink?: string;
   colorId?: string;
   calendarId?: string;
-  source?: 'google' | 'app';
+  source?: 'google' | 'app' | 'outlook';
   /** A specific moment with no duration (a flight departure, a call reminder) — start/end dateTime are equal. */
   isPointInTime?: boolean;
   /** Marks the start time as an estimate rather than exact — only meaningful on a timed (non-point, non-all-day) event. */

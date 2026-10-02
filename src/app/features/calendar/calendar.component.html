@@ -16,6 +16,18 @@
     </button>
   </div>
 
+  <div class="actions" *ngIf="!outlookService.isSignedIn()">
+    <button mat-stroked-button (click)="connectOutlook()">
+      <mat-icon>mail</mat-icon>
+      {{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook calendar' }}
+    </button>
+  </div>
+
+  <div *ngIf="outlookService.error()" class="error-box">
+    <mat-icon>error</mat-icon>
+    <p>{{ outlookService.error() }}</p>
+  </div>
+
   <!-- Loading State -->
   <div *ngIf="!calendarService.isInitialized()" class="loading-state">
     <app-loading-animation [size]="50"></app-loading-animation>
@@ -69,7 +81,7 @@
         </a>
         <button
           mat-icon-button
-          *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0"
+          *ngIf="selectableCalendars().length > 0"
           [matMenuTriggerFor]="calendarMenu"
           matTooltip="Choose calendars"
           aria-label="Choose calendars">
@@ -77,7 +89,7 @@
         </button>
         <button
           mat-icon-button
-          *ngIf="calendarService.isSignedIn()"
+          *ngIf="calendarService.isSignedIn() || outlookService.isSignedIn()"
           (click)="refreshEvents()"
           matTooltip="Refresh"
           aria-label="Refresh">
@@ -90,14 +102,18 @@
     </div>
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
-      <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
+      <label class="cal-selector-item" *ngFor="let cal of selectableCalendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
         <input
           type="checkbox"
-          [checked]="calendarService.isCalendarVisible(cal.id)"
+          [checked]="isCalendarChecked(cal.id)"
           (change)="toggleCalendarVisibility(cal.id, $event)">
         <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
         <span class="cal-selector-name">{{ cal.summary }}</span>
       </label>
+      <button mat-menu-item *ngIf="outlookService.isSignedIn() || outlookService.hasCache()" (click)="disconnectOutlook()">
+        <mat-icon>link_off</mat-icon>
+        <span>Disconnect Outlook calendar</span>
+      </button>
     </mat-menu>
 
     <!-- Day view -->

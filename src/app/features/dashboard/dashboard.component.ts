@@ -10,7 +10,9 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
-import { GoogleCalendarService, CalendarEvent } from '../../services/google-calendar.service';
+import { OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
+import { OutlookCalendarService } from '../../services/outlook-calendar.service';
+import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { expandRecurringForDay, occurrenceKey, completionFor } from '../../utils/recurrence';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
@@ -284,6 +286,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   constructor(
     public calendarService: GoogleCalendarService,
+    public outlookService: OutlookCalendarService,
     public groceryService: GroceryService,
     private aiOrchestrator: AiOrchestratorService,
     public weatherService: WeatherService,
@@ -555,6 +558,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   getAllEvents(): CalendarEvent[] {
     return [
       ...this.calendarService.events().map(event => ({ ...event, source: event.source ?? 'google' as const })),
+      ...this.outlookService.events().filter(event => this.outlookService.isCalendarVisible(event.calendarId!)),
       ...this.appCalendarEventService.events()
     ];
   }
@@ -602,7 +606,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   getAllDayEvents(): TimelineEvent[] {
     return this.getViewDayEvents().filter(e =>
-      !e.start.dateTime && e.kind !== 'task' && (e.source === 'app' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
+      !e.start.dateTime && e.kind !== 'task' && (e.source === 'app' || e.source === 'outlook' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
     );
   }
 
@@ -613,7 +617,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   /** Timed events for the viewed day, without overlap columns — those depend on the scale, which depends on this. */
   private getVisibleTimedEvents(): TimelineEvent[] {
     return this.getViewDayEvents().filter(e =>
-      !!e.start.dateTime && (e.source === 'app' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
+      !!e.start.dateTime && (e.source === 'app' || e.source === 'outlook' || this.calendarService.isCalendarVisible(e.calendarId || 'primary'))
     );
   }
 
@@ -1264,6 +1268,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (event.source === 'app') {
       return '#8E6BC9';
     }
+    if (event.source === 'outlook') {
+      return this.outlookService.getCalendarColor(event.calendarId!);
+    }
     // First try to get calendar's color
     const calendarColor = this.calendarService.getCalendarColor(event.calendarId || 'primary');
     if (calendarColor && calendarColor !== '#2196F3') {
@@ -1295,8 +1302,31 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.confirmingTask.set(null);
   }
 
+  /** Google and Outlook calendars together, for the "Choose calendars" lists. */
+  selectableCalendars(): CalendarInfo[] {
+    return [...this.calendarService.calendars(), ...this.outlookService.calendars()];
+  }
+
+  isCalendarChecked(calendarId: string): boolean {
+    return calendarId.startsWith('outlook:')
+      ? this.outlookService.isCalendarVisible(calendarId)
+      : this.calendarService.isCalendarVisible(calendarId);
+  }
+
+  connectOutlook(): void {
+    this.dialog.open(OutlookTokenDialogComponent, { width: '480px', maxWidth: '95vw' });
+  }
+
+  disconnectOutlook(): void {
+    this.outlookService.signOut();
+  }
+
   toggleCalendarVisibility(calendarId: string, event: Event): void {
     const checkbox = event.target as HTMLInputElement;
+    if (calendarId.startsWith('outlook:')) {
+      this.outlookService.toggleCalendar(calendarId, checkbox.checked);
+      return;
+    }
     this.calendarService.toggleCalendar(calendarId, checkbox.checked);
   }
 

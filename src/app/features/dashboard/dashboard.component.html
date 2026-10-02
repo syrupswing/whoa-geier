@@ -204,10 +204,18 @@
         <!-- Stays open (stopPropagation) and swaps this menu's content for the calendar checkboxes. -->
         <button
           mat-menu-item
-          *ngIf="calendarService.isSignedIn() && calendarService.calendars().length > 0"
+          *ngIf="selectableCalendars().length > 0"
           (click)="$event.stopPropagation(); calendarMenuView.set('calendars')">
           <mat-icon>calendar_month</mat-icon>
           <span>Choose calendars</span>
+        </button>
+        <button mat-menu-item *ngIf="!outlookService.isSignedIn()" (click)="connectOutlook()">
+          <mat-icon>mail</mat-icon>
+          <span>{{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook calendar' }}</span>
+        </button>
+        <button mat-menu-item *ngIf="outlookService.isSignedIn() || outlookService.hasCache()" (click)="disconnectOutlook()">
+          <mat-icon>link_off</mat-icon>
+          <span>Disconnect Outlook calendar</span>
         </button>
       </ng-container>
       <ng-container *ngIf="calendarMenuView() === 'calendars'">
@@ -215,10 +223,10 @@
           <mat-icon>chevron_left</mat-icon>
           <span>Choose calendars</span>
         </button>
-        <label class="cal-selector-item" *ngFor="let cal of calendarService.calendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
+        <label class="cal-selector-item" *ngFor="let cal of selectableCalendars(); trackBy: trackByEventId" (click)="$event.stopPropagation()">
           <input
             type="checkbox"
-            [checked]="calendarService.isCalendarVisible(cal.id)"
+            [checked]="isCalendarChecked(cal.id)"
             (change)="toggleCalendarVisibility(cal.id, $event)">
           <span class="cal-selector-color" [style.backgroundColor]="cal.backgroundColor || '#2196F3'"></span>
           <span class="cal-selector-name">{{ cal.summary }}</span>

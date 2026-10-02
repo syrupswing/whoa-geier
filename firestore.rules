@@ -231,6 +231,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Each person's cached Outlook calendar (synced from Microsoft Graph by their own browser).
+    // Work-calendar details, so only that person can read or write it.
+    match /outlookCalendarCache/{uid} {
+      allow read, write: if isAuthenticated() && request.auth.uid == uid;
+    }
+
     // Default: deny all access unless explicitly granted above
     match /{document=**} {
       allow read, write: if false;
