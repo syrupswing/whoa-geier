@@ -102,11 +102,11 @@
         </button>
         <button mat-menu-item *ngIf="!outlookService.isSignedIn()" (click)="connectOutlook()">
           <mat-icon>mail</mat-icon>
-          <span>{{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook calendar' }}</span>
+          <span>{{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook' }}</span>
         </button>
         <button mat-menu-item *ngIf="outlookService.isSignedIn() || outlookService.hasCache()" (click)="disconnectOutlook()">
           <mat-icon>link_off</mat-icon>
-          <span>Disconnect Outlook calendar</span>
+          <span>Disconnect Outlook</span>
         </button>
       </ng-container>
       <ng-container *ngIf="calendarMenuView() === 'calendars'">

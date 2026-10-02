@@ -20,37 +20,36 @@ import { OutlookCalendarService } from '../../services/outlook-calendar.service'
     </h2>
 
     <mat-dialog-content>
-      <ol class="steps">
-        <li>Open <a href="https://developer.microsoft.com/graph/graph-explorer" target="_blank" rel="noopener">Graph Explorer</a> and sign in with your Outlook account.</li>
-        <li>Under <strong>Modify permissions</strong>, consent to <strong>Calendars.Read</strong>.</li>
-        <li>Open the <strong>Access token</strong> tab, copy the token, and paste it below.</li>
-      </ol>
-      <p class="hint">The token lasts about an hour. After it lapses, your last-synced events stay on screen until you paste a new one.</p>
+      <div class="open-row">
+        <a mat-stroked-button href="https://developer.microsoft.com/graph/graph-explorer" target="_blank" rel="noopener">
+          Open Graph Explorer
+        </a>
+        <span>and copy Access Token</span>
+      </div>
 
       <mat-form-field appearance="outline" class="full-width">
-        <mat-label>Access token</mat-label>
-        <textarea matInput rows="4" name="token" [(ngModel)]="token" spellcheck="false" autocomplete="off"></textarea>
+        <mat-label>Paste Access Token</mat-label>
+        <input
+          matInput
+          name="token"
+          [(ngModel)]="token"
+          [disabled]="connecting()"
+          spellcheck="false"
+          autocomplete="off"
+          (paste)="onPaste($event)">
       </mat-form-field>
 
+      <p class="status" *ngIf="connecting()">Connecting…</p>
       <p class="error" *ngIf="error()">{{ error() }}</p>
     </mat-dialog-content>
-
-    <mat-dialog-actions align="end">
-      <button mat-button (click)="dialogRef.close()">Cancel</button>
-      <button mat-raised-button color="primary" (click)="connect()" [disabled]="!token.trim() || connecting()">
-        {{ connecting() ? 'Connecting…' : 'Connect' }}
-      </button>
-    </mat-dialog-actions>
   `,
   styles: [`
     .full-width { width: 100%; }
-    .steps { margin: 0 0 8px; padding-left: 20px; font-size: 0.9rem; }
-    .steps li { margin-bottom: 4px; }
-    .hint { margin: 0 0 12px; font-size: 0.8rem; color: var(--color-text-secondary); }
+    .open-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .status { margin: 0; font-size: 0.85rem; color: var(--color-text-secondary); }
     .error { margin: 0; font-size: 0.85rem; color: var(--color-warn-dark, #d32f2f); }
     h2[mat-dialog-title] { display: flex; align-items: center; gap: 8px; }
     h2[mat-dialog-title] mat-icon { color: var(--color-primary); }
-    textarea { font-family: monospace; font-size: 0.75rem; word-break: break-all; }
   `]
 })
 export class OutlookTokenDialogComponent {
@@ -60,6 +59,15 @@ export class OutlookTokenDialogComponent {
   token = '';
   connecting = signal(false);
   error = signal<string | null>(null);
+
+  /** Pasting the token connects straight away — no separate Connect button. */
+  onPaste(event: ClipboardEvent): void {
+    const text = event.clipboardData?.getData('text') ?? '';
+    if (!text.trim()) return;
+    event.preventDefault();
+    this.token = text;
+    this.connect();
+  }
 
   async connect(): Promise<void> {
     this.connecting.set(true);

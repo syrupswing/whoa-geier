@@ -209,13 +209,17 @@
           <mat-icon>calendar_month</mat-icon>
           <span>Choose calendars</span>
         </button>
+        <button mat-menu-item *ngIf="calendarService.isSignedIn() || outlookService.isSignedIn()" (click)="refreshEvents()">
+          <mat-icon>refresh</mat-icon>
+          <span>Refresh</span>
+        </button>
         <button mat-menu-item *ngIf="!outlookService.isSignedIn()" (click)="connectOutlook()">
           <mat-icon>mail</mat-icon>
-          <span>{{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook calendar' }}</span>
+          <span>{{ outlookService.hasCache() ? 'Renew Outlook token' : 'Connect Outlook' }}</span>
         </button>
         <button mat-menu-item *ngIf="outlookService.isSignedIn() || outlookService.hasCache()" (click)="disconnectOutlook()">
           <mat-icon>link_off</mat-icon>
-          <span>Disconnect Outlook calendar</span>
+          <span>Disconnect Outlook</span>
         </button>
       </ng-container>
       <ng-container *ngIf="calendarMenuView() === 'calendars'">
