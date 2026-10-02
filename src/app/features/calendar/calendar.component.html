@@ -172,6 +172,7 @@
           <div
             *ngFor="let event of getAllDayNonTaskEventsForDay(day); trackBy: trackByEventId"
             class="cal-allday-chip cal-allday-chip--compact"
+            [attr.data-highlight-id]="event.id"
             [style.--event-color]="getEventColor(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"
             (click)="selectEvent(event, $event)">
@@ -202,6 +203,7 @@
             <div class="cal-events-layer">
               <div
                 class="cal-event-block"
+                [attr.data-highlight-id]="event.id"
                 *ngFor="let event of getTimedEventsForDay(day); trackBy: trackByEventId"
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.isPointInTime ? null : event.height"

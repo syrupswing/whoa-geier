@@ -38,6 +38,8 @@ export interface QuickAddCard {
   status: 'pending' | 'confirmed' | 'discarded';
   /** Set on a fact proposed from the user correcting an assistant reply, so the chat can label it as a memory to review. */
   fromCorrection?: boolean;
+  /** Set once confirmed: the id of the saved record, so the confirmation can link straight to it. */
+  createdId?: string;
 }
 
 export const QUICK_ADD_TYPE_ICONS: Record<QuickAddItemType, string> = {
@@ -56,6 +58,14 @@ export const QUICK_ADD_TYPE_LABELS: Record<QuickAddItemType, string> = {
   shopping_item: 'Shopping item'
 };
 
+export interface QuickAddDestination {
+  /** Route path, e.g. '/calendar'. */
+  path: string;
+  queryParams?: Record<string, string>;
+  /** Link text, e.g. "View in Calendar". */
+  label: string;
+}
+
 /**
  * Turns a 'family-chat' response's parsed items into review-able cards, and turns a
  * confirmed card into an actual todo/event/fact/grocery record. Shared by any chat surface
@@ -72,6 +82,22 @@ export class QuickAddCreationService {
   private householdService = inject(HouseholdService);
   private googleCalendarService = inject(GoogleCalendarService);
   private appCalendarEventService = inject(AppCalendarEventService);
+
+  /** Where a saved item can be found in the app — the page, and the part of it (week, section) when the page can jump there. */
+  getDestination(item: ParsedQuickAddItem, createdId?: string): QuickAddDestination {
+    const highlight: Record<string, string> = createdId ? { highlight: createdId } : {};
+    switch (item.type) {
+      case 'event':
+        return { path: '/calendar', queryParams: { date: item.date || this.todayIso(), ...highlight }, label: 'View on the calendar' };
+      case 'reminder':
+      case 'todo':
+        return { path: '/todos', queryParams: highlight, label: 'View in the to-do list' };
+      case 'shopping_item':
+        return { path: '/grocery-list', queryParams: highlight, label: 'View in the shopping list' };
+      case 'fact':
+        return { path: '/settings', queryParams: { section: 'family-memory', ...highlight }, label: 'View in Family memory' };
+    }
+  }
 
   buildCard(item: ParsedQuickAddItem, suggestionId: string | null): QuickAddCard {
     return {
@@ -100,7 +126,8 @@ export class QuickAddCreationService {
     return values.some(v => v === 'low') || !!item.inferredNote;
   }
 
-  async createRecord(item: ParsedQuickAddItem): Promise<void> {
+  /** Saves the item and returns the id of the record it created (or updated), when there is one. */
+  async createRecord(item: ParsedQuickAddItem): Promise<string | null> {
     switch (item.type) {
       case 'event': {
         const { start, end } = this.buildEventTimes(item);
@@ -111,8 +138,7 @@ export class QuickAddCreationService {
           end
         };
         if (memberId) event.memberId = memberId;
-        await this.appCalendarEventService.addEvent(event);
-        break;
+        return this.appCalendarEventService.addEvent(event);
       }
       case 'reminder':
       case 'todo': {
@@ -120,14 +146,13 @@ export class QuickAddCreationService {
           ? new Date(`${item.date}T${item.time || '00:00'}:00`).toISOString()
           : undefined;
         const memberId = this.resolvePersonToMemberId(item.person);
-        await this.todoService.addItem({
+        return this.todoService.addItem({
           title: item.title || 'Untitled',
           completed: false,
           dueDate,
           urgency: item.type === 'reminder' ? 'hard-deadline' : 'soft-deadline',
           ...(memberId ? { memberId } : {})
         });
-        break;
       }
       case 'fact': {
         const memberId = this.resolvePersonToMemberId(item.person);
@@ -138,16 +163,15 @@ export class QuickAddCreationService {
         if (memberId) fact.memberId = memberId;
         if (item.replacesFactId) {
           await this.memoryService.updateExplicitFact(item.replacesFactId, fact);
-        } else {
-          await this.memoryService.addExplicitFact(fact);
+          return item.replacesFactId;
         }
-        break;
+        return this.memoryService.addExplicitFact(fact);
       }
       case 'shopping_item': {
-        await this.groceryService.addItem(item.title || 'Untitled item');
-        break;
+        return this.groceryService.addItem(item.title || 'Untitled item');
       }
     }
+    return null;
   }
 
   private buildEventTimes(item: ParsedQuickAddItem): {

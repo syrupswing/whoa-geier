@@ -1,4 +1,6 @@
 import { Component, OnInit, AfterViewChecked, inject, ViewChild, ElementRef, ChangeDetectionStrategy, ChangeDetectorRef, effect, Injector } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { highlightWhenPresent } from '../../utils/highlight';
 import { CommonModule } from '@angular/common';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -137,9 +139,13 @@ export class GroceryListComponent implements OnInit, AfterViewChecked {
 
   private injector = inject(Injector);
 
-  constructor(public groceryService: GroceryService) {}
+  constructor(public groceryService: GroceryService, private route: ActivatedRoute) {}
 
   ngOnInit(): void {
+    // A link such as /grocery-list?highlight=<id> (from a chat confirmation) scrolls to that item.
+    const highlightId = this.route.snapshot.queryParamMap.get('highlight');
+    if (highlightId) highlightWhenPresent(highlightId);
+
     this.loadCustomCategories();
     this.refreshCategoryOptions();
 

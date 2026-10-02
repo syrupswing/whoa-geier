@@ -1,4 +1,6 @@
 import { Component, OnInit } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { highlightWhenPresent } from '../../utils/highlight';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -148,9 +150,13 @@ export class TodosComponent implements OnInit {
 
   iconSuggestions = MATERIAL_ICONS;
 
-  constructor(public todoService: TodoService, public householdService: HouseholdService) {}
+  constructor(public todoService: TodoService, public householdService: HouseholdService, private route: ActivatedRoute) {}
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    // A link such as /todos?highlight=<id> (from a chat confirmation) scrolls to that to-do.
+    const id = this.route.snapshot.queryParamMap.get('highlight');
+    if (id) highlightWhenPresent(id);
+  }
 
   get incompleteTodos(): TodoItem[] {
     return this.todoService.getSortedIncompleteItems();

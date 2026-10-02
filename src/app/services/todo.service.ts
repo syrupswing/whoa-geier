@@ -177,7 +177,7 @@ export class TodoService implements OnDestroy {
   /**
    * Add a new todo item
    */
-  async addItem(item: Omit<TodoItem, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<void> {
+  async addItem(item: Omit<TodoItem, 'id' | 'userId' | 'createdAt' | 'updatedAt'>): Promise<string> {
     // Always generate an ID
     const id = this.generateId();
     const newItem: TodoItem = {
@@ -197,6 +197,7 @@ export class TodoService implements OnDestroy {
       this.items.set([...currentItems, newItem]);
       this.saveToLocalStorage();
     }
+    return id;
   }
 
   /**

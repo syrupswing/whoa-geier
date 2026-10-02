@@ -20,7 +20,7 @@
     <!-- Agent chat -->
     <div class="home-chat" #homeChat>
       <div class="home-chat-messages" #chatContainer *ngIf="chatMessages().length">
-        <div class="chat-message" *ngFor="let message of chatMessages()" [class.user]="message.isUser">
+        <div class="chat-message" *ngFor="let message of chatMessages(); trackBy: trackByIndex" [class.user]="message.isUser">
           <p *ngIf="message.isUser">{{ message.text }}</p>
           <ng-container *ngIf="!message.isUser">
             <div class="chat-message-updated" *ngIf="message.briefingDate">
@@ -81,7 +81,7 @@
               </form>
             </div>
             <div class="chat-message-cards" *ngIf="message.cards?.length">
-              <div class="chat-card-group" *ngFor="let card of message.cards">
+              <div class="chat-card-group" *ngFor="let card of message.cards; trackBy: trackByIndex">
                 <p class="correction-card-label" *ngIf="card.fromCorrection && card.status === 'pending'">
                   <mat-icon>psychology</mat-icon>
                   {{ card.item.replacesFactId ? 'Review: this will replace a fact I already had' : 'Review: I\'ll remember this' }}

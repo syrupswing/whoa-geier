@@ -123,8 +123,8 @@ export class GroceryService implements OnDestroy {
   /**
    * Add a new grocery item
    */
-  async addItem(name: string, quantity?: number, unit?: string, notes?: string, category?: string): Promise<void> {
-    if (!name.trim()) return;
+  async addItem(name: string, quantity?: number, unit?: string, notes?: string, category?: string): Promise<string | null> {
+    if (!name.trim()) return null;
 
     const trimmedName = name.trim();
     
@@ -192,12 +192,14 @@ export class GroceryService implements OnDestroy {
       
       // The real-time subscription will automatically update the items signal
       // No need to manually update items here
+      return docId;
     } else {
       // Add to localStorage
       const currentItems = this.items();
       const updatedItems = [newItem, ...currentItems];
       this.items.set(updatedItems);
       this.saveToLocalStorage(updatedItems);
+      return newItem.id;
     }
   }
 

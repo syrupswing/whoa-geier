@@ -4,12 +4,15 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { ActivatedRoute } from '@angular/router';
+import { Subscription } from 'rxjs';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
+import { highlightWhenPresent } from '../../utils/highlight';
 import { buildTaskChecklist, completionFor, expandRecurringForDay, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
@@ -111,7 +114,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
     public appCalendarEventService: AppCalendarEventService,
     private householdService: HouseholdService,
     private dialog: MatDialog,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private route: ActivatedRoute
   ) {
   }
 
@@ -126,10 +130,23 @@ export class CalendarComponent implements OnInit, OnDestroy {
     document.addEventListener('visibilitychange', this.resyncViewDateOnForeground);
     window.addEventListener('scroll', this.closePopoverOnScroll, true);
 
+    // A link such as /calendar?date=2026-10-05 (from a chat confirmation) opens that week.
+    this.dateParamSub = this.route.queryParamMap.subscribe(params => {
+      const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(params.get('date') ?? '');
+      if (!match) return;
+      this.hasNavigatedAwayFromToday = true;
+      this.currentDate.set(new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+      const highlight = params.get('highlight');
+      if (highlight) highlightWhenPresent(highlight);
+    });
+
     this.loadEventsForCurrentView();
   }
 
+  private dateParamSub?: Subscription;
+
   ngOnDestroy(): void {
+    this.dateParamSub?.unsubscribe();
     if (this.timeInterval) {
       clearInterval(this.timeInterval);
     }

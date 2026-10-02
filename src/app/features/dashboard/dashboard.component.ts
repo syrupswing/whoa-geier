@@ -923,6 +923,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return item.id;
   }
 
+  /**
+   * Chat messages and their cards are replaced with fresh copies on every change (editing a card
+   * field, confirming, …). Tracking them by position keeps their DOM — and the focused input
+   * being typed in — instead of rebuilding it on each keystroke.
+   */
+  trackByIndex(index: number): number {
+    return index;
+  }
+
   trackByHour(_index: number, hour: number): number {
     return hour;
   }
@@ -1588,7 +1597,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   async confirmCard(message: ChatMessage, card: QuickAddCard): Promise<void> {
     try {
-      await this.quickAddCreation.createRecord(card.item);
+      const createdId = await this.quickAddCreation.createRecord(card.item);
       if (card.suggestionId) {
         const wasEdited = JSON.stringify(card.item) !== JSON.stringify(card.original);
         if (wasEdited) {
@@ -1597,7 +1606,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
           await this.aiSuggestionService.markAccepted(card.suggestionId);
         }
       }
-      this.setCardStatus(message, card, 'confirmed');
+      this.setCardStatus(message, card, 'confirmed', createdId ?? undefined);
     } catch (err: any) {
       this.snackBar.open(err?.message || 'Failed to add — try again', 'Close', { duration: 3000 });
     }
@@ -1621,9 +1630,10 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
   }
 
-  private setCardStatus(message: ChatMessage, card: QuickAddCard, status: QuickAddCard['status']): void {
+  private setCardStatus(message: ChatMessage, card: QuickAddCard, status: QuickAddCard['status'], createdId?: string): void {
     this.updateMessageCards(message, cards =>
-      cards.map(c => c === card ? { ...c, status } : c)
+      // Once settled, the card is a static confirmation — never left open for editing.
+      cards.map(c => c === card ? { ...c, status, isEditing: false, ...(createdId ? { createdId } : {}) } : c)
     );
   }
 

@@ -222,7 +222,7 @@
       </mat-card-header>
       <mat-card-content>
         <mat-list *ngIf="displayedActiveItems.length > 0; else noItems">
-          <mat-list-item *ngFor="let item of displayedActiveItems; trackBy: trackByItemId" [class.editing]="isEditing(item.id)">
+          <mat-list-item *ngFor="let item of displayedActiveItems; trackBy: trackByItemId" [class.editing]="isEditing(item.id)" [attr.data-highlight-id]="item.id">
             <!-- Normal view -->
             <div *ngIf="!isEditing(item.id)" class="item-normal-view">
               <mat-checkbox 
@@ -389,7 +389,7 @@
       <mat-card-content>
         <div class="completed-items-container">
           <mat-list>
-            <mat-list-item *ngFor="let item of displayedCompletedItems; trackBy: trackByItemId" class="completed-item" [class.editing]="isEditing(item.id)">
+            <mat-list-item *ngFor="let item of displayedCompletedItems; trackBy: trackByItemId" class="completed-item" [class.editing]="isEditing(item.id)" [attr.data-highlight-id]="item.id">
               <!-- Normal view -->
               <div *ngIf="!isEditing(item.id)" class="item-normal-view">
                 <mat-checkbox 

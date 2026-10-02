@@ -202,7 +202,7 @@
           <p class="subtitle">All caught up! Add a new to-do to get started.</p>
         </div>
 
-        <mat-expansion-panel *ngFor="let item of incompleteTodos" class="todo-item">
+        <mat-expansion-panel *ngFor="let item of incompleteTodos" class="todo-item" [attr.data-highlight-id]="item.id">
           <mat-expansion-panel-header>
             <mat-panel-title>
               <mat-checkbox
@@ -456,7 +456,7 @@
         </mat-card-title>
       </mat-card-header>
       <mat-card-content>
-        <mat-expansion-panel *ngFor="let item of completedTodos" class="todo-item completed">
+        <mat-expansion-panel *ngFor="let item of completedTodos" class="todo-item completed" [attr.data-highlight-id]="item.id">
           <mat-expansion-panel-header>
             <mat-panel-title>
               <mat-checkbox

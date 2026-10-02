@@ -1,4 +1,6 @@
-import { Component, signal } from '@angular/core';
+import { Component, OnInit, signal } from '@angular/core';
+import { ActivatedRoute } from '@angular/router';
+import { highlightWhenPresent } from '../../utils/highlight';
 import { CommonModule } from '@angular/common';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
@@ -29,13 +31,26 @@ const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
   templateUrl: './settings.component.html',
   styleUrl: './settings.component.scss'
 })
-export class SettingsComponent {
+export class SettingsComponent implements OnInit {
   isRequestingPermission = signal(false);
 
   constructor(
     public pushNotificationService: PushNotificationService,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private route: ActivatedRoute
   ) {}
+
+  ngOnInit(): void {
+    // A link such as /settings?section=family-memory (from a chat confirmation) scrolls to that section.
+    const section = this.route.snapshot.queryParamMap.get('section');
+    const highlight = this.route.snapshot.queryParamMap.get('highlight');
+    if (highlight) {
+      highlightWhenPresent(highlight);
+    } else if (section) {
+      // Wait for the page (and the nested sections) to render before looking for the target.
+      setTimeout(() => document.getElementById(section)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 400);
+    }
+  }
 
   async enableNotifications(): Promise<void> {
     this.isRequestingPermission.set(true);

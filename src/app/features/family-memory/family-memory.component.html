@@ -188,7 +188,7 @@
     </mat-card-header>
     <mat-card-content>
       <div class="fact-list" *ngIf="memoryService.explicitFacts().length; else noFacts">
-        <div class="fact-row" *ngFor="let fact of memoryService.explicitFacts()">
+        <div class="fact-row" *ngFor="let fact of memoryService.explicitFacts()" [attr.data-highlight-id]="fact.id">
           <div class="fact-text">
             <span>{{ fact.factText }}</span>
             <div class="fact-meta">
