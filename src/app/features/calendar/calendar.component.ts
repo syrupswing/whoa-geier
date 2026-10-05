@@ -17,7 +17,8 @@ import { OutlookCalendarService } from '../../services/outlook-calendar.service'
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { highlightWhenPresent } from '../../utils/highlight';
-import { buildTaskChecklist, completionFor, expandRecurringForDay, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
+import { buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
+import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
@@ -66,13 +67,15 @@ export class CalendarComponent implements OnInit, OnDestroy {
   /** Each day of the viewed week with its checklist of tasks (see buildTaskChecklist). */
   weekTasks = computed(() => {
     const events = this.appCalendarEventService.events();
+    // Read each minute (currentTime ticks), so a task whose snooze has ended comes back by itself.
+    const now = this.currentTime();
     const start = new Date(this.currentDate());
     start.setHours(0, 0, 0, 0);
     start.setDate(start.getDate() - start.getDay());
     return Array.from({ length: 7 }, (_, i) => {
       const day = new Date(start);
       day.setDate(start.getDate() + i);
-      return { day, rows: buildTaskChecklist(events, day) };
+      return { day, rows: buildTaskChecklist(events, day, now) };
     });
   });
   weekHasTasks = computed(() => this.weekTasks().some(d => d.rows.length > 0));
@@ -345,6 +348,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const dayEnd = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 23, 59, 59, 999);
 
     return expandRecurringForDay(this.getAllEvents(), dayStart, dayEnd)
+      .filter(event => !isSnoozedOccurrence(event))
       .filter(event => {
         const eventStart = this.getEventStartDate(event);
         const eventEnd = this.getEventEndDate(event);
@@ -524,6 +528,25 @@ export class CalendarComponent implements OnInit, OnDestroy {
     const top = (leaveMinutes / 60) * this.HOUR_PX;
     const height = event.topPosition - top;
     return height > 0 ? { top, height, label: `Leave ${this.formatLeave(drive)}` } : null;
+  }
+
+  /** Snooze choices for the popover's menu, worked out fresh so "Tonight" and "Tomorrow" are right when opened. */
+  snoozeOptions = () => getSnoozeOptions();
+
+  /** Hides a task occurrence from the calendar until then, with an undo. */
+  async snoozeTask(event: CalendarEvent, until: Date): Promise<void> {
+    const key = occurrenceKey(event);
+    this.clearSelectedEvent();
+    try {
+      await this.appCalendarEventService.snoozeOccurrence(event.id, key, until);
+      this.snackBar
+        .open(`Snoozed until ${formatSnoozeEnd(until)}`, 'Undo', { duration: 5000 })
+        .onAction()
+        .subscribe(() => this.appCalendarEventService.unsnoozeOccurrence(event.id, key));
+    } catch (error) {
+      console.error('Error snoozing task:', error);
+      this.snackBar.open('Could not snooze the task — try again', 'Close', { duration: 3000 });
+    }
   }
 
   externalEditUrl = externalEditUrl;

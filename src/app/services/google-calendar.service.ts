@@ -62,6 +62,8 @@ export interface CalendarEvent {
   occurrenceDate?: string;
   /** Tasks only — completions keyed by the occurrence's start date ("YYYY-MM-DD"), so a repeating task tracks each occurrence separately. */
   completions?: Record<string, TaskCompletion>;
+  /** Tasks only — snoozes keyed by the occurrence's start date ("YYYY-MM-DD"): ISO time until which that occurrence is hidden from the calendar. */
+  snoozes?: Record<string, string>;
 }
 
 export interface CalendarInfo {

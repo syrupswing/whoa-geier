@@ -276,6 +276,22 @@
         <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
         <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
         <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
+        <ng-container *ngIf="isTask(sel) && sel.source === 'app'">
+          <button
+            mat-stroked-button
+            type="button"
+            class="cal-popover-snooze-btn"
+            [matMenuTriggerFor]="snoozeMenu"
+            (click)="$event.stopPropagation()">
+            <mat-icon>snooze</mat-icon>
+            Snooze
+          </button>
+          <mat-menu #snoozeMenu="matMenu">
+            <button mat-menu-item *ngFor="let option of snoozeOptions()" (click)="snoozeTask(sel, option.until)">
+              <mat-icon>alarm</mat-icon>{{ option.label }}
+            </button>
+          </mat-menu>
+        </ng-container>
         <ng-container *ngIf="driveTimeService.canShow(sel)">
           <p class="cal-popover-person" *ngIf="driveTimeService.get(sel) as drive"><mat-icon>directions_car</mat-icon>{{ drive.minutes }} min drive · leave by {{ formatLeave(drive) }}</p>
           <button

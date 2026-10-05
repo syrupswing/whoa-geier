@@ -1189,28 +1189,39 @@ function formatTime12h(hhmm) {
   return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
-/** Three bullets: what's on today, breakfast, and (only if he's actually going out) an outfit. */
+/** "8:45 AM" → "8:45a" — shorter, so a schedule line fits on one line of a notification. */
+function compactTime(label) {
+  return String(label || '').replace(/:00(?=\s*[AP]M)/i, '').replace(/\s*([AP])M/i, (_, p) => p.toLowerCase());
+}
+
+/** Trims an AI idea to its first clause and a short length, cutting at a word boundary. */
+function clipIdea(text, max = 40) {
+  const firstClause = String(text || '').split(/\s+[—–-]\s+|[.;]\s/)[0].trim();
+  if (firstClause.length <= max) return firstClause;
+  return firstClause.slice(0, max).replace(/\s+\S*$/, '').replace(/[,:;]+$/, '') + '…';
+}
+
+/** Up to three short lines: the day's schedule, then (when relevant) an outfit and breakfast. */
 function summarizeBriefingForPush(briefing) {
   const activities = briefing.activities || [];
   const isGoingOut = briefing.schoolStatus !== 'no-school' || activities.length > 0;
-  const activityText = activities.slice(0, 2).map(a => (a.time ? `${a.title} ${a.time}` : a.title)).join(', ');
 
-  let scheduleLine;
+  const schedule = [];
   if (briefing.schoolStatus === 'no-school') {
-    scheduleLine = briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today';
+    schedule.push(briefing.scheduleNote ? `No school (${clipIdea(briefing.scheduleNote, 24)})` : 'No school');
   } else if (briefing.schoolStatus === 'early-release') {
-    scheduleLine = `Early release, out at ${formatTime12h(briefing.endTime)}`;
+    schedule.push(`Early release ${compactTime(formatTime12h(briefing.endTime))}`);
   } else {
-    scheduleLine = `School at ${formatTime12h(briefing.startTime)}`;
+    schedule.push(`School ${compactTime(formatTime12h(briefing.startTime))}`);
   }
-  if (activityText) scheduleLine += ` — ${activityText}`;
+  activities.slice(0, 2).forEach(a => schedule.push(a.time ? `${clipIdea(a.title, 22)} ${compactTime(a.time)}` : clipIdea(a.title, 22)));
 
-  const bullets = [scheduleLine];
-  if (briefing.breakfastIdea) bullets.push(`Breakfast: ${briefing.breakfastIdea}`);
+  const lines = [schedule.join(' · ')];
   // No point suggesting an outfit on a day off with nothing on the calendar.
-  if (isGoingOut && briefing.clothingIdea) bullets.push(`Wear: ${briefing.clothingIdea}`);
+  if (isGoingOut && briefing.clothingIdea) lines.push(`Wear: ${clipIdea(briefing.clothingIdea)}`);
+  if (briefing.breakfastIdea) lines.push(`Breakfast: ${clipIdea(briefing.breakfastIdea)}`);
 
-  return bullets.map(b => `• ${b}`).join('\n');
+  return lines.join('\n');
 }
 
 /**

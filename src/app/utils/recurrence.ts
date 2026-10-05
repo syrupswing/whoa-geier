@@ -101,6 +101,18 @@ export function occurrenceKey(event: CalendarEvent): string {
   return event.occurrenceDate ?? toIsoDate(firstDay(event));
 }
 
+/** When a snoozed task occurrence returns to the calendar, or null if it isn't snoozed. */
+export function snoozedUntilFor(event: CalendarEvent): Date | null {
+  const iso = event.snoozes?.[occurrenceKey(event)];
+  return iso ? new Date(iso) : null;
+}
+
+/** Whether this occurrence is snoozed right now (and so hidden from the calendar). */
+export function isSnoozedOccurrence(event: CalendarEvent, now: Date = new Date()): boolean {
+  const until = snoozedUntilFor(event);
+  return !!until && until > now;
+}
+
 export function completionFor(event: CalendarEvent): TaskCompletion | null {
   return event.completions?.[occurrenceKey(event)] ?? null;
 }
@@ -123,13 +135,13 @@ function taskOccurrenceOn(task: CalendarEvent, day: Date): CalendarEvent | null 
 }
 
 /** The most recent unfinished occurrence of a task before `today`. */
-function latestOpenBefore(task: CalendarEvent, today: Date): CalendarEvent | null {
+function latestOpenBefore(task: CalendarEvent, today: Date, now: Date): CalendarEvent | null {
   if (!task.repeat) {
-    return firstDay(task) < today && !completionFor(task) ? task : null;
+    return firstDay(task) < today && !completionFor(task) && !isSnoozedOccurrence(task, now) ? task : null;
   }
   for (let back = 1; back <= CARRY_LOOKBACK_DAYS; back++) {
     const occurrence = taskOccurrenceOn(task, new Date(today.getFullYear(), today.getMonth(), today.getDate() - back));
-    if (occurrence && !completionFor(occurrence)) return occurrence;
+    if (occurrence && !completionFor(occurrence) && !isSnoozedOccurrence(occurrence, now)) return occurrence;
   }
   return null;
 }
@@ -150,10 +162,10 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
     if (task.kind !== 'task') continue;
     if (!task.start.dateTime) {
       const occurrence = taskOccurrenceOn(task, dayStart);
-      if (occurrence) onDay.push({ event: occurrence, done: !!completionFor(occurrence), daysOverdue: 0 });
+      if (occurrence && !isSnoozedOccurrence(occurrence, now)) onDay.push({ event: occurrence, done: !!completionFor(occurrence), daysOverdue: 0 });
     }
     if (isToday) {
-      const open = latestOpenBefore(task, today);
+      const open = latestOpenBefore(task, today, now);
       if (open) carried.push({ event: open, done: false, daysOverdue: daysBetween(firstDay(open), today) });
     }
   }
@@ -161,4 +173,23 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
   carried.sort((a, b) => b.daysOverdue - a.daysOverdue);
   onDay.sort((a, b) => Number(a.done) - Number(b.done) || a.event.summary.localeCompare(b.event.summary));
   return [...carried, ...onDay];
+}
+
+export interface SnoozedTaskRow {
+  /** The snoozed occurrence (dated to its own day, so completing or waking it targets the right one). */
+  event: CalendarEvent;
+  until: Date;
+}
+
+/** Every task occurrence that's snoozed right now, soonest to return first — so each can be woken early. */
+export function buildSnoozedTasks(events: CalendarEvent[], now: Date = new Date()): SnoozedTaskRow[] {
+  const rows: SnoozedTaskRow[] = [];
+  for (const task of events) {
+    if (task.kind !== 'task' || !task.snoozes) continue;
+    for (const [key, iso] of Object.entries(task.snoozes)) {
+      const until = new Date(iso);
+      if (until > now) rows.push({ event: { ...task, occurrenceDate: key }, until });
+    }
+  }
+  return rows.sort((a, b) => a.until.getTime() - b.until.getTime());
 }

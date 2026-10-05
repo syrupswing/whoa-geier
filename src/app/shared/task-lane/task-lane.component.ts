@@ -1,9 +1,10 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { CalendarEvent } from '../../services/google-calendar.service';
-import { buildTaskChecklist, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
+import { buildSnoozedTasks, buildTaskChecklist, occurrenceKey, SnoozedTaskRow, TaskChecklistRow } from '../../utils/recurrence';
+import { formatSnoozeEnd } from '../../utils/snooze';
 
 /** A click on a task, with the DOM event so the host can anchor a popover to what was clicked. */
 export interface TaskLaneClick {
@@ -29,6 +30,11 @@ export class TaskLaneComponent {
 
   date = input.required<Date>();
 
+  constructor() {
+    const timer = window.setInterval(() => this.now.set(Date.now()), 60_000);
+    inject(DestroyRef).onDestroy(() => clearInterval(timer));
+  }
+
   /** The task's body was clicked — the host shows its details. */
   taskSelect = output<TaskLaneClick>();
   /** The task's checkbox was clicked — the host asks whether to complete (or un-complete) it. */
@@ -37,7 +43,16 @@ export class TaskLaneComponent {
   /** Whether the lane is folded down to its header; remembered between visits. */
   collapsed = signal(TaskLaneComponent.loadCollapsed());
 
-  rows = computed(() => buildTaskChecklist(this.appCalendarEventService.events(), this.date()));
+  /** Ticks each minute, so a task whose snooze has ended comes back without a reload. */
+  private now = signal(Date.now());
+
+  rows = computed(() => buildTaskChecklist(this.appCalendarEventService.events(), this.date(), new Date(this.now())));
+
+  /** Snoozed tasks, listed on today's view only so they can be woken early (they're hidden everywhere else). */
+  snoozedRows = computed<SnoozedTaskRow[]>(() =>
+    this.isToday() ? buildSnoozedTasks(this.appCalendarEventService.events(), new Date(this.now())) : []
+  );
+  showSnoozed = signal(false);
   openCount = computed(() => this.rows().filter(r => !r.done).length);
   isToday = computed(() => new Date().toDateString() === this.date().toDateString());
 
@@ -58,6 +73,19 @@ export class TaskLaneComponent {
     } catch {
       // Not persisted, but it still works for this visit
     }
+  }
+
+  trackBySnoozed(_: number, row: SnoozedTaskRow): string {
+    return row.event.id + occurrenceKey(row.event);
+  }
+
+  snoozeEnds(row: SnoozedTaskRow): string {
+    return formatSnoozeEnd(row.until);
+  }
+
+  /** Brings a snoozed task back to the calendar now. */
+  wake(row: SnoozedTaskRow): void {
+    this.appCalendarEventService.unsnoozeOccurrence(row.event.id, occurrenceKey(row.event));
   }
 
   trackByRow(_: number, row: TaskChecklistRow): string {

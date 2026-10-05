@@ -143,3 +143,50 @@
 .carried .task-meta {
   font-weight: 600;
 }
+
+// Snoozed tasks: a small toggle, and when open, one quiet line each with a way to wake it early.
+.task-snoozed-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.7rem;
+  color: var(--color-text-secondary);
+
+  mat-icon {
+    width: 14px;
+    height: 14px;
+    font-size: 14px;
+  }
+}
+
+.task-snoozed-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 100%;
+  font-size: 0.74rem;
+  color: var(--color-text-secondary);
+}
+
+.task-snoozed-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.task-snoozed-wake {
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 0.74rem;
+  font-weight: 600;
+  color: var(--color-primary);
+}

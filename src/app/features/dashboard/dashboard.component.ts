@@ -18,7 +18,8 @@ import { GRAPH_EXPLORER_URL, OutlookTokenDialogComponent } from '../../component
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
-import { expandRecurringForDay, occurrenceKey, completionFor } from '../../utils/recurrence';
+import { expandRecurringForDay, occurrenceKey, completionFor, isSnoozedOccurrence } from '../../utils/recurrence';
+import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GroceryService } from '../../services/grocery.service';
@@ -186,9 +187,13 @@ function loadPersistedChatMessages(): ChatMessage[] {
   try {
     const raw = localStorage.getItem(CHAT_MESSAGES_KEY);
     if (!raw) return [];
-    const parsed = JSON.parse(raw) as { text: string; isUser: boolean; timestamp: string }[];
-    // Already shown in a previous visit — render instantly rather than replaying the typewriter.
-    return parsed.map(message => ({ ...message, timestamp: new Date(message.timestamp), instant: true }));
+    const parsed = JSON.parse(raw) as { text: string; isUser: boolean; timestamp: string; briefingDate?: string }[];
+    const today = new Date().toLocaleDateString('en-CA');
+    return parsed
+      // A daily briefing blurb from an earlier day is obsolete — today's replaces it.
+      .filter(message => !message.briefingDate || message.briefingDate === today)
+      // Already shown in a previous visit — render instantly rather than replaying the typewriter.
+      .map(message => ({ ...message, timestamp: new Date(message.timestamp), instant: true }));
   } catch {
     return [];
   }
@@ -315,6 +320,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       const now = this.currentTime();
       this.weatherService.weather();
       this.weatherService.forecast();
+      // Left open past midnight, yesterday's blurb is out of date even before today's briefing exists.
+      untracked(() => this.pruneObsoleteBriefings(now));
       if (!briefing) return;
       untracked(() => this.syncBriefingMessage(briefing, now));
     });
@@ -605,6 +612,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59, 999);
     const seenIds = new Set<string>();
     return expandRecurringForDay(this.getAllEvents(), dayStart, dayEnd)
+      .filter(event => !isSnoozedOccurrence(event))
       .filter(event => {
         if (seenIds.has(event.id)) return false;
         const start = this.getEventStartDate(event);
@@ -779,6 +787,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const seenEventIds = new Set<string>();
 
     return expandRecurringForDay(this.getAllEvents(), dayStart, dayEnd)
+      .filter(event => !isSnoozedOccurrence(event))
       .filter(event => {
         // Skip if we've already processed this event
         if (seenEventIds.has(event.id)) {
@@ -1076,6 +1085,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     return `${hours} ${hours === 1 ? 'hour' : 'hours'} ago`;
   }
 
+  /** Erases daily briefing blurbs from earlier days — only today's belongs in the chat. */
+  private pruneObsoleteBriefings(now: Date): void {
+    const today = now.toLocaleDateString('en-CA');
+    if (!this.chatMessages().some(m => m.briefingDate && m.briefingDate !== today)) return;
+    this.chatMessages.update(messages => messages.filter(m => !m.briefingDate || m.briefingDate === today));
+  }
+
   private briefingSeeded = false;
   private lastOutfitRefreshAt = 0;
 
@@ -1202,23 +1218,23 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const endMin = this.parseHHmmToMinutes(briefing.endTime);
     const isSchoolDay = briefing.schoolStatus !== 'no-school' && startMin !== null;
     const atSchoolOrDone = isSchoolDay && nowMin >= startMin!;
-    const note = briefing.scheduleNote ? ` (${briefing.scheduleNote})` : '';
+    const note = briefing.scheduleNote ? ` (${this.clipIdea(briefing.scheduleNote, 30)})` : '';
 
     const bullets: string[] = [];
     // Lines in the blurb that have their own refresh button.
     const targets: BriefingRefreshTarget[] = [];
 
     if (briefing.schoolStatus === 'no-school') {
-      bullets.push(briefing.scheduleNote ? `No school — ${briefing.scheduleNote}` : 'No school today');
+      bullets.push(briefing.scheduleNote ? `No school (${this.clipIdea(briefing.scheduleNote, 30)})` : 'No school');
     } else if (isSchoolDay) {
       const earlyRelease = briefing.schoolStatus === 'early-release';
       if (nowMin < startMin!) {
         bullets.push(
-          `School starts at ${this.formatClockTime(briefing.startTime!)}` +
-          `${earlyRelease && briefing.endTime ? `, early release at ${this.formatClockTime(briefing.endTime)}` : ''}${note}`
+          `School ${this.formatClockTime(briefing.startTime!)}` +
+          `${earlyRelease && briefing.endTime ? `, early release ${this.formatClockTime(briefing.endTime)}` : ''}${note}`
         );
       } else if (endMin !== null && nowMin < endMin) {
-        bullets.push(`${earlyRelease ? 'Early release at' : 'School lets out at'} ${this.formatClockTime(briefing.endTime!)}${note}`);
+        bullets.push(`${earlyRelease ? 'Early release' : 'School out'} ${this.formatClockTime(briefing.endTime!)}${note}`);
       }
     }
 
@@ -1227,20 +1243,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       return minutes === null || minutes >= nowMin;
     });
     if (upcoming.length) {
-      bullets.push(`Coming up: ${upcoming.slice(0, 3).map(a => (a.time ? `${a.title} at ${a.time}` : a.title)).join(', ')}`);
+      bullets.push(`Next: ${upcoming.slice(0, 3).map(a => (a.time ? `${this.clipIdea(a.title, 28)} ${a.time}` : this.clipIdea(a.title, 28))).join(' · ')}`);
     }
 
     // Breakfast is over by 10, or once school has started (whichever is sooner).
     if (briefing.breakfastIdea && nowMin < 10 * 60 && !atSchoolOrDone) {
-      bullets.push(`Breakfast: ${briefing.breakfastIdea}`);
+      bullets.push(`Breakfast: ${this.clipIdea(briefing.breakfastIdea)}`);
       targets.push('breakfast');
     }
 
     // School lunch only matters before Remi is at school.
     if (isSchoolDay && nowMin < startMin!) {
       bullets.push(briefing.lunchPlan === 'pack'
-        ? `Lunch: packed${briefing.packedLunchIdea ? ` — ${briefing.packedLunchIdea}` : ''}`
-        : `Lunch: hot lunch${briefing.lunchMenuText ? ` — ${briefing.lunchMenuText}` : ''}`);
+        ? `Lunch: packed${briefing.packedLunchIdea ? ` — ${this.clipIdea(briefing.packedLunchIdea, 36)}` : ''}`
+        : `Lunch: hot${briefing.lunchMenuText ? ` — ${this.clipIdea(briefing.lunchMenuText, 36)}` : ''}`);
       // Only a packed lunch is an AI idea; a hot lunch is just the school menu.
       if (briefing.lunchPlan === 'pack') targets.push('lunch');
     }
@@ -1252,35 +1268,42 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     }
 
     if (briefing.clothingIdea && this.isOutfitRelevant(briefing, nowMin)) {
-      bullets.push(`Wear: ${briefing.clothingIdea}`);
+      bullets.push(`Wear: ${this.clipIdea(briefing.clothingIdea)}`);
       targets.push('clothing');
     }
 
     if (briefing.dinnerIdea && nowMin >= 12 * 60 && nowMin < 21 * 60) {
-      bullets.push(`Dinner: ${briefing.dinnerIdea}`);
+      bullets.push(`Dinner: ${this.clipIdea(briefing.dinnerIdea)}`);
       targets.push('dinner');
     }
 
     const weekday = now.toLocaleDateString('en-US', { weekday: 'long' });
     const part = dayPartOf(now.getHours());
-    const lead = `Here's what's ahead this ${weekday} ${part}:`;
+    const lead = `${weekday} ${part}:`;
     if (!bullets.length) {
-      return { text: `${lead}\nNothing else is on the schedule.`, targets };
+      return { text: `${lead}\nNothing else scheduled.`, targets };
     }
     return { text: `${lead}\n${bullets.map(b => `• ${b}`).join('\n')}`, targets };
   }
 
-  /** "Weather: 62°F and light rain now. Evening 55°F, 60% chance of rain." — live conditions plus what's left of the day. */
+  /** Keeps an AI-written idea to its first clause and a short length, cut at a word boundary, so a line stays scannable. */
+  private clipIdea(text: string, max = 44): string {
+    const firstClause = text.split(/\s+[—–-]\s+|[.;]\s/)[0].trim();
+    if (firstClause.length <= max) return firstClause;
+    return firstClause.slice(0, max).replace(/\s+\S*$/, '').replace(/[,:;]+$/, '') + '…';
+  }
+
+  /** "Weather: 62°F light rain · Evening 55° (60% rain)" — live conditions plus what's left of the day. */
   private formatWeatherForBlurb(): string | null {
     const weather = this.weatherService.weather();
     if (!weather) return null;
 
-    const partLabel: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', night: 'Overnight' };
+    const partLabel: Record<string, string> = { morning: 'Morning', afternoon: 'Afternoon', evening: 'Evening', night: 'Night' };
     const periods = (this.weatherService.forecast()?.periods ?? [])
       .slice(0, 2)
-      .map(p => `${partLabel[p.part]} ${p.tempF}°F${p.pop >= 30 ? `, ${p.pop}% chance of rain` : ''}`);
+      .map(p => `${partLabel[p.part]} ${p.tempF}°${p.pop >= 30 ? ` (${p.pop}% rain)` : ''}`);
 
-    return `Weather: ${weather.temperature}°F and ${weather.description} now.${periods.length ? ` ${periods.join('; ')}.` : ''}`;
+    return `Weather: ${weather.temperature}°F ${weather.description}${periods.length ? ` · ${periods.join(' · ')}` : ''}`;
   }
 
   private parseHHmmToMinutes(hhmm: string | null | undefined): number | null {
@@ -1374,6 +1397,25 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const top = (leaveMinutes / 60) * this.HOUR_PX;
     const height = event.topPosition - top;
     return height > 0 ? { top, height, label: `Leave ${this.formatLeave(drive)}` } : null;
+  }
+
+  /** Snooze choices for the popover's menu, worked out fresh so "Tonight" and "Tomorrow" are right when opened. */
+  snoozeOptions = () => getSnoozeOptions();
+
+  /** Hides a task occurrence from the calendar until then, with an undo. */
+  async snoozeTask(event: CalendarEvent, until: Date): Promise<void> {
+    const key = occurrenceKey(event);
+    this.clearSelectedEvent();
+    try {
+      await this.appCalendarEventService.snoozeOccurrence(event.id, key, until);
+      this.snackBar
+        .open(`Snoozed until ${formatSnoozeEnd(until)}`, 'Undo', { duration: 5000 })
+        .onAction()
+        .subscribe(() => this.appCalendarEventService.unsnoozeOccurrence(event.id, key));
+    } catch (error) {
+      console.error('Error snoozing task:', error);
+      this.snackBar.open('Could not snooze the task — try again', 'Close', { duration: 3000 });
+    }
   }
 
   externalEditUrl = externalEditUrl;

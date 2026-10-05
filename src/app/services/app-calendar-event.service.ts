@@ -89,6 +89,20 @@ export class AppCalendarEventService implements OnDestroy {
     );
   }
 
+  /** Hides one occurrence of a task from the calendar until the given time. */
+  async snoozeOccurrence(id: string, occurrenceDate: string, until: Date): Promise<boolean> {
+    return this.firestoreService.updateDocument<AppCalendarEvent>(
+      this.COLLECTION_NAME, id, { [`snoozes.${occurrenceDate}`]: until.toISOString() } as any
+    );
+  }
+
+  /** Brings a snoozed occurrence back (a dotted key set to undefined becomes a field delete). */
+  async unsnoozeOccurrence(id: string, occurrenceDate: string): Promise<boolean> {
+    return this.firestoreService.updateDocument<AppCalendarEvent>(
+      this.COLLECTION_NAME, id, { [`snoozes.${occurrenceDate}`]: undefined } as any
+    );
+  }
+
   /** Undoes a completion (a dotted key set to undefined becomes a field delete). */
   async clearCompletion(id: string, occurrenceDate: string): Promise<boolean> {
     return this.firestoreService.updateDocument<AppCalendarEvent>(
