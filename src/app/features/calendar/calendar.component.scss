@@ -108,6 +108,21 @@
   z-index: 120;
   background: #fff;
   border-bottom: 1px solid rgba(61, 53, 80, 0.07);
+
+  // On phones the header sticks below the status-bar area (--cal-sticky-top). This opaque cover
+  // fills that strip, so scrolling content doesn't show through above the stuck header. It sits
+  // just above the row, so while the row is in its normal spot it falls outside the card and is
+  // clipped away.
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 100%;
+    height: var(--cal-sticky-top);
+    background: #fff;
+    pointer-events: none;
+  }
 }
 
 // Previous/next day: full-height tiles filling the card's top corners (the card's
