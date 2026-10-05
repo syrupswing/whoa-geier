@@ -24,7 +24,12 @@
 
   <!-- Same nav/timeline/popover structure as the dashboard's home calendar widget,
        extended with a Sunday–Saturday week view for wide viewports. -->
-  <section class="day-calendar">
+  <section
+    class="day-calendar"
+    appSwipeNav
+    swipeAnimate=".cal-week-tasks, .cal-week-allday, .cal-timeline-scroll, app-calendar-skeleton"
+    (swipePrev)="previousPeriod()"
+    (swipeNext)="nextPeriod()">
     <div class="cal-nav">
       <button mat-icon-button class="cal-step-btn" (click)="previousPeriod()" aria-label="Previous week">
         <mat-icon>chevron_left</mat-icon>
@@ -192,6 +197,17 @@
             <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour"></div>
 
             <div class="cal-events-layer">
+              <!-- Dashed "leave home" lines up from events whose drive time is being shown -->
+              <ng-container *ngFor="let event of getTimedEventsForDay(day); trackBy: trackByEventId">
+                <div
+                  class="cal-drive-line"
+                  *ngIf="getDriveLine(event, day) as line"
+                  [style.top.px]="line.top"
+                  [style.height.px]="line.height"
+                  [ngStyle]="getEventLayoutStyle(event)">
+                  <span class="cal-drive-line-label">{{ line.label }}</span>
+                </div>
+              </ng-container>
               <div
                 class="cal-event-block"
                 [attr.data-highlight-id]="event.id"
@@ -260,6 +276,18 @@
         <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
         <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
         <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
+        <ng-container *ngIf="driveTimeService.canShow(sel)">
+          <p class="cal-popover-person" *ngIf="driveTimeService.get(sel) as drive"><mat-icon>directions_car</mat-icon>{{ drive.minutes }} min drive · leave by {{ formatLeave(drive) }}</p>
+          <button
+            mat-stroked-button
+            type="button"
+            class="cal-popover-drive-btn"
+            [disabled]="driveTimeService.isLoading(sel)"
+            (click)="toggleDriveTime(sel, $event)">
+            <mat-icon>directions_car</mat-icon>
+            {{ driveTimeService.isLoading(sel) ? 'Working it out…' : (driveTimeService.get(sel) ? 'Hide drive time' : 'Show drive time') }}
+          </button>
+        </ng-container>
       </div>
       <button
         mat-icon-button

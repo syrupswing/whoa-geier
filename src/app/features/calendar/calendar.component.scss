@@ -1084,3 +1084,45 @@
     display: none;
   }
 }
+
+// ── Drive time: dashed "leave home" line up from an event ──────
+.cal-drive-line {
+  --drive-color: #3f7fbf;
+
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  // The horizontal line marks the moment to leave; the dashed stem runs down to the event.
+  border-top: 2px solid var(--drive-color);
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0;
+    bottom: 0;
+    border-left: 2px dashed var(--drive-color);
+    transform: translateX(-50%);
+  }
+}
+
+// Written out on the line the way the current-time playhead writes its time.
+.cal-drive-line-label {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translate(-50%, -50%);
+  padding: 1px 6px;
+  background: #fff;
+  border: 1px solid #3f7fbf;
+  border-radius: 8px;
+  color: var(--color-text-primary);
+  font-size: 0.62rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+}
+
+.cal-popover-drive-btn {
+  margin-top: 8px;
+}

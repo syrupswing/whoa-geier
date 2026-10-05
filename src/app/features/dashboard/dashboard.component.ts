@@ -11,7 +11,9 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { externalEditLabel, externalEditUrl } from '../../utils/external-edit-link';
+import { SwipeNavDirective } from '../../shared/swipe-nav/swipe-nav.directive';
 import { CalendarSkeletonComponent } from '../../shared/calendar-skeleton/calendar-skeleton.component';
+import { DriveEntry, DriveTimeService } from '../../services/drive-time.service';
 import { GRAPH_EXPLORER_URL, OutlookTokenDialogComponent } from '../../components/outlook-token-dialog/outlook-token-dialog.component';
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
@@ -195,7 +197,7 @@ function loadPersistedChatMessages(): ChatMessage[] {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, CalendarSkeletonComponent, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
+  imports: [CommonModule, SwipeNavDirective, CalendarSkeletonComponent, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -1345,6 +1347,35 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     this.confirmingTask.set(null);
   }
 
+  driveTimeService = inject(DriveTimeService);
+
+  /** Shows (looking it up first) or hides the drive time from home for an event with a location. */
+  async toggleDriveTime(event: CalendarEvent, domEvent: Event): Promise<void> {
+    domEvent.stopPropagation();
+    if (this.driveTimeService.get(event)) {
+      this.driveTimeService.hide(event);
+      return;
+    }
+    const error = await this.driveTimeService.show(event);
+    if (error) this.snackBar.open(error, 'Close', { duration: 4000 });
+  }
+
+  /** "4:25 PM" — when to leave home for an event. */
+  formatLeave(drive: DriveEntry): string {
+    return this.formatTime(new Date(drive.leaveByIso));
+  }
+
+  /** The dashed "leave home" line above a timed event whose drive time is being shown, on the given day's timeline. */
+  getDriveLine(event: TimelineEvent, day: Date): { top: number; height: number; label: string } | null {
+    const drive = this.driveTimeService.get(event);
+    if (!drive) return null;
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate());
+    const leaveMinutes = Math.max(0, (new Date(drive.leaveByIso).getTime() - dayStart.getTime()) / 60000);
+    const top = (leaveMinutes / 60) * this.HOUR_PX;
+    const height = event.topPosition - top;
+    return height > 0 ? { top, height, label: `Leave ${this.formatLeave(drive)}` } : null;
+  }
+
   externalEditUrl = externalEditUrl;
   externalEditLabel = externalEditLabel;
 
@@ -1408,6 +1439,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   openAddEventDialog(): void {
     const dialogRef = this.dialog.open(CalendarEventDialogComponent, {
       width: '500px',
+      maxWidth: '95vw',
       data: { mode: 'add', defaultDate: this.viewDate() }
     });
 
@@ -1430,6 +1462,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     const dialogRef = this.dialog.open(CalendarEventDialogComponent, {
       width: '500px',
+      maxWidth: '95vw',
       data: { mode: 'edit', event }
     });
 

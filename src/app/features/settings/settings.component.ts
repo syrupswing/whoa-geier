@@ -1,4 +1,8 @@
-import { Component, OnInit, signal } from '@angular/core';
+import { Component, OnInit, effect, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { HomeLocationService } from '../../services/home-location.service';
 import { ActivatedRoute } from '@angular/router';
 import { highlightWhenPresent } from '../../utils/highlight';
 import { CommonModule } from '@angular/common';
@@ -18,6 +22,9 @@ const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
   selector: 'app-settings',
   standalone: true,
   imports: [
+    FormsModule,
+    MatFormFieldModule,
+    MatInputModule,
     CommonModule,
     MatCardModule,
     MatIconModule,
@@ -33,12 +40,32 @@ const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
 })
 export class SettingsComponent implements OnInit {
   isRequestingPermission = signal(false);
+  isSavingHome = signal(false);
+  homeAddressDraft = '';
 
   constructor(
     public pushNotificationService: PushNotificationService,
     private snackBar: MatSnackBar,
-    private route: ActivatedRoute
-  ) {}
+    private route: ActivatedRoute,
+    public homeLocation: HomeLocationService
+  ) {
+    // Fill the field once the saved address has loaded.
+    effect(() => {
+      this.homeAddressDraft = this.homeLocation.address();
+    });
+  }
+
+  async saveHomeAddress(): Promise<void> {
+    this.isSavingHome.set(true);
+    try {
+      await this.homeLocation.save(this.homeAddressDraft);
+      this.snackBar.open('Home address saved', 'Close', { duration: 2500 });
+    } catch {
+      this.snackBar.open('Could not save the address — try again', 'Close', { duration: 3000 });
+    } finally {
+      this.isSavingHome.set(false);
+    }
+  }
 
   ngOnInit(): void {
     // A link such as /settings?section=family-memory (from a chat confirmation) scrolls to that section.

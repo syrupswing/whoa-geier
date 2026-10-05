@@ -1630,6 +1630,78 @@ exports.googleCalendarDisconnect = onCall(async (request) => {
 });
 
 // ---------------------------------------------------------------------------
+// Drive time: how long to get from the family's home to an event, with traffic
+//
+// Uses the Google Routes API (Compute Routes), which takes plain address text for both ends, so
+// no separate geocoding step is needed. The browser never sees the API key.
+// ---------------------------------------------------------------------------
+
+const googleMapsApiKey = defineSecret('GOOGLE_MAPS_API_KEY');
+
+/** One driving-time lookup, in seconds, for a given departure time. Throws HttpsError on failure. */
+async function routesDriveSeconds(origin, destination, departAt) {
+  // The API rejects a departure time in the past, so nudge it just ahead of now.
+  const depart = new Date(Math.max(departAt.getTime(), Date.now() + 60 * 1000));
+  const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': googleMapsApiKey.value(),
+      'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters'
+    },
+    body: JSON.stringify({
+      origin: { address: origin },
+      destination: { address: destination },
+      travelMode: 'DRIVE',
+      routingPreference: 'TRAFFIC_AWARE',
+      departureTime: depart.toISOString()
+    })
+  });
+  const body = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    console.error('driveTime routes request failed:', response.status, JSON.stringify(body));
+    if (response.status === 400 || response.status === 404) {
+      throw new HttpsError('not-found', 'Couldn\'t find a driving route to that location');
+    }
+    throw new HttpsError('internal', 'The routing service didn\'t respond — try again');
+  }
+  const route = body.routes && body.routes[0];
+  if (!route) {
+    throw new HttpsError('not-found', 'Couldn\'t find a driving route to that location');
+  }
+  return { seconds: parseInt(String(route.duration).replace('s', ''), 10), meters: route.distanceMeters || 0 };
+}
+
+/**
+ * When to leave home to arrive at an event right as it starts. Traffic depends on when you
+ * actually set out, so this looks up the drive for a first guess at the departure, then once more
+ * at the departure that guess implies, and uses the second answer.
+ */
+exports.driveTime = onCall(
+  { secrets: ['GOOGLE_MAPS_API_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const { origin, destination, arriveAtIso } = request.data || {};
+    const arriveAt = new Date(arriveAtIso);
+    if (typeof origin !== 'string' || !origin.trim() || origin.length > 300 ||
+        typeof destination !== 'string' || !destination.trim() || destination.length > 300 ||
+        isNaN(arriveAt.getTime())) {
+      throw new HttpsError('invalid-argument', 'A home address, a location and an arrival time are required');
+    }
+
+    const guess = await routesDriveSeconds(origin, destination, new Date(arriveAt.getTime() - 30 * 60 * 1000));
+    const refined = await routesDriveSeconds(origin, destination, new Date(arriveAt.getTime() - guess.seconds * 1000));
+    return {
+      minutes: Math.ceil(refined.seconds / 60),
+      leaveByIso: new Date(arriveAt.getTime() - refined.seconds * 1000).toISOString(),
+      distanceMeters: refined.meters
+    };
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Schedule exceptions: turn a parent's free-text description of one day into fields
 // ---------------------------------------------------------------------------
 

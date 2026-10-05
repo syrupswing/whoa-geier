@@ -158,7 +158,12 @@
   </section>
 
   <!-- Daily Calendar -->
-  <section class="day-calendar">
+  <section
+    class="day-calendar"
+    appSwipeNav
+    swipeAnimate="app-task-lane, .cal-allday, .cal-timeline-scroll, app-calendar-skeleton"
+    (swipePrev)="prevDay()"
+    (swipeNext)="nextDay()">
     <div class="cal-nav">
       <button mat-icon-button class="cal-step-btn" (click)="prevDay()" aria-label="Previous day">
         <mat-icon>chevron_left</mat-icon>
@@ -273,6 +278,18 @@
         <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
         <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>
         <p class="cal-popover-desc" *ngIf="sel.description">{{ sel.description }}</p>
+        <ng-container *ngIf="driveTimeService.canShow(sel)">
+          <p class="cal-popover-person" *ngIf="driveTimeService.get(sel) as drive"><mat-icon>directions_car</mat-icon>{{ drive.minutes }} min drive · leave by {{ formatLeave(drive) }}</p>
+          <button
+            mat-stroked-button
+            type="button"
+            class="cal-popover-drive-btn"
+            [disabled]="driveTimeService.isLoading(sel)"
+            (click)="toggleDriveTime(sel, $event)">
+            <mat-icon>directions_car</mat-icon>
+            {{ driveTimeService.isLoading(sel) ? 'Working it out…' : (driveTimeService.get(sel) ? 'Hide drive time' : 'Show drive time') }}
+          </button>
+        </ng-container>
       </div>
       <button
         mat-icon-button
@@ -428,6 +445,17 @@
 
         <!-- Events layer -->
         <div class="cal-events-layer">
+          <!-- Dashed "leave home" lines up from events whose drive time is being shown -->
+          <ng-container *ngFor="let event of getTimedEvents(); trackBy: trackByEventId">
+            <div
+              class="cal-drive-line"
+              *ngIf="getDriveLine(event, viewDate()) as line"
+              [style.top.px]="line.top * scaleFactor"
+              [style.height.px]="line.height * scaleFactor"
+              [ngStyle]="getEventLayoutStyle(event)">
+              <span class="cal-drive-line-label">{{ line.label }}</span>
+            </div>
+          </ng-container>
           <div
             class="cal-event-block"
             *ngFor="let event of getTimedEvents(); trackBy: trackByEventId"

@@ -248,6 +248,8 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       flex-direction: column;
       gap: 10px;
       min-width: 400px;
+      max-width: 100%;
+      box-sizing: border-box;
       padding: 6px 0;
 
       /* Compact: shorter inputs and dense buttons/checkboxes throughout the form. */
@@ -257,8 +259,10 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       --mdc-outlined-button-container-height: 40px;
       --mdc-checkbox-state-layer-size: 32px;
 
+      // Small screens: no fixed minimum — the dialog is already narrower than 400px there, and a
+      // minimum wider than its content area is what pushed the form past the screen edge.
       @media (max-width: 600px) {
-        min-width: 280px;
+        min-width: 0;
       }
     }
 
@@ -280,6 +284,18 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       border: 1px solid var(--kind-bar-border);
       border-radius: 4px;
       overflow: hidden;
+      max-width: 100%;
+
+      // Narrow screens: tighter segments and no link icons, so all four still fit in one bar.
+      @media (max-width: 420px) {
+        .external-btn {
+          padding: 0 8px;
+
+          mat-icon {
+            display: none;
+          }
+        }
+      }
     }
 
     .item-kind-toggle {
@@ -340,15 +356,22 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       }
     }
 
+    // A field with a button beside it (e.g. a time + "Cancel time-specificity"): when the row is
+    // too narrow, the button drops below the field instead of squeezing or overflowing it.
     .field-with-action {
       display: flex;
+      flex-wrap: wrap;
       align-items: flex-end;
       gap: 8px;
 
       mat-form-field,
       app-time-field {
-        flex: 1;
+        flex: 1 1 180px;
         min-width: 0;
+      }
+
+      .remove-action {
+        flex: none;
       }
     }
 
@@ -395,7 +418,9 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
 
     .dialog-actions {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
+      gap: 4px 8px;
       width: 100%;
     }
 

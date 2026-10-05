@@ -42,6 +42,25 @@
     </mat-card-content>
   </mat-card>
 
+  <!-- Home address -->
+  <mat-card class="form-card">
+    <mat-card-header>
+      <mat-card-title>Home address</mat-card-title>
+    </mat-card-header>
+    <mat-card-content>
+      <p class="hint-text">The starting point for drive times to calendar events that have a location.</p>
+      <form class="home-address-row" (ngSubmit)="saveHomeAddress()">
+        <mat-form-field appearance="outline" class="home-address-field">
+          <mat-label>Address</mat-label>
+          <input matInput name="homeAddress" [(ngModel)]="homeAddressDraft" autocomplete="street-address">
+        </mat-form-field>
+        <button mat-stroked-button color="primary" type="submit" [disabled]="isSavingHome() || homeAddressDraft.trim() === homeLocation.address()">
+          Save
+        </button>
+      </form>
+    </mat-card-content>
+  </mat-card>
+
   <!-- Family memory -->
   <h2 class="section-heading" id="family-memory">Family memory</h2>
   <app-family-memory></app-family-memory>
