@@ -71,7 +71,10 @@ export class OutlookTokenDialogComponent {
     if (!text.trim()) return;
     event.preventDefault();
     this.token = text;
-    this.connect();
+    // Close right away; the sync runs in the background and reports any problem through the
+    // service's error (shown on the calendar) rather than leaving this dialog spinning.
+    this.dialogRef.close(true);
+    void this.outlookService.connectWithToken(text);
   }
 
   async connect(): Promise<void> {

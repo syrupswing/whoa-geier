@@ -1,4 +1,4 @@
-import { Injectable, effect, signal, untracked } from '@angular/core';
+import { Injectable, computed, effect, signal, untracked } from '@angular/core';
 import { CalendarEvent, CalendarInfo } from './google-calendar.service';
 import { LocalStorageService } from './local-storage.service';
 import { FirestoreService } from './firestore.service';
@@ -67,6 +67,8 @@ export class OutlookCalendarService {
   isSignedIn = signal<boolean>(false);
   /** True once a token has ever been synced, so cached events exist even when signed out. */
   hasCache = signal<boolean>(false);
+  /** Cached events are showing but the token has lapsed, so they may be out of date. */
+  isStale = computed(() => this.hasCache() && !this.isSignedIn());
   isSyncing = signal<boolean>(false);
   events = signal<CalendarEvent[]>([]);
   calendars = signal<CalendarInfo[]>([]);

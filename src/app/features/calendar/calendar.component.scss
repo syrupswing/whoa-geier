@@ -1146,3 +1146,9 @@
   margin-top: 8px;
   margin-right: 8px;
 }
+
+// Outlook events whose token has lapsed: dim the text so they read as possibly out of date.
+.stale-source,
+.stale-source * {
+  color: color-mix(in srgb, var(--color-text-primary) 45%, transparent);
+}

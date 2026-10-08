@@ -1,4 +1,4 @@
-import { Injectable, signal, effect, untracked } from '@angular/core';
+import { Injectable, signal, computed, effect, untracked } from '@angular/core';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { environment } from '../../environments/environment';
 import { LocalStorageService } from './local-storage.service';
@@ -96,6 +96,10 @@ export class GoogleCalendarService {
   visibleCalendarIds = signal<Set<string>>(new Set(['primary']));
   error = signal<string | null>(null);
   isLoadingFromCache = signal<boolean>(false);
+  /** True once this session has loaded events straight from Google (not just the cached copy). */
+  hasLiveSync = signal<boolean>(false);
+  /** Cached events are showing but haven't been confirmed against Google yet (or the last load failed). */
+  isStale = computed(() => this.events().length > 0 && !this.hasLiveSync());
 
   private gapiInited = false;
   private codeClient: any;
@@ -297,6 +301,7 @@ export class GoogleCalendarService {
   private clearLocalSession(): void {
     if (typeof gapi !== 'undefined' && gapi.client) gapi.client.setToken(null);
     this.isSignedIn.set(false);
+    this.hasLiveSync.set(false);
     if (this.tokenRefreshTimer) {
       clearTimeout(this.tokenRefreshTimer);
       this.tokenRefreshTimer = undefined;
@@ -515,6 +520,7 @@ export class GoogleCalendarService {
       }
 
       this.events.set(allEvents);
+      this.hasLiveSync.set(true);
       this.error.set(null);
       this.cacheEventsToFirestore(allEvents);
     } catch (err: any) {
@@ -522,6 +528,7 @@ export class GoogleCalendarService {
         this.refreshAccessToken();
         return;
       }
+      this.hasLiveSync.set(false);
       this.error.set(`Error loading events: ${err.message}`);
       console.error('Error loading calendar events:', err);
     }

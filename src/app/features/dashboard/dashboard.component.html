@@ -369,6 +369,7 @@
           *ngFor="let event of getAllDayEvents(); trackBy: trackByEventId"
           class="cal-allday-chip"
           [style.--event-color]="getEventColor(event)"
+          [class.stale-source]="event.source === 'outlook' ? outlookService.isStale() : event.source !== 'app' && calendarService.isStale()"
           [class.has-popover]="selectedEvent()?.id === event.id"
           (click)="selectEvent(event, $event)">
           <button
@@ -478,6 +479,7 @@
             [style.top.px]="event.topPosition * scaleFactor"
             [style.height.px]="event.isPointInTime ? null : event.actualHeight * scaleFactor"
             [style.--event-color]="getEventColor(event)"
+            [class.stale-source]="event.source === 'outlook' ? outlookService.isStale() : event.source !== 'app' && calendarService.isStale()"
             [style.--actual-h.px]="event.isPointInTime ? null : event.actualHeight * scaleFactor"
             [ngStyle]="getEventLayoutStyle(event)"
             [class.has-popover]="selectedEvent()?.id === event.id"

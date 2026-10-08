@@ -170,6 +170,7 @@
             class="cal-allday-chip cal-allday-chip--compact"
             [attr.data-highlight-id]="event.id"
             [style.--event-color]="getEventColor(event)"
+            [class.stale-source]="event.source === 'outlook' ? outlookService.isStale() : event.source !== 'app' && calendarService.isStale()"
             [class.has-popover]="selectedEvent()?.id === event.id"
             (click)="selectEvent(event, $event)">
             <button
@@ -215,6 +216,7 @@
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.isPointInTime ? null : event.height"
                 [style.--event-color]="getEventColor(event)"
+                [class.stale-source]="event.source === 'outlook' ? outlookService.isStale() : event.source !== 'app' && calendarService.isStale()"
                 [style.--actual-h.px]="event.isPointInTime ? null : event.actualHeight"
                 [ngStyle]="getEventLayoutStyle(event)"
                 [class.has-popover]="selectedEvent()?.id === event.id"
