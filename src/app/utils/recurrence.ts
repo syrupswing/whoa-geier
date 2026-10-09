@@ -160,6 +160,25 @@ export function taskRepeatMode(task: CalendarEvent): 'schedule' | 'rolling' {
   return task.repeat.mode ?? 'rolling';
 }
 
+/** Whether a missed occurrence of this fixed-schedule task (all-day or timed) carries forward until it's done. */
+function carriesOver(task: CalendarEvent): boolean {
+  return !!task.repeat && taskRepeatMode(task) === 'schedule' && !!task.repeat.carryOver;
+}
+
+/** The most recent occurrence of a repeating task that falls before `day`, within about one interval back. */
+function previousOccurrence(task: CalendarEvent, day: Date): CalendarEvent | null {
+  const rule = task.repeat!;
+  const seriesStart = firstDay(task);
+  const interval = Math.max(1, Math.floor(rule.interval) || 1);
+  // A monthly repeat can skip a month that lacks its day, so allow an extra month of slack.
+  const limit = { day: 1, week: 7, month: 31 }[rule.unit] * interval + 31;
+  for (let back = 1; back <= limit; back++) {
+    const candidate = new Date(day.getFullYear(), day.getMonth(), day.getDate() - back);
+    if (occurrenceStartsOn(seriesStart, rule, candidate)) return occurrenceOn(task, candidate);
+  }
+  return null;
+}
+
 /** A day plus one repeat interval (a month-end clamps to the shorter month's last day). */
 function addInterval(day: Date, rule: RepeatRule): Date {
   const n = Math.max(1, Math.floor(rule.interval) || 1);
@@ -191,7 +210,8 @@ function rollingDueDay(task: CalendarEvent): Date {
  *   can be un-completed from the day it was done (a fixed-schedule repeat stays on its own day);
  * - on today, every unfinished one-off task from earlier days, carried over until it's ticked off;
  * - a rolling repeat has just one open occurrence, due one interval after it was last completed,
- *   and it's carried over once it's overdue. A fixed-schedule repeat isn't carried over.
+ *   and it's carried over once it's overdue. A fixed-schedule repeat is dropped when missed, unless it
+ *   carries over: then its latest missed occurrence stays on today's list until done or the next one arrives.
  */
 export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date = new Date()): TaskChecklistRow[] {
   const dayStart = startOfDay(day);
@@ -205,7 +225,8 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
     if (task.kind !== 'task') continue;
     const mode = taskRepeatMode(task);
     const timed = !!task.start.dateTime;
-    const movable = !task.repeat || mode === 'rolling';
+    const carry = carriesOver(task);
+    const movable = !task.repeat || mode === 'rolling' || carry;
 
     // Open (or fixed-schedule) rows dated to this day.
     if (!timed) {
@@ -227,6 +248,14 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
       }
     }
 
+    // A carry-over task with no occurrence of its own today keeps its latest missed one on today's list.
+    if (carry && isToday && !taskOccurrenceOn(task, dayStart)) {
+      const missed = previousOccurrence(task, dayStart);
+      if (missed && !completionFor(missed) && !isSnoozedOccurrence(missed, now)) {
+        carried.push({ event: missed, done: false, daysOverdue: daysBetween(firstDay(missed), today) });
+      }
+    }
+
     if (!task.repeat) {
       // An unfinished one-off carries over to today until it's ticked off.
       if (isToday && firstDay(task) < today && !completionFor(task) && !isSnoozedOccurrence(task, now)) {
@@ -242,7 +271,9 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
           // A one-off completed on its own day is already listed there (all-day) or on the timeline (timed).
           if (key === dayIso) continue;
           onDay.push({ event: task, done: true, daysOverdue: 0 });
-        } else if (mode === 'rolling' && !timed) {
+        } else if ((mode === 'rolling' && !timed) || carry) {
+          // A carry-over occurrence completed on its own day is already listed there (or on the timeline).
+          if (carry && key === dayIso) continue;
           onDay.push({ event: occurrenceOn(task, parseIso(key)), done: true, daysOverdue: 0 });
         }
       }

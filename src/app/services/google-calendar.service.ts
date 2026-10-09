@@ -15,11 +15,16 @@ export interface RepeatRule {
   unit: 'day' | 'week' | 'month';
   interval: number;
   /**
-   * All-day tasks only. 'schedule': a fixed schedule where a missed occurrence is simply dropped.
-   * 'rolling': stays on the list until done, then comes back one interval after it was completed.
+   * All-day tasks only. 'schedule': a specific day of the week/month (see carryOver for a missed one).
+   * 'rolling': not on a specific day. It stays on the list until done, then comes back one interval after it was completed.
    * Unset on an existing all-day task counts as 'rolling' (they've always carried over until done).
    */
   mode?: 'schedule' | 'rolling';
+  /**
+   * Fixed-schedule tasks only, all-day or timed. True: an occurrence that isn't completed on its day carries forward to the
+   * following days until it's done (or the next occurrence arrives). Unset or false: a missed one is dropped.
+   */
+  carryOver?: boolean;
 }
 
 /** One recorded completion of a task occurrence. */

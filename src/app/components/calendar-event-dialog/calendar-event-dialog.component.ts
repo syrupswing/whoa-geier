@@ -72,6 +72,7 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
 
     <mat-dialog-content>
       <div class="dialog-form">
+        <div class="form-group">
         <div class="kind-row">
           <mat-button-toggle-group
             class="item-kind-toggle"
@@ -102,7 +103,9 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             [placeholder]="formData.itemKind === 'task' ? 'e.g., Renew car registration' : 'e.g., Dentist appointment'"
             required>
         </mat-form-field>
+        </div>
 
+        <div class="form-group">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
           <mat-label>{{ formData.multiDay ? 'Start date' : 'Date' }}</mat-label>
           <input matInput [matDatepicker]="datePicker" name="startDate" [(ngModel)]="formData.startDate" (dateChange)="onStartDateChange()" required>
@@ -180,7 +183,9 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
           </button>
         </div>
         </ng-template>
+        </div>
 
+        <div class="form-group">
         <mat-checkbox name="repeats" [(ngModel)]="formData.repeats"><span class="scope-label"><mat-icon>event_repeat</mat-icon>Repeats</span></mat-checkbox>
         <ng-container *ngIf="formData.repeats">
           <div class="time-row repeat-row">
@@ -198,43 +203,59 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
               </mat-select>
             </mat-form-field>
           </div>
-          <p class="kind-hint">{{ repeatSummary() }}</p>
-          <ng-container *ngIf="formData.itemKind === 'task' && !formData.hasTime">
-            <mat-radio-group class="kind-group" name="repeatMode" [(ngModel)]="formData.repeatMode">
-              <mat-radio-button value="schedule">Skip it if missed</mat-radio-button>
-              <mat-radio-button value="rolling">Keep until done</mat-radio-button>
+          <ng-container *ngIf="formData.itemKind === 'task'">
+            <!-- Only an all-day task can float; a timed one always sits on its specific day. -->
+            <mat-radio-group class="kind-group" name="repeatMode" *ngIf="!formData.hasTime" [(ngModel)]="formData.repeatMode">
+              <mat-radio-button value="schedule">{{ specificDayLabel() }}</mat-radio-button>
+              <mat-radio-button value="rolling">Not on specific day</mat-radio-button>
             </mat-radio-group>
-            <p class="kind-hint" *ngIf="formData.repeatMode === 'rolling'">
-              Stays on your list until it is done, then comes back after the day you complete it, not on a fixed day.
-            </p>
-            <p class="kind-hint" *ngIf="formData.repeatMode !== 'rolling'">
-              Stays on its fixed schedule. A missed one is dropped and does not carry over.
-            </p>
+            <mat-checkbox name="obsoleteIfMissed" *ngIf="formData.hasTime || formData.repeatMode === 'schedule'" [(ngModel)]="formData.obsoleteIfMissed">
+              Obsolete if not completed on specific day
+            </mat-checkbox>
           </ng-container>
+          <p class="kind-hint">{{ repeatSummary() }}</p>
         </ng-container>
+        </div>
 
-        <ng-container *ngIf="formData.itemKind === 'task'">
-          <button mat-stroked-button type="button" *ngIf="formData.pushAlertTime === null; else alertField" (click)="formData.pushAlertTime = '17:00'">
+        <div class="form-group" *ngIf="formData.itemKind === 'task'">
+          <button mat-stroked-button type="button" *ngIf="formData.pushAlertTime === null; else alertField" (click)="addNotification()">
             <mat-icon>notifications</mat-icon>
             Add notification
           </button>
           <ng-template #alertField>
+            <div class="alert-summary" *ngIf="!editingAlert; else alertTimeEditor">
+              <mat-icon>notifications_active</mat-icon>
+              <span class="alert-summary-text">Push alert set for <strong>{{ formatTimeValue(alertTimeValue()) }}</strong></span>
+              <button mat-icon-button type="button" (click)="editAlertTime()" aria-label="Edit alert time">
+                <mat-icon>edit</mat-icon>
+              </button>
+              <button mat-button type="button" class="remove-action" (click)="removeNotification()">
+                <mat-icon class="icon-remove">cancel</mat-icon>
+                Remove notification
+              </button>
+            </div>
+            <ng-template #alertTimeEditor>
             <div class="field-with-action">
               <app-time-field
                 label="Push alert if not complete by"
                 [value]="formData.pushAlertTime!"
                 (valueChange)="formData.pushAlertTime = $event"></app-time-field>
-              <button mat-button type="button" class="remove-action" (click)="formData.pushAlertTime = null">
+              <button mat-icon-button type="button" class="confirm-alert" (click)="confirmAlertTime()" aria-label="Confirm alert time">
+                <mat-icon>check</mat-icon>
+              </button>
+              <button mat-button type="button" class="remove-action" (click)="removeNotification()">
                 <mat-icon class="icon-remove">cancel</mat-icon>
                 Remove notification
               </button>
             </div>
+            </ng-template>
             <p class="kind-hint">
               {{ formData.scope === 'private' ? 'Only you are' : 'Whole family is' }} alerted if not checked off by this time.
             </p>
           </ng-template>
-        </ng-container>
+        </div>
 
+        <div class="form-group">
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="householdService.members().length">
           <mat-label>For</mat-label>
           <mat-select name="memberId" [(ngModel)]="formData.memberId">
@@ -254,9 +275,10 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
           {{ !canChangeScope()
             ? 'Only the person who created this can change who sees it.'
             : formData.scope === 'private'
-              ? 'Only you can see this.'
-              : 'Everyone in the family can see this.' }}
+              ? 'Only you will see this item.'
+              : 'Everyone in the family will see this item.' }}
         </p>
+        </div>
       </div>
     </mat-dialog-content>
 
@@ -410,6 +432,33 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       }
     }
 
+    .confirm-alert {
+      flex: none;
+      background: color-mix(in srgb, var(--color-aura-sage, #4a8a50) 14%, transparent);
+
+      mat-icon { color: var(--color-aura-sage, #4a8a50); }
+    }
+
+    // Fields that belong together sit on a softly shaded, rounded panel.
+    .form-group {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 12px;
+      border-radius: 12px;
+      background: rgba(61, 53, 80, 0.04);
+    }
+
+    .alert-summary {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 4px 8px;
+
+      .alert-summary-text { flex: 1 1 auto; min-width: 0; }
+      .remove-action { flex: none; }
+    }
+
     .chip-row {
       display: flex;
       flex-wrap: wrap;
@@ -494,10 +543,14 @@ export class CalendarEventDialogComponent {
     repeatUnit: RepeatUnit;
     /** All-day tasks only: what a missed occurrence does (see RepeatRule.mode). */
     repeatMode: 'schedule' | 'rolling';
+    /** Tasks on a specific day: a missed occurrence is dropped instead of carrying forward until done. */
+    obsoleteIfMissed: boolean;
     memberId: string | null;
     scope: Scope;
     /** "HH:mm" for a task's not-done-yet push alert, or null for none. */
     pushAlertTime: string | null;
+    /** Timed items only: the alert fires at the item's start time, following it if it changes, until the user picks its own time. */
+    alertSameAsEvent: boolean;
   };
 
   constructor(
@@ -536,9 +589,11 @@ export class CalendarEventDialogComponent {
         repeatInterval: event.repeat?.interval ?? 1,
         repeatUnit: event.repeat?.unit ?? 'week',
         repeatMode: event.repeat?.mode ?? (event.kind === 'task' && !event.start.dateTime ? 'rolling' : 'schedule'),
+        obsoleteIfMissed: !event.repeat?.carryOver,
         memberId: event.memberId ?? null,
         scope: event.isPrivate ? 'private' : 'family',
-        pushAlertTime: event.pushAlertTime ?? null
+        pushAlertTime: event.pushAlertTime ?? null,
+        alertSameAsEvent: !isAllDay && !!event.pushAlertTime && event.pushAlertTime === this.toTimeValue(startDate)
       };
     } else {
       const day = this.dateOnly(data.defaultDate || new Date());
@@ -559,11 +614,57 @@ export class CalendarEventDialogComponent {
         repeatInterval: 1,
         repeatUnit: 'week',
         repeatMode: 'schedule',
+        obsoleteIfMissed: false,
         memberId: this.householdService.myMemberId(),
         scope: 'private',
-        pushAlertTime: null
+        pushAlertTime: null,
+        alertSameAsEvent: false
       };
     }
+  }
+
+  /** A timed item's alert starts out as "same time as event"; an all-day item's at 6:00 PM. Either can be changed. */
+  addNotification(): void {
+    const f = this.formData;
+    f.alertSameAsEvent = f.hasTime;
+    f.pushAlertTime = f.hasTime && f.startTime ? f.startTime : '18:00';
+  }
+
+  /** "14:00" as "2:00 pm". */
+  formatTimeValue(value: string): string {
+    const [h, m] = value.split(':').map(Number);
+    if (Number.isNaN(h) || Number.isNaN(m)) return value;
+    return `${h % 12 || 12}:${String(m).padStart(2, '0')} ${h < 12 ? 'am' : 'pm'}`;
+  }
+
+  /** Whether the alert's time picker is open, rather than just its time shown. */
+  editingAlert = false;
+
+  /** The "HH:mm" the alert will fire at. */
+  alertTimeValue(): string {
+    const f = this.formData;
+    return (f.alertSameAsEvent && f.hasTime ? f.startTime : f.pushAlertTime) ?? '';
+  }
+
+  /** Opens the time picker, starting at the alert's current time. */
+  editAlertTime(): void {
+    const f = this.formData;
+    f.pushAlertTime = this.alertTimeValue();
+    f.alertSameAsEvent = false;
+    this.editingAlert = true;
+  }
+
+  /** Keeps the picked time and closes the picker; landing on the event's own time makes it follow the event again. */
+  confirmAlertTime(): void {
+    const f = this.formData;
+    f.alertSameAsEvent = f.hasTime && f.pushAlertTime === f.startTime;
+    this.editingAlert = false;
+  }
+
+  removeNotification(): void {
+    this.formData.pushAlertTime = null;
+    this.formData.alertSameAsEvent = false;
+    this.editingAlert = false;
   }
 
   /**
@@ -598,6 +699,11 @@ export class CalendarEventDialogComponent {
       if (f.hasDuration) this.setEndOneHourAfterStart();
     } else {
       f.hasDuration = false;
+      // "Same time as event" has no time to follow on an all-day item, so it becomes the all-day default.
+      if (f.alertSameAsEvent) {
+        f.alertSameAsEvent = false;
+        f.pushAlertTime = '18:00';
+      }
     }
   }
 
@@ -653,8 +759,21 @@ export class CalendarEventDialogComponent {
     const every = n === 1 ? `every ${repeatUnit}` : `every ${n} ${repeatUnit}s`;
     if (this.isRollingTask()) return `Repeats ${every}, counted from when it's completed.`;
     if (repeatUnit === 'week') return `Repeats ${every} on ${WEEKDAY_NAMES[startDate.getDay()]}.`;
-    if (repeatUnit === 'month') return `Repeats ${every} on day ${startDate.getDate()}.`;
+    if (repeatUnit === 'month') return `Repeats ${every} on the ${this.ordinal(startDate.getDate())}.`;
     return `Repeats ${every}.`;
+  }
+
+  /** 1 → "1st", 22 → "22nd", 13 → "13th". */
+  private ordinal(n: number): string {
+    const rem100 = n % 100;
+    const suffix = rem100 >= 11 && rem100 <= 13 ? 'th' : ({ 1: 'st', 2: 'nd', 3: 'rd' } as Record<number, string>)[n % 10] ?? 'th';
+    return `${n}${suffix}`;
+  }
+
+  /** "Specific day of the week" / "…of the month", following the repeat unit. */
+  specificDayLabel(): string {
+    const unit = this.formData.repeatUnit;
+    return unit === 'day' ? 'Specific day' : `Specific day of the ${unit}`;
   }
 
   /** An all-day task set to stay until done and then restart its interval from completion. */
@@ -663,11 +782,15 @@ export class CalendarEventDialogComponent {
     return f.itemKind === 'task' && !f.hasTime && f.repeatMode === 'rolling';
   }
 
-  /** The repeat rule to save. Only an all-day task records a mode — events and timed tasks always follow a fixed schedule. */
+  /** The repeat rule to save. Only tasks record carry-over, and only an all-day task a mode — a timed task is always on its specific day, and events always drop a missed one. */
   private buildRepeatRule(): RepeatRule {
     const f = this.formData;
     const rule: RepeatRule = { unit: f.repeatUnit, interval: Number(f.repeatInterval) };
-    if (f.itemKind === 'task' && !f.hasTime) rule.mode = f.repeatMode;
+    if (f.itemKind === 'task') {
+      // A timed task is always on its specific day, so it has no mode of its own.
+      if (!f.hasTime) rule.mode = f.repeatMode;
+      if ((f.hasTime || f.repeatMode === 'schedule') && !f.obsoleteIfMissed) rule.carryOver = true;
+    }
     return rule;
   }
 
@@ -811,7 +934,8 @@ export class CalendarEventDialogComponent {
     this.setOptionalField(result, 'startApproximate', true, f.hasTime && f.hasDuration && f.startApproximate, isEdit);
     this.setOptionalField(result, 'endApproximate', true, f.hasTime && f.hasDuration && f.endApproximate, isEdit);
     this.setOptionalField(result, 'memberId', f.memberId as string, !!f.memberId, isEdit);
-    this.setOptionalField(result, 'pushAlertTime', f.pushAlertTime as string, f.itemKind === 'task' && !!f.pushAlertTime, isEdit);
+    const pushAlertTime = f.alertSameAsEvent && f.hasTime ? f.startTime : f.pushAlertTime;
+    this.setOptionalField(result, 'pushAlertTime', pushAlertTime as string, f.itemKind === 'task' && !!pushAlertTime, isEdit);
     this.setOptionalField(
       result, 'repeat', this.buildRepeatRule(), f.repeats, isEdit
     );
