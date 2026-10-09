@@ -179,7 +179,19 @@
           <mat-icon>event_upcoming</mat-icon>
         </button>
         <span class="cal-today-badge cal-today-badge--today" *ngIf="isViewingToday">Today</span>
-        <span class="cal-date-text">{{ formatViewDate() }}</span>
+        <!-- The date opens a picker; the input is only the picker's anchor, so it stays invisible. -->
+        <button type="button" class="cal-date-btn" (click)="datePicker.open(); $event.stopPropagation()" aria-label="Choose a date">
+          <span class="cal-date-text">{{ formatViewDate() }}</span>
+          <mat-icon>arrow_drop_down</mat-icon>
+        </button>
+        <input
+          class="cal-date-anchor"
+          tabindex="-1"
+          aria-hidden="true"
+          [matDatepicker]="datePicker"
+          [value]="viewDate()"
+          (dateChange)="goToDate($event.value)" />
+        <mat-datepicker #datePicker [touchUi]="isNarrowScreen"></mat-datepicker>
       </div>
       <div class="cal-nav-actions">
         <button
@@ -388,7 +400,7 @@
             <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
           </button>
           <mat-icon *ngIf="!isTask(event)">event</mat-icon>
-          <span [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
+          <span class="cal-allday-title" [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
           <div
             class="cal-popover"
             *ngIf="selectedEvent()?.id === event.id"

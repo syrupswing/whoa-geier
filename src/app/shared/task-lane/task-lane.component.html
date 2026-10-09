@@ -4,11 +4,11 @@
     class="task-lane-label"
     [attr.aria-expanded]="!collapsed()"
     (click)="toggleCollapsed(); $event.stopPropagation()">
-    <mat-icon>{{ collapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
-    <div>
-      <span>Tasks</span>
+    <span class="task-lane-label-text">
+      Tasks
       <span class="task-lane-count" *ngIf="openCount()">{{ openCount() }}</span>
-    </div>
+    </span>
+    <mat-icon>{{ collapsed() ? 'expand_more' : 'expand_less' }}</mat-icon>
   </button>
 
   <div class="task-lane-items" *ngIf="!collapsed()">

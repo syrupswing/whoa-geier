@@ -17,7 +17,7 @@ import { OutlookCalendarService } from '../../services/outlook-calendar.service'
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { highlightWhenPresent } from '../../utils/highlight';
-import { toIsoDate, buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
+import { TASK_COLOR, toIsoDate, buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
@@ -626,6 +626,9 @@ export class CalendarComponent implements OnInit, OnDestroy {
   getEventColor(event: CalendarEvent): string {
     // App-native events (created in-app) get a fixed distinct color rather than a Google
     // colorId, so they're visually told apart from synced events.
+    if (event.kind === 'task') {
+      return TASK_COLOR;
+    }
     if (event.source === 'app') {
       return '#8E6BC9';
     }

@@ -188,7 +188,7 @@
               [attr.aria-label]="isTaskDone(event) ? 'Completed — tap to mark not complete' : 'Mark complete'">
               <mat-icon>{{ isTaskDone(event) ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
             </button>
-            <span [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
+            <span class="cal-allday-title" [class.task-done]="isTaskDone(event)">{{ event.summary }}</span>
           </div>
         </div>
       </div>

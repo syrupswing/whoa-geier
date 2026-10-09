@@ -1,5 +1,8 @@
 import { CalendarEvent, RepeatRule, TaskCompletion } from '../services/google-calendar.service';
 
+/** Amber for tasks everywhere on the calendar: item tints and edges, and the count badges. */
+export const TASK_COLOR = '#F2A900';
+
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
 function startOfDay(d: Date): Date {

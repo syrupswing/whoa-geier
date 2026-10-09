@@ -2518,6 +2518,41 @@
   color: var(--color-text-primary);
 }
 
+.cal-date-btn {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  padding: 4px 0 4px 6px;
+  border-radius: 8px;
+  cursor: pointer;
+
+  mat-icon {
+    width: 20px;
+    height: 20px;
+    font-size: 20px;
+    color: var(--color-text-secondary);
+  }
+
+  &:hover, &:focus-visible {
+    background: rgba(127, 127, 127, 0.14);
+    outline: 0;
+  }
+}
+
+// Invisible anchor the date picker's popup attaches to.
+.cal-date-anchor {
+  position: absolute;
+  width: 0;
+  height: 0;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .cal-nav-actions {
   display: flex;
   align-items: center;
@@ -2573,18 +2608,20 @@
 .cal-allday {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  padding: 7px 12px;
+  padding: 7px 6px 7px 0;
   background: rgba(61, 53, 80, 0.02);
   border-bottom: 1px solid rgba(61, 53, 80, 0.07);
 }
 
+// In the left gutter, the same width as the timeline's hour labels, so the chips line up with the events below.
 .cal-allday-label {
-  font-size: 0.68rem;
+  flex: none;
+  width: 56px;
+  font-size: 0.62rem;
+  line-height: 1.1;
   color: var(--color-text-secondary);
-  min-width: 38px;
-  text-align: right;
-  padding: 3px 6px 0 0;
+  text-align: center;
+  padding-top: 3px;
   white-space: nowrap;
 }
 
@@ -2593,10 +2630,22 @@
   flex-wrap: wrap;
   gap: 5px;
   flex: 1;
+  min-width: 0;
+}
+
+// One line, cut off with an ellipsis; only the title is clipped, as the chip itself stays
+// overflow: visible for anything anchored to it.
+.cal-allday-title {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .cal-allday-chip {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 4px;
   padding: 3px 10px 6px;
@@ -3107,10 +3156,6 @@
     height: 16px;
     color: var(--color-text-secondary);
   }
-}
-
-.cal-popover-edit {
-  margin-right: 0;
 }
 
 // ── Task items on the calendar ─────────────────────────────────

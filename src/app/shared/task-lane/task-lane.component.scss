@@ -4,30 +4,43 @@
 
 // Same band as the calendar's "All day" row, with the tasks stacked one per line.
 .task-lane {
-  --task-color: #8E6BC9;   // the color app-native items use on the calendar
+  --task-color: #F2A900;   // TASK_COLOR, the amber tasks use everywhere on the calendar
 
   display: flex;
   align-items: flex-start;
-  flex-direction: column;
   background: rgba(61, 53, 80, 0.02);
   border-bottom: 1px solid rgba(61, 53, 80, 0.07);
 }
 
+// The header sits in the left gutter, the same width as the timeline's hour labels, so the
+// items line up with the events below.
 .task-lane-label {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  gap: 16px;
-  min-width: 38px;
+  flex: none;
+  width: 56px;
   border: 0;
   background: none;
   cursor: pointer;
   font-family: inherit;
-  font-size: 0.68rem;
+  font-size: 0.62rem;
+  line-height: 1.1;
   color: var(--color-text-secondary);
-  padding: 8px 12px;
-  white-space: nowrap;
-  width: 100%;
+  padding: 10px 0 0;
+
+  mat-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 16px;
+  }
+}
+
+.task-lane-label-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
 .task-lane-chevron {
@@ -53,7 +66,6 @@
   background: var(--task-color);
   color: white;
   font-size: 0.64rem;
-  margin-left: 6px;
 }
 
 .task-lane-items {
@@ -63,13 +75,14 @@
   gap: 5px;
   flex: 1;
   min-width: 0;
-  padding: 0 8px 8px 40px;
+  padding: 7px 6px 8px 0;
 }
 
 .task-lane-item {
   display: flex;
   align-items: center;
   gap: 4px;
+  min-width: 0;
   max-width: 100%;
   padding: 3px 10px 6px;
   border-radius: 8px;

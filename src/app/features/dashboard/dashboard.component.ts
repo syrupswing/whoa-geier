@@ -8,6 +8,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
 import { externalEditLabel, externalEditUrl } from '../../utils/external-edit-link';
@@ -18,7 +19,7 @@ import { GRAPH_EXPLORER_URL, OutlookTokenDialogComponent } from '../../component
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
-import { toIsoDate, expandRecurringForDay, occurrenceKey, completionFor, isSnoozedOccurrence } from '../../utils/recurrence';
+import { TASK_COLOR, toIsoDate, expandRecurringForDay, occurrenceKey, completionFor, isSnoozedOccurrence } from '../../utils/recurrence';
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
 import { CalendarSearchDialogComponent, CalendarSearchResult } from '../../components/calendar-search-dialog/calendar-search-dialog.component';
 import { highlightWhenPresent } from '../../utils/highlight';
@@ -204,7 +205,7 @@ function loadPersistedChatMessages(): ChatMessage[] {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, SwipeNavDirective, CalendarSkeletonComponent, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
+  imports: [CommonModule, SwipeNavDirective, CalendarSkeletonComponent, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatDatepickerModule, MatSnackBarModule, GlobalNavMenuComponent, HomeLogoBtnComponent, TypewriterDirective, QuickAddCardComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -564,6 +565,23 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const d = new Date(this.viewDate());
     d.setDate(d.getDate() + 1);
     this.viewDate.set(d);
+  }
+
+  /** Phones get the picker as a centered dialog rather than a popup hanging off the date. */
+  get isNarrowScreen(): boolean {
+    return window.innerWidth < 600;
+  }
+
+  /** Jumps straight to a day chosen in the date picker. */
+  goToDate(date: Date | null): void {
+    if (!date) return;
+    const day = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (day.toDateString() === new Date().toDateString()) {
+      this.goToToday();
+      return;
+    }
+    this.hasNavigatedAwayFromToday = true;
+    this.viewDate.set(day);
   }
 
   goToToday(): void {
@@ -1336,6 +1354,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // App-native events (created in-app) get a fixed distinct color rather than a Google
     // colorId, so they're visually told apart from synced events — same color the
     // dedicated /calendar page uses for the same purpose.
+    if (event.kind === 'task') {
+      return TASK_COLOR;
+    }
     if (event.source === 'app') {
       return '#8E6BC9';
     }

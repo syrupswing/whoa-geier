@@ -293,8 +293,19 @@
   flex: 1;
 }
 
+// One line, cut off with an ellipsis; only the title is clipped, as the chip itself stays
+// overflow: visible for anything anchored to it.
+.cal-allday-title {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .cal-allday-chip {
   display: flex;
+  min-width: 0;
+  max-width: 100%;
   align-items: center;
   gap: 4px;
   padding: 3px 10px 6px;
@@ -957,7 +968,7 @@
   flex-direction: column;
   align-items: stretch;
   gap: 3px;
-  justify-content: center;
+  justify-content: flex-start;
 }
 
 // Just the number of tasks that day, centered in its column, while the band is folded.
@@ -966,7 +977,7 @@
   min-width: 18px;
   padding: 0 6px;
   border-radius: 999px;
-  background: #8E6BC9;
+  background: #F2A900; // TASK_COLOR
   color: #fff;
   font-size: 0.68rem;
   font-weight: 600;
@@ -975,7 +986,7 @@
 }
 
 .cal-week-task {
-  --task-color: #8E6BC9;
+  --task-color: #F2A900; // TASK_COLOR
 
   display: flex;
   align-items: center;
