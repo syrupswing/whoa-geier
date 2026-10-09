@@ -132,16 +132,17 @@
   opacity: 0.55;
 }
 
+.task-icon-classic {
+  // Draw this icon from the classic Material Icons font instead of the app-wide Symbols Outlined one.
+  font-family: 'Material Icons' !important;
+}
+
 .task-meta {
   flex: none;
   margin-left: 4px;
   font-size: 0.68rem;
   font-weight: 400;
   color: var(--color-text-secondary);
-}
-
-.carried .task-meta {
-  font-weight: 600;
 }
 
 // Snoozed tasks: a small toggle, and when open, one quiet line each with a way to wake it early.

@@ -466,11 +466,12 @@
           <ng-container *ngFor="let event of getTimedEvents(); trackBy: trackByEventId">
             <div
               class="cal-drive-line"
+              [style.--event-color]="getEventColor(event)"
               *ngIf="getDriveLine(event, viewDate()) as line"
               [style.top.px]="line.top * scaleFactor"
               [style.height.px]="line.height * scaleFactor"
               [ngStyle]="getEventLayoutStyle(event)">
-              <span class="cal-drive-line-label">{{ line.label }}</span>
+              <span class="cal-drive-line-label"><mat-icon>directions_car</mat-icon>{{ line.label }}</span>
             </div>
           </ng-container>
           <div

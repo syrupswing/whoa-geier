@@ -1,6 +1,7 @@
 import { Component, DestroyRef, computed, inject, input, output, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { CalendarEvent } from '../../services/google-calendar.service';
 import { buildSnoozedTasks, buildTaskChecklist, occurrenceKey, SnoozedTaskRow, TaskChecklistRow } from '../../utils/recurrence';
@@ -21,7 +22,7 @@ const COLLAPSED_KEY = 'taskLaneCollapsed';
 @Component({
   selector: 'app-task-lane',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, MatIconModule, MatTooltipModule],
   templateUrl: './task-lane.component.html',
   styleUrl: './task-lane.component.scss'
 })
@@ -92,16 +93,16 @@ export class TaskLaneComponent {
     return row.event.id + occurrenceKey(row.event);
   }
 
-  /** "Every 2 weeks · from 3 days ago" — repeat and carry-over, whichever apply. */
-  meta(row: TaskChecklistRow): string {
-    const parts: string[] = [];
+  /** "Every 2 weeks" — the repeat details, shown in the repeat icon's tooltip. */
+  repeatText(row: TaskChecklistRow): string {
     const repeat = row.event.repeat;
-    if (repeat) {
-      parts.push(repeat.interval === 1 ? `Every ${repeat.unit}` : `Every ${repeat.interval} ${repeat.unit}s`);
-    }
-    if (row.daysOverdue > 0) {
-      parts.push(row.daysOverdue === 1 ? 'from yesterday' : `from ${row.daysOverdue} days ago`);
-    }
-    return parts.join(' · ');
+    if (!repeat) return '';
+    return repeat.interval === 1 ? `Every ${repeat.unit}` : `Every ${repeat.interval} ${repeat.unit}s`;
+  }
+
+  /** "from 3 days ago" — shown for tasks carried over from an earlier day. */
+  meta(row: TaskChecklistRow): string {
+    if (row.daysOverdue <= 0) return '';
+    return row.daysOverdue === 1 ? 'from yesterday' : `from ${row.daysOverdue} days ago`;
   }
 }

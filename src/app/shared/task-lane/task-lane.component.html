@@ -25,8 +25,9 @@
         <mat-icon>{{ row.done ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
       </button>
       <span class="task-title" [class.task-done]="row.done">{{ row.event.summary }}</span>
-      <mat-icon class="task-private" *ngIf="row.event.isPrivate" aria-label="Private">lock</mat-icon>
-      <span class="task-meta" *ngIf="meta(row) as text">{{ text }}</span>
+      <mat-icon class="task-private" [class.task-icon-classic]="row.event.isPrivate" [attr.aria-label]="row.event.isPrivate ? 'Private' : 'Family'">{{ row.event.isPrivate ? 'person' : 'family_restroom' }}</mat-icon>
+      <mat-icon class="task-private" *ngIf="row.event.repeat" [matTooltip]="repeatText(row)" aria-label="Repeats">event_repeat</mat-icon>
+      <mat-icon class="task-private task-icon-classic" *ngIf="meta(row) as text" [matTooltip]="text" aria-label="Carried over">redo</mat-icon>
     </div>
 
     <button type="button" class="task-snoozed-toggle" *ngIf="snoozedRows().length" (click)="showSnoozed.set(!showSnoozed()); $event.stopPropagation()">

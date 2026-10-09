@@ -51,10 +51,21 @@ async function callClaude(token, prompt, maxTokens = 1024, history = []) {
   }
 
   const result = await response.json();
-  if (!result.content || !result.content[0]?.text) {
+  // Join every text block — the reply may lead with a non-text block, so content[0] isn't always text.
+  const text = (Array.isArray(result.content) ? result.content : [])
+    .filter(block => block?.type === 'text' && block.text)
+    .map(block => block.text)
+    .join('')
+    .trim();
+  if (!text) {
+    console.error('Claude returned no text:', JSON.stringify({
+      model,
+      stop_reason: result.stop_reason,
+      content: result.content
+    }));
     throw new Error('Invalid response format from Claude API');
   }
-  return result.content[0].text.trim();
+  return text;
 }
 
 /**
@@ -151,7 +162,8 @@ const ORCHESTRATOR_TEMPLATES = {
       `In which aisle or section of a grocery store would I typically find "${payload.itemName}"? ` +
       `Respond with ONLY a JSON object of the exact shape {"location": "..."} — no other text. The ` +
       `"location" value should be a brief, specific answer, e.g. "Produce section" or "Dairy aisle, near ` +
-      `the milk" or "Baking aisle, with flour and sugar".`
+      `the milk" or "Baking aisle, with flour and sugar". Commit to the single most likely place — never ` +
+      `list alternatives or use "or" to offer a second aisle, even if the item is sometimes stocked elsewhere.`
     ),
     parseResponse: extractJson
   },

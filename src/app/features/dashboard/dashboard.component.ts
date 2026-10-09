@@ -1396,7 +1396,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const leaveMinutes = Math.max(0, (new Date(drive.leaveByIso).getTime() - dayStart.getTime()) / 60000);
     const top = (leaveMinutes / 60) * this.HOUR_PX;
     const height = event.topPosition - top;
-    return height > 0 ? { top, height, label: `Leave ${this.formatLeave(drive)}` } : null;
+    return height > 0 ? { top, height, label: `by ${this.formatLeave(drive)}` } : null;
   }
 
   /** Snooze choices for the popover's menu, worked out fresh so "Tonight" and "Tomorrow" are right when opened. */
