@@ -1,7 +1,8 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, effect, signal, untracked } from '@angular/core';
 import { getApp } from 'firebase/app';
 import { getMessaging, getToken, onMessage, Messaging } from 'firebase/messaging';
 import { FirestoreService } from './firestore.service';
+import { AuthService } from './auth.service';
 import { environment } from '../../environments/environment';
 
 @Injectable({
@@ -18,7 +19,17 @@ export class PushNotificationService {
   private messaging: Messaging | null = null;
   private messagingSetUp = false;
 
-  constructor(private firestoreService: FirestoreService) {}
+  constructor(private firestoreService: FirestoreService, private authService: AuthService) {
+    // A device's token is saved with whoever is signed in on it, so a private alert can be sent to
+    // just that person's devices. Sign-in often finishes after the token arrives, hence the effect.
+    effect(() => {
+      const token = this.fcmToken();
+      const uid = this.authService.currentUser()?.uid;
+      if (token && uid) {
+        untracked(() => this.saveTokenToFirestore(token, uid));
+      }
+    });
+  }
 
   /**
    * Call once on app startup (after Firebase is initialized).
@@ -106,7 +117,6 @@ export class PushNotificationService {
 
       if (token) {
         this.fcmToken.set(token);
-        await this.saveTokenToFirestore(token);
       }
 
       // Handle messages while the app is in the foreground
@@ -130,13 +140,14 @@ export class PushNotificationService {
     }
   }
 
-  private async saveTokenToFirestore(token: string): Promise<void> {
+  private async saveTokenToFirestore(token: string, uid: string): Promise<void> {
     if (!this.firestoreService.isInitialized()) {
       return;
     }
     // Store each device token keyed by the token itself so saves are idempotent
     await this.firestoreService.setDocument('fcm-tokens', token, {
       token,
+      uid,
       platform: navigator.platform,
       createdAt: new Date().toISOString()
     });

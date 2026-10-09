@@ -1282,6 +1282,112 @@ exports.dailyRemiBriefing = onSchedule(
   }
 );
 
+// ---------------------------------------------------------------------------
+// Task push alerts: "push if this task isn't complete by [time]"
+// ---------------------------------------------------------------------------
+
+/** Whole days from one "YYYY-MM-DD" date to another. */
+function daysBetweenDateStrs(from, to) {
+  return Math.round((Date.UTC(...to.split('-').map((n, i) => i === 1 ? n - 1 : +n)) -
+    Date.UTC(...from.split('-').map((n, i) => i === 1 ? n - 1 : +n))) / 86400000);
+}
+
+/** Server-side twin of occurrenceStartsOn in src/app/utils/recurrence.ts, on "YYYY-MM-DD" strings. */
+function occurrenceStartsOnDate(startStr, rule, dayStr) {
+  const diff = daysBetweenDateStrs(startStr, dayStr);
+  if (diff < 0) return false;
+  const interval = Math.max(1, Math.floor(rule.interval) || 1);
+  if (rule.unit === 'day') return diff % interval === 0;
+  if (rule.unit === 'week') return diff % (7 * interval) === 0;
+  if (rule.unit === 'month') {
+    const [sy, sm, sd] = startStr.split('-').map(Number);
+    const [dy, dm, dd] = dayStr.split('-').map(Number);
+    return ((dy - sy) * 12 + (dm - sm)) % interval === 0 && dd === sd;
+  }
+  return false;
+}
+
+/** FCM tokens for one account's devices, or for every device when uid is null. */
+async function fcmTokensFor(db, uid) {
+  const ref = db.collection('fcm-tokens');
+  const snap = uid ? await ref.where('uid', '==', uid).get() : await ref.get();
+  return snap.docs.map(d => d.data().token).filter(Boolean);
+}
+
+/** Sends a data-only push to each token and deletes the ones FCM says are dead. */
+async function sendPushToTokens(db, tokens, data) {
+  const messaging = admin.messaging();
+  const results = await Promise.allSettled(tokens.map(token => messaging.send({ token, data })));
+  const stale = [];
+  results.forEach((result, i) => {
+    const code = result.status === 'rejected' ? (result.reason?.errorInfo?.code ?? '') : '';
+    if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
+      stale.push(tokens[i]);
+    }
+  });
+  await Promise.all(stale.map(token => db.collection('fcm-tokens').doc(token).delete()));
+  return results.filter(r => r.status === 'fulfilled').length;
+}
+
+/**
+ * Every few minutes, finds today's tasks with a push alert time that has passed and that aren't
+ * complete (or snoozed), and pushes the task's title — to just its owner when the task is private,
+ * otherwise to every device. Each occurrence is alerted once (pushAlertsSent on the task).
+ */
+exports.taskPushAlerts = onSchedule(
+  { schedule: 'every 5 minutes', timeZone: TIME_ZONE },
+  async () => {
+    const db = admin.firestore();
+    const now = new Date();
+    const today = toDateStr(now);
+    const nowTime = now.toLocaleTimeString('en-GB', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
+
+    const snap = await db.collection('calendarEvents').where('kind', '==', 'task').get();
+    for (const doc of snap.docs) {
+      const task = doc.data();
+      if (!task.pushAlertTime || nowTime < task.pushAlertTime) continue;
+
+      const startStr = task.start?.dateTime ? toDateStr(new Date(task.start.dateTime)) : task.start?.date;
+      if (!startStr) continue;
+      const dueToday = task.repeat ? occurrenceStartsOnDate(startStr, task.repeat, today) : startStr === today;
+      if (!dueToday) continue;
+
+      if (task.completions?.[today]) continue;
+      if (task.snoozes?.[today] && new Date(task.snoozes[today]) > now) continue;
+      if (task.pushAlertsSent?.[today]) continue;
+
+      // Claim this occurrence before sending, so an overlapping run can't alert twice, and drop
+      // markers older than two weeks so a daily repeat doesn't grow the map forever.
+      const update = { [`pushAlertsSent.${today}`]: now.toISOString() };
+      Object.keys(task.pushAlertsSent || {}).forEach(date => {
+        if (daysBetweenDateStrs(date, today) > 14) update[`pushAlertsSent.${date}`] = admin.firestore.FieldValue.delete();
+      });
+      await doc.ref.update(update);
+
+      let uid = null;
+      if (task.isPrivate) {
+        uid = task.createdByUid || null;
+        if (!uid && task.memberId) {
+          const links = await db.collection('memberLinks').where('memberId', '==', task.memberId).limit(1).get();
+          uid = links.empty ? null : links.docs[0].id;
+        }
+        if (!uid) {
+          console.warn(`taskPushAlerts: private task ${doc.id} has no owner to alert — skipping.`);
+          continue;
+        }
+      }
+
+      const tokens = await fcmTokensFor(db, uid);
+      if (!tokens.length) {
+        console.log(`taskPushAlerts: no devices registered for task ${doc.id}.`);
+        continue;
+      }
+      const sent = await sendPushToTokens(db, tokens, { title: 'Task reminder', body: task.summary || 'A task is still open' });
+      console.log(`taskPushAlerts: task ${doc.id} alerted ${sent}/${tokens.length} device(s).`);
+    }
+  }
+);
+
 /** On-demand regeneration for the dashboard widget's "Refresh" button. */
 exports.regenerateBriefing = onCall(
   { secrets: ['CLAUDE_API_KEY', 'OPEN_WEATHER_API_KEY'], invoker: 'public' },

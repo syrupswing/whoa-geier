@@ -200,6 +200,28 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
           <p class="kind-hint">{{ repeatSummary() }}</p>
         </ng-container>
 
+        <ng-container *ngIf="formData.itemKind === 'task'">
+          <button mat-stroked-button type="button" *ngIf="formData.pushAlertTime === null; else alertField" (click)="formData.pushAlertTime = '17:00'">
+            <mat-icon>notifications</mat-icon>
+            Add notification
+          </button>
+          <ng-template #alertField>
+            <div class="field-with-action">
+              <app-time-field
+                label="Push alert if not complete by"
+                [value]="formData.pushAlertTime!"
+                (valueChange)="formData.pushAlertTime = $event"></app-time-field>
+              <button mat-button type="button" class="remove-action" (click)="formData.pushAlertTime = null">
+                <mat-icon class="icon-remove">cancel</mat-icon>
+                Remove notification
+              </button>
+            </div>
+            <p class="kind-hint">
+              {{ formData.scope === 'private' ? 'Only you are' : 'Whole family is' }} alerted if not checked off by this time.
+            </p>
+          </ng-template>
+        </ng-container>
+
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="householdService.members().length">
           <mat-label>For</mat-label>
           <mat-select name="memberId" [(ngModel)]="formData.memberId">
@@ -459,6 +481,8 @@ export class CalendarEventDialogComponent {
     repeatUnit: RepeatUnit;
     memberId: string | null;
     scope: Scope;
+    /** "HH:mm" for a task's not-done-yet push alert, or null for none. */
+    pushAlertTime: string | null;
   };
 
   constructor(
@@ -496,7 +520,8 @@ export class CalendarEventDialogComponent {
         repeatInterval: event.repeat?.interval ?? 1,
         repeatUnit: event.repeat?.unit ?? 'week',
         memberId: event.memberId ?? null,
-        scope: event.isPrivate ? 'private' : 'family'
+        scope: event.isPrivate ? 'private' : 'family',
+        pushAlertTime: event.pushAlertTime ?? null
       };
     } else {
       const day = this.dateOnly(data.defaultDate || new Date());
@@ -517,7 +542,8 @@ export class CalendarEventDialogComponent {
         repeatInterval: 1,
         repeatUnit: 'week',
         memberId: this.householdService.myMemberId(),
-        scope: 'private'
+        scope: 'private',
+        pushAlertTime: null
       };
     }
   }
@@ -746,6 +772,7 @@ export class CalendarEventDialogComponent {
     this.setOptionalField(result, 'startApproximate', true, f.hasTime && f.hasDuration && f.startApproximate, isEdit);
     this.setOptionalField(result, 'endApproximate', true, f.hasTime && f.hasDuration && f.endApproximate, isEdit);
     this.setOptionalField(result, 'memberId', f.memberId as string, !!f.memberId, isEdit);
+    this.setOptionalField(result, 'pushAlertTime', f.pushAlertTime as string, f.itemKind === 'task' && !!f.pushAlertTime, isEdit);
     this.setOptionalField(
       result, 'repeat', { unit: f.repeatUnit, interval: Number(f.repeatInterval) }, f.repeats, isEdit
     );

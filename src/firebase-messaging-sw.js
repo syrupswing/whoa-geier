@@ -46,3 +46,19 @@ messaging.onBackgroundMessage((payload) => {
     self.navigator.setAppBadge(badgeCount);
   }
 });
+
+// Tapping an alert opens the app on the dashboard (today's view), or focuses it if it's already open.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL('./', self.registration.scope).href;
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windows) => {
+      for (const client of windows) {
+        if (client.url.startsWith(target) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow(target);
+    })
+  );
+});

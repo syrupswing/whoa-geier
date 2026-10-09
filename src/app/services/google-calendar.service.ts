@@ -62,6 +62,10 @@ export interface CalendarEvent {
   occurrenceDate?: string;
   /** Tasks only — completions keyed by the occurrence's start date ("YYYY-MM-DD"), so a repeating task tracks each occurrence separately. */
   completions?: Record<string, TaskCompletion>;
+  /** Tasks only — "HH:mm" (family time zone): push an alert on each occurrence's day at this time if it isn't complete yet. */
+  pushAlertTime?: string;
+  /** Tasks only — occurrence dates ("YYYY-MM-DD") whose alert has already been sent, written by the server so each goes out once. */
+  pushAlertsSent?: Record<string, string>;
   /** Tasks only — snoozes keyed by the occurrence's start date ("YYYY-MM-DD"): ISO time until which that occurrence is hidden from the calendar. */
   snoozes?: Record<string, string>;
 }
