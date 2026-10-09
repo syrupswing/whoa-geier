@@ -1416,7 +1416,7 @@ exports.taskPushAlerts = onSchedule(
       });
       await doc.ref.update(update);
 
-      const sent = await sendPushToTokens(db, tokens, { title: 'Task reminder', body: task.summary || 'A task is still open' });
+      const sent = await sendPushToTokens(db, tokens, { title: `${task.summary || 'A task'} - reminder`, body: '' });
       console.log(`taskPushAlerts: task ${doc.id} alerted ${sent}/${tokens.length} device(s).`);
     }
   }
