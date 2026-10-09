@@ -1356,14 +1356,6 @@ exports.taskPushAlerts = onSchedule(
       if (task.snoozes?.[today] && new Date(task.snoozes[today]) > now) continue;
       if (task.pushAlertsSent?.[today]) continue;
 
-      // Claim this occurrence before sending, so an overlapping run can't alert twice, and drop
-      // markers older than two weeks so a daily repeat doesn't grow the map forever.
-      const update = { [`pushAlertsSent.${today}`]: now.toISOString() };
-      Object.keys(task.pushAlertsSent || {}).forEach(date => {
-        if (daysBetweenDateStrs(date, today) > 14) update[`pushAlertsSent.${date}`] = admin.firestore.FieldValue.delete();
-      });
-      await doc.ref.update(update);
-
       let uid = null;
       if (task.isPrivate) {
         uid = task.createdByUid || null;
@@ -1377,11 +1369,21 @@ exports.taskPushAlerts = onSchedule(
         }
       }
 
+      // No devices yet isn't "sent" — leave it unmarked so the next run tries again.
       const tokens = await fcmTokensFor(db, uid);
       if (!tokens.length) {
         console.log(`taskPushAlerts: no devices registered for task ${doc.id}.`);
         continue;
       }
+
+      // Claim this occurrence before sending, so an overlapping run can't alert twice, and drop
+      // markers older than two weeks so a daily repeat doesn't grow the map forever.
+      const update = { [`pushAlertsSent.${today}`]: now.toISOString() };
+      Object.keys(task.pushAlertsSent || {}).forEach(date => {
+        if (daysBetweenDateStrs(date, today) > 14) update[`pushAlertsSent.${date}`] = admin.firestore.FieldValue.delete();
+      });
+      await doc.ref.update(update);
+
       const sent = await sendPushToTokens(db, tokens, { title: 'Task reminder', body: task.summary || 'A task is still open' });
       console.log(`taskPushAlerts: task ${doc.id} alerted ${sent}/${tokens.length} device(s).`);
     }
