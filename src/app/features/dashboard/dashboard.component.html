@@ -198,6 +198,10 @@
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
       <ng-container *ngIf="calendarMenuView() === 'actions'">
+        <button mat-menu-item (click)="openSearchDialog()">
+          <mat-icon>search</mat-icon>
+          <span>Search</span>
+        </button>
         <button mat-menu-item (click)="openAddEventDialog()">
           <mat-icon>add</mat-icon>
           <span>Add item</span>
@@ -254,6 +258,7 @@
 
     <!-- All-day events band -->
     <app-task-lane
+      #taskLane
       [date]="viewDate()"
       (taskSelect)="selectEvent($event.event, $event.domEvent)"
       (taskToggle)="askTaskToggle($event.event, $event.domEvent)"></app-task-lane>
@@ -368,6 +373,8 @@
         <div
           *ngFor="let event of getAllDayEvents(); trackBy: trackByEventId"
           class="cal-allday-chip"
+          [attr.data-highlight-id]="event.id"
+          [attr.data-highlight-day]="toIsoDate(viewDate())"
           [style.--event-color]="getEventColor(event)"
           [class.stale-source]="event.source === 'outlook' ? outlookService.isStale() : event.source !== 'app' && calendarService.isStale()"
           [class.has-popover]="selectedEvent()?.id === event.id"
@@ -476,6 +483,8 @@
           </ng-container>
           <div
             class="cal-event-block"
+            [attr.data-highlight-id]="event.id"
+            [attr.data-highlight-day]="toIsoDate(viewDate())"
             *ngFor="let event of getTimedEvents(); trackBy: trackByEventId"
             [style.top.px]="event.topPosition * scaleFactor"
             [style.height.px]="event.isPointInTime ? null : event.actualHeight * scaleFactor"

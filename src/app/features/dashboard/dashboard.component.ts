@@ -18,8 +18,10 @@ import { GRAPH_EXPLORER_URL, OutlookTokenDialogComponent } from '../../component
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
-import { expandRecurringForDay, occurrenceKey, completionFor, isSnoozedOccurrence } from '../../utils/recurrence';
+import { toIsoDate, expandRecurringForDay, occurrenceKey, completionFor, isSnoozedOccurrence } from '../../utils/recurrence';
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
+import { CalendarSearchDialogComponent, CalendarSearchResult } from '../../components/calendar-search-dialog/calendar-search-dialog.component';
+import { highlightWhenPresent } from '../../utils/highlight';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GroceryService } from '../../services/grocery.service';
@@ -286,6 +288,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   notificationPromptDismissed = signal<boolean>(localStorage.getItem(NOTIFICATION_PROMPT_KEY) === 'true');
 
   
+  @ViewChild('taskLane') taskLane?: TaskLaneComponent;
   @ViewChild('dashboardTimeline', { read: ElementRef }) dashboardTimeline?: ElementRef;
   @ViewChild('chatContainer', { read: ElementRef }) chatContainer?: ElementRef;
   @ViewChild('homeChat', { read: ElementRef }) homeChat?: ElementRef<HTMLElement>;
@@ -1476,6 +1479,35 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   signInToCalendar(): void {
     this.calendarService.signIn();
   }
+
+  /** Opens the search dialog; picking an item jumps to its day (the next occurrence, for a repeating item) and flashes it. */
+  openSearchDialog(): void {
+    const dialogRef = this.dialog.open<CalendarSearchDialogComponent, unknown, CalendarSearchResult>(CalendarSearchDialogComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      data: { events: this.getSearchableEvents(), colorFor: (event: CalendarEvent) => this.getEventColor(event) }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (!result) return;
+      this.hasNavigatedAwayFromToday = true;
+      this.viewDate.set(result.date);
+      // The day's untimed tasks sit in the lane above the timeline, which the highlight can't reach while it's folded.
+      if (result.event.kind === 'task') this.taskLane?.expand();
+      highlightWhenPresent(result.event.id, 6000, toIsoDate(result.date));
+    });
+  }
+
+  /** Every item from every calendar, including ones switched off in "Choose calendars". */
+  private getSearchableEvents(): CalendarEvent[] {
+    return [
+      ...this.calendarService.events().map(event => ({ ...event, source: event.source ?? 'google' as const })),
+      ...this.outlookService.events(),
+      ...this.appCalendarEventService.events()
+    ];
+  }
+
+  toIsoDate = toIsoDate;
 
   /** Opens the add-event form, pre-filled to whatever day the timeline is currently showing. */
   openAddEventDialog(): void {

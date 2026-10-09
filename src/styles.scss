@@ -456,6 +456,11 @@ button.card-expand-btn.mat-mdc-icon-button {
   animation: deep-link-flash 3s ease-out;
 }
 
+/* A timeline event's outer block is a square positioning shell; match its body's rounded corners (5px) so the ring follows them. */
+.cal-event-block.deep-link-highlight {
+  border-radius: 5px;
+}
+
 @keyframes deep-link-flash {
   0%, 35% {
     box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary, #5a8a6a) 70%, transparent);

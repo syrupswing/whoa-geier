@@ -96,6 +96,22 @@ export function expandRecurringForDay(events: CalendarEvent[], dayStart: Date, d
   return out;
 }
 
+/**
+ * The day an item is next on the calendar from `from` on: a repeating item's next occurrence
+ * (its first one if the series hasn't started), a one-off item's own first day. Null when a
+ * repeating item has no occurrence in the next few years.
+ */
+export function nextOccurrenceOnOrAfter(event: CalendarEvent, from: Date): Date | null {
+  const seriesStart = firstDay(event);
+  if (!event.repeat) return seriesStart;
+  const day = startOfDay(from);
+  for (let i = 0; i <= 366 * 3; i++) {
+    const candidate = new Date(day.getFullYear(), day.getMonth(), day.getDate() + i);
+    if (occurrenceStartsOn(seriesStart, event.repeat, candidate)) return candidate;
+  }
+  return null;
+}
+
 /** The key a task's completion is stored under: the date its occurrence starts on. */
 export function occurrenceKey(event: CalendarEvent): string {
   return event.occurrenceDate ?? toIsoDate(firstDay(event));

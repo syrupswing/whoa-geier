@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { CalendarEvent } from '../../services/google-calendar.service';
-import { buildSnoozedTasks, buildTaskChecklist, occurrenceKey, SnoozedTaskRow, TaskChecklistRow } from '../../utils/recurrence';
+import { buildSnoozedTasks, buildTaskChecklist, occurrenceKey, toIsoDate, SnoozedTaskRow, TaskChecklistRow } from '../../utils/recurrence';
 import { formatSnoozeEnd } from '../../utils/snooze';
 
 /** A click on a task, with the DOM event so the host can anchor a popover to what was clicked. */
@@ -55,6 +55,7 @@ export class TaskLaneComponent {
   );
   showSnoozed = signal(false);
   openCount = computed(() => this.rows().filter(r => !r.done).length);
+  dayIso = computed(() => toIsoDate(this.date()));
   isToday = computed(() => new Date().toDateString() === this.date().toDateString());
 
   private static loadCollapsed(): boolean {
@@ -64,6 +65,11 @@ export class TaskLaneComponent {
       // localStorage unavailable (e.g. private browsing) — just start expanded
       return false;
     }
+  }
+
+  /** Unfolds the lane for this visit only (the saved fold preference is left alone). */
+  expand(): void {
+    this.collapsed.set(false);
   }
 
   toggleCollapsed(): void {

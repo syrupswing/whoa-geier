@@ -64,6 +64,10 @@
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
       <ng-container *ngIf="calendarMenuView() === 'actions'">
+        <button mat-menu-item (click)="openSearchDialog()">
+          <mat-icon>search</mat-icon>
+          <span>Search</span>
+        </button>
         <button mat-menu-item (click)="openAddEventDialog()">
           <mat-icon>add</mat-icon>
           <span>Add item</span>
@@ -146,6 +150,8 @@
           <ng-template #taskItems>
             <div
               class="cal-week-task"
+              [attr.data-highlight-id]="row.event.id"
+              [attr.data-highlight-day]="toIsoDate(entry.day)"
               *ngFor="let row of entry.rows; trackBy: trackByTaskRow"
               [class.carried]="row.daysOverdue > 0"
               (click)="selectEvent(row.event, $event)">
@@ -169,6 +175,7 @@
             *ngFor="let event of getAllDayNonTaskEventsForDay(day); trackBy: trackByEventId"
             class="cal-allday-chip cal-allday-chip--compact"
             [attr.data-highlight-id]="event.id"
+            [attr.data-highlight-day]="toIsoDate(day)"
             [style.--event-color]="getEventColor(event)"
             [class.stale-source]="event.source === 'outlook' ? outlookService.isStale() : event.source !== 'app' && calendarService.isStale()"
             [class.has-popover]="selectedEvent()?.id === event.id"
@@ -213,6 +220,7 @@
               <div
                 class="cal-event-block"
                 [attr.data-highlight-id]="event.id"
+                [attr.data-highlight-day]="toIsoDate(day)"
                 *ngFor="let event of getTimedEventsForDay(day); trackBy: trackByEventId"
                 [style.top.px]="event.topPosition"
                 [style.height.px]="event.isPointInTime ? null : event.height"

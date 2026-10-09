@@ -17,12 +17,13 @@ import { OutlookCalendarService } from '../../services/outlook-calendar.service'
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { highlightWhenPresent } from '../../utils/highlight';
-import { buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
+import { toIsoDate, buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
+import { CalendarSearchDialogComponent, CalendarSearchResult } from '../../components/calendar-search-dialog/calendar-search-dialog.component';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 
 interface TimelineEvent extends CalendarEvent {
@@ -245,6 +246,33 @@ export class CalendarComponent implements OnInit, OnDestroy {
         this.snackBar.open('Failed to add item', 'Close', { duration: 3000 });
       }
     });
+  }
+
+  /** Opens the search dialog; picking an item jumps to its day (the next occurrence, for a repeating item) and flashes it. */
+  openSearchDialog(): void {
+    const dialogRef = this.dialog.open<CalendarSearchDialogComponent, unknown, CalendarSearchResult>(CalendarSearchDialogComponent, {
+      width: '560px',
+      maxWidth: '95vw',
+      data: { events: this.getSearchableEvents(), colorFor: (event: CalendarEvent) => this.getEventColor(event) }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (!result) return;
+      this.hasNavigatedAwayFromToday = true;
+      this.currentDate.set(result.date);
+      // The week's untimed tasks live in the band above, which the highlight can't reach while it's folded.
+      if (result.event.kind === 'task' && this.isAllDayEvent(result.event)) this.tasksCollapsed.set(false);
+      highlightWhenPresent(result.event.id, 6000, toIsoDate(result.date));
+    });
+  }
+
+  /** Every item from every calendar, including ones switched off in "Choose calendars". */
+  private getSearchableEvents(): CalendarEvent[] {
+    return [
+      ...this.calendarService.events().map(event => ({ ...event, source: event.source ?? 'google' as const })),
+      ...this.outlookService.events(),
+      ...this.appCalendarEventService.events()
+    ];
   }
 
   /** Opens the edit form for an app-native event (Google-synced events aren't editable here). */
@@ -549,6 +577,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
     }
   }
 
+  toIsoDate = toIsoDate;
   externalEditUrl = externalEditUrl;
   externalEditLabel = externalEditLabel;
 
