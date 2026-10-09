@@ -237,6 +237,13 @@ service cloud.firestore {
       allow read, write: if isAuthenticated() && request.auth.uid == uid;
     }
 
+    // Push-notification device tokens, keyed by the FCM token. A device saves its own token
+    // stamped with the signed-in uid (so a private alert can go to just that person's devices);
+    // only the server reads them, so there's no client read.
+    match /fcm-tokens/{token} {
+      allow create, update: if isAuthenticated() && request.resource.data.get('uid', null) == request.auth.uid;
+    }
+
     // Default: deny all access unless explicitly granted above
     match /{document=**} {
       allow read, write: if false;
