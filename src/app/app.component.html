@@ -11,9 +11,10 @@
 <!-- Show main app when authenticated and not loading -->
 <div class="app-shell" *ngIf="authService.isAuthenticated() && !authService.isLoading()"
      [class.drawer-open]="drawer.isOpen()"
-     [class.dragging]="drawer.dragging()">
+     [class.dragging]="drawer.dragging()"
+     appDrawerGesture>
 <app-sidenav class="sidenav"></app-sidenav>
-<div class="app-container" #appContainer appDrawerGesture (click)="onContainerClick($event)">
+<div class="app-container" #appContainer (click)="onContainerClick($event)">
   <!-- inert while the drawer is open: keeps keyboard focus and screen readers in the drawer. The container itself stays live so a tap or drag on it can close the drawer. -->
   <div class="content" [attr.inert]="drawer.isOpen() ? '' : null">
     <router-outlet></router-outlet>

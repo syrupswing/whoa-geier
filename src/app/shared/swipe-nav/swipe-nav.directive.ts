@@ -20,7 +20,8 @@ const IGNORED_TARGETS = 'input, textarea, select, button, a, .cal-popover, [data
 @Directive({
   selector: '[appSwipeNav]',
   standalone: true,
-  host: { '[style.touch-action]': "'pan-y pinch-zoom'" }
+  // data-swipe-nav tells the navigation drawer's gesture that this region already uses sideways swipes.
+  host: { '[style.touch-action]': "'pan-y pinch-zoom'", 'data-swipe-nav': '' }
 })
 export class SwipeNavDirective {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
