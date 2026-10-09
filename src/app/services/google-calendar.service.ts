@@ -14,6 +14,12 @@ export type CalendarItemKind = 'event' | 'task';
 export interface RepeatRule {
   unit: 'day' | 'week' | 'month';
   interval: number;
+  /**
+   * All-day tasks only. 'schedule': a fixed schedule where a missed occurrence is simply dropped.
+   * 'rolling': stays on the list until done, then comes back one interval after it was completed.
+   * Unset on an existing all-day task counts as 'rolling' (they've always carried over until done).
+   */
+  mode?: 'schedule' | 'rolling';
 }
 
 /** One recorded completion of a task occurrence. */

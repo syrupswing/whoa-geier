@@ -13,6 +13,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { CalendarEvent, CalendarItemKind, RepeatRule } from '../../services/google-calendar.service';
+import { ConfirmService } from '../confirm-dialog/confirm-dialog.component';
 import { HouseholdService } from '../../services/household.service';
 import { AuthService } from '../../services/auth.service';
 import { TimeFieldComponent } from '../time-field/time-field.component';
@@ -198,6 +199,18 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             </mat-form-field>
           </div>
           <p class="kind-hint">{{ repeatSummary() }}</p>
+          <ng-container *ngIf="formData.itemKind === 'task' && !formData.hasTime">
+            <mat-radio-group class="kind-group" name="repeatMode" [(ngModel)]="formData.repeatMode">
+              <mat-radio-button value="schedule">Skip it if missed</mat-radio-button>
+              <mat-radio-button value="rolling">Keep until done</mat-radio-button>
+            </mat-radio-group>
+            <p class="kind-hint" *ngIf="formData.repeatMode === 'rolling'">
+              Stays on your list until it is done, then comes back after the day you complete it, not on a fixed day.
+            </p>
+            <p class="kind-hint" *ngIf="formData.repeatMode !== 'rolling'">
+              Stays on its fixed schedule. A missed one is dropped and does not carry over.
+            </p>
+          </ng-container>
         </ng-container>
 
         <ng-container *ngIf="formData.itemKind === 'task'">
@@ -479,6 +492,8 @@ export class CalendarEventDialogComponent {
     repeats: boolean;
     repeatInterval: number;
     repeatUnit: RepeatUnit;
+    /** All-day tasks only: what a missed occurrence does (see RepeatRule.mode). */
+    repeatMode: 'schedule' | 'rolling';
     memberId: string | null;
     scope: Scope;
     /** "HH:mm" for a task's not-done-yet push alert, or null for none. */
@@ -489,7 +504,8 @@ export class CalendarEventDialogComponent {
     public dialogRef: MatDialogRef<CalendarEventDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: CalendarEventDialogData,
     public householdService: HouseholdService,
-    private authService: AuthService
+    private authService: AuthService,
+    private confirmService: ConfirmService
   ) {
     const event = data.event;
     if (event) {
@@ -519,6 +535,7 @@ export class CalendarEventDialogComponent {
         repeats: !!event.repeat,
         repeatInterval: event.repeat?.interval ?? 1,
         repeatUnit: event.repeat?.unit ?? 'week',
+        repeatMode: event.repeat?.mode ?? (event.kind === 'task' && !event.start.dateTime ? 'rolling' : 'schedule'),
         memberId: event.memberId ?? null,
         scope: event.isPrivate ? 'private' : 'family',
         pushAlertTime: event.pushAlertTime ?? null
@@ -541,6 +558,7 @@ export class CalendarEventDialogComponent {
         repeats: false,
         repeatInterval: 1,
         repeatUnit: 'week',
+        repeatMode: 'schedule',
         memberId: this.householdService.myMemberId(),
         scope: 'private',
         pushAlertTime: null
@@ -633,9 +651,24 @@ export class CalendarEventDialogComponent {
     const n = Number(repeatInterval);
     if (!startDate || !n || n < 1) return '';
     const every = n === 1 ? `every ${repeatUnit}` : `every ${n} ${repeatUnit}s`;
+    if (this.isRollingTask()) return `Repeats ${every}, counted from when it's completed.`;
     if (repeatUnit === 'week') return `Repeats ${every} on ${WEEKDAY_NAMES[startDate.getDay()]}.`;
     if (repeatUnit === 'month') return `Repeats ${every} on day ${startDate.getDate()}.`;
     return `Repeats ${every}.`;
+  }
+
+  /** An all-day task set to stay until done and then restart its interval from completion. */
+  isRollingTask(): boolean {
+    const f = this.formData;
+    return f.itemKind === 'task' && !f.hasTime && f.repeatMode === 'rolling';
+  }
+
+  /** The repeat rule to save. Only an all-day task records a mode — events and timed tasks always follow a fixed schedule. */
+  private buildRepeatRule(): RepeatRule {
+    const f = this.formData;
+    const rule: RepeatRule = { unit: f.repeatUnit, interval: Number(f.repeatInterval) };
+    if (f.itemKind === 'task' && !f.hasTime) rule.mode = f.repeatMode;
+    return rule;
   }
 
   isValid(): boolean {
@@ -660,8 +693,14 @@ export class CalendarEventDialogComponent {
     this.dialogRef.close(result);
   }
 
-  onDelete(): void {
-    if (!confirm(`Delete "${this.formData.title || 'this item'}"?`)) return;
+  async onDelete(): Promise<void> {
+    const kind = this.formData.itemKind === 'task' ? 'task' : 'event';
+    const confirmed = await this.confirmService.confirm({
+      title: `Delete this ${kind}?`,
+      message: `"${this.formData.title || 'Untitled'}" will be removed${this.formData.repeats ? ', along with all its repeats' : ''}.`,
+      destructive: true
+    });
+    if (!confirmed) return;
     const result: CalendarEventDialogResult = { action: 'delete' };
     this.dialogRef.close(result);
   }
@@ -774,7 +813,7 @@ export class CalendarEventDialogComponent {
     this.setOptionalField(result, 'memberId', f.memberId as string, !!f.memberId, isEdit);
     this.setOptionalField(result, 'pushAlertTime', f.pushAlertTime as string, f.itemKind === 'task' && !!f.pushAlertTime, isEdit);
     this.setOptionalField(
-      result, 'repeat', { unit: f.repeatUnit, interval: Number(f.repeatInterval) }, f.repeats, isEdit
+      result, 'repeat', this.buildRepeatRule(), f.repeats, isEdit
     );
 
     return result;

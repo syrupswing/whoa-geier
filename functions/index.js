@@ -1307,6 +1307,37 @@ function occurrenceStartsOnDate(startStr, rule, dayStr) {
   return false;
 }
 
+/** A "YYYY-MM-DD" date plus one repeat interval (a month-end clamps to the shorter month's last day). */
+function addIntervalToDateStr(dateStr, rule) {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  const n = Math.max(1, Math.floor(rule.interval) || 1);
+  let date;
+  if (rule.unit === 'month') {
+    const lastOfMonth = new Date(Date.UTC(y, m - 1 + n + 1, 0)).getUTCDate();
+    date = new Date(Date.UTC(y, m - 1 + n, Math.min(d, lastOfMonth)));
+  } else {
+    date = new Date(Date.UTC(y, m - 1, d + (rule.unit === 'week' ? 7 * n : n)));
+  }
+  return date.toISOString().slice(0, 10);
+}
+
+/**
+ * The date a task's open occurrence is due, or null if it has none. Mirrors the app's checklist:
+ * an all-day repeat set to "keep until done" (the default for older ones) has one open occurrence,
+ * due one interval after it was last completed; any other repeat follows its fixed schedule.
+ */
+function taskDueDate(task, startStr, today) {
+  if (!task.repeat) return startStr;
+  const rolling = !task.start?.dateTime && (task.repeat.mode ?? 'rolling') === 'rolling';
+  if (rolling) {
+    const completions = Object.values(task.completions || {}).filter(c => c && c.at);
+    if (!completions.length) return startStr;
+    const latest = completions.reduce((a, b) => (new Date(a.at) > new Date(b.at) ? a : b));
+    return addIntervalToDateStr(toDateStr(new Date(latest.at)), task.repeat);
+  }
+  return occurrenceStartsOnDate(startStr, task.repeat, today) ? today : null;
+}
+
 /** FCM tokens for one account's devices, or for every device when uid is null. */
 async function fcmTokensFor(db, uid) {
   const ref = db.collection('fcm-tokens');
@@ -1349,8 +1380,9 @@ exports.taskPushAlerts = onSchedule(
 
       const startStr = task.start?.dateTime ? toDateStr(new Date(task.start.dateTime)) : task.start?.date;
       if (!startStr) continue;
-      const dueToday = task.repeat ? occurrenceStartsOnDate(startStr, task.repeat, today) : startStr === today;
-      if (!dueToday) continue;
+      // The occurrence's key is the date it's due; only alert on that day.
+      const dueDate = taskDueDate(task, startStr, today);
+      if (dueDate !== today) continue;
 
       if (task.completions?.[today]) continue;
       if (task.snoozes?.[today] && new Date(task.snoozes[today]) > now) continue;

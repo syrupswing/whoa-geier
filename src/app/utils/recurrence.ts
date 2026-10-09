@@ -125,48 +125,108 @@ export interface TaskChecklistRow {
   daysOverdue: number;
 }
 
-/** How far back a repeating task is searched for an unfinished occurrence to carry over. */
-const CARRY_LOOKBACK_DAYS = 60;
-
 /** The occurrence of a (single-day) task that falls on `day`, if any. */
 function taskOccurrenceOn(task: CalendarEvent, day: Date): CalendarEvent | null {
   const occurrence = expandRecurringForDay([task], day, day)[0];
   return occurrence && toIsoDate(firstDay(occurrence)) === toIsoDate(day) ? occurrence : null;
 }
 
-/** The most recent unfinished occurrence of a task before `today`. */
-function latestOpenBefore(task: CalendarEvent, today: Date, now: Date): CalendarEvent | null {
-  if (!task.repeat) {
-    return firstDay(task) < today && !completionFor(task) && !isSnoozedOccurrence(task, now) ? task : null;
+/**
+ * How a repeating task treats a missed occurrence. Only all-day tasks can be 'rolling' (keep it
+ * until it's done, then repeat one interval after it was completed); everything else follows its
+ * fixed schedule and a missed occurrence is dropped.
+ */
+export function taskRepeatMode(task: CalendarEvent): 'schedule' | 'rolling' {
+  if (!task.repeat || task.start.dateTime) return 'schedule';
+  return task.repeat.mode ?? 'rolling';
+}
+
+/** A day plus one repeat interval (a month-end clamps to the shorter month's last day). */
+function addInterval(day: Date, rule: RepeatRule): Date {
+  const n = Math.max(1, Math.floor(rule.interval) || 1);
+  if (rule.unit === 'month') {
+    const target = new Date(day.getFullYear(), day.getMonth() + n, 1);
+    const lastOfMonth = new Date(target.getFullYear(), target.getMonth() + 1, 0).getDate();
+    return new Date(target.getFullYear(), target.getMonth(), Math.min(day.getDate(), lastOfMonth));
   }
-  for (let back = 1; back <= CARRY_LOOKBACK_DAYS; back++) {
-    const occurrence = taskOccurrenceOn(task, new Date(today.getFullYear(), today.getMonth(), today.getDate() - back));
-    if (occurrence && !completionFor(occurrence) && !isSnoozedOccurrence(occurrence, now)) return occurrence;
-  }
-  return null;
+  return new Date(day.getFullYear(), day.getMonth(), day.getDate() + (rule.unit === 'week' ? 7 * n : n));
+}
+
+/** A rolling task's occurrence dated to `day`. */
+function occurrenceOn(task: CalendarEvent, day: Date): CalendarEvent {
+  return { ...task, ...shiftDays(task, daysBetween(firstDay(task), day)), occurrenceDate: toIsoDate(day) };
+}
+
+/** The day a rolling task is next due: its first day until it's completed, then one interval after the latest completion. */
+function rollingDueDay(task: CalendarEvent): Date {
+  const completions = Object.values(task.completions ?? {});
+  if (!completions.length) return firstDay(task);
+  const latest = completions.reduce((a, b) => (new Date(a.at) > new Date(b.at) ? a : b));
+  return addInterval(startOfDay(new Date(latest.at)), task.repeat!);
 }
 
 /**
- * The checklist for one calendar day: that day's tasks with no specific time (time-specific ones
- * sit on the timeline), plus — on today — every unfinished task from earlier days, carried over
- * until it's ticked off. A repeating task carries over only its most recent unfinished occurrence.
+ * The checklist for one calendar day. Its tasks are the all-day ones due that day (time-specific
+ * ones sit on the timeline), plus:
+ * - a task completed that day, shown checked off there even if it was due on another day, so it
+ *   can be un-completed from the day it was done (a fixed-schedule repeat stays on its own day);
+ * - on today, every unfinished one-off task from earlier days, carried over until it's ticked off;
+ * - a rolling repeat has just one open occurrence, due one interval after it was last completed,
+ *   and it's carried over once it's overdue. A fixed-schedule repeat isn't carried over.
  */
 export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date = new Date()): TaskChecklistRow[] {
   const dayStart = startOfDay(day);
+  const dayIso = toIsoDate(dayStart);
   const today = startOfDay(now);
-  const isToday = toIsoDate(dayStart) === toIsoDate(today);
+  const isToday = dayIso === toIsoDate(today);
   const carried: TaskChecklistRow[] = [];
   const onDay: TaskChecklistRow[] = [];
 
   for (const task of events) {
     if (task.kind !== 'task') continue;
-    if (!task.start.dateTime) {
-      const occurrence = taskOccurrenceOn(task, dayStart);
-      if (occurrence && !isSnoozedOccurrence(occurrence, now)) onDay.push({ event: occurrence, done: !!completionFor(occurrence), daysOverdue: 0 });
+    const mode = taskRepeatMode(task);
+    const timed = !!task.start.dateTime;
+    const movable = !task.repeat || mode === 'rolling';
+
+    // Open (or fixed-schedule) rows dated to this day.
+    if (!timed) {
+      if (mode === 'rolling') {
+        const due = rollingDueDay(task);
+        const occurrence = occurrenceOn(task, due);
+        if (!completionFor(occurrence) && !isSnoozedOccurrence(occurrence, now)) {
+          if (toIsoDate(due) === dayIso) onDay.push({ event: occurrence, done: false, daysOverdue: 0 });
+          else if (isToday && due < today) carried.push({ event: occurrence, done: false, daysOverdue: daysBetween(due, today) });
+        }
+      } else {
+        const occurrence = taskOccurrenceOn(task, dayStart);
+        if (occurrence && !isSnoozedOccurrence(occurrence, now)) {
+          const completion = completionFor(occurrence);
+          // A one-off completed on another day is listed there instead.
+          const movedAway = completion && movable && toIsoDate(startOfDay(new Date(completion.at))) !== dayIso;
+          if (!movedAway) onDay.push({ event: occurrence, done: !!completion, daysOverdue: 0 });
+        }
+      }
     }
-    if (isToday) {
-      const open = latestOpenBefore(task, today, now);
-      if (open) carried.push({ event: open, done: false, daysOverdue: daysBetween(firstDay(open), today) });
+
+    if (!task.repeat) {
+      // An unfinished one-off carries over to today until it's ticked off.
+      if (isToday && firstDay(task) < today && !completionFor(task) && !isSnoozedOccurrence(task, now)) {
+        carried.push({ event: task, done: false, daysOverdue: daysBetween(firstDay(task), today) });
+      }
+    }
+
+    // Completed on this day but due on another — checked off here.
+    if (movable) {
+      for (const [key, completion] of Object.entries(task.completions ?? {})) {
+        if (toIsoDate(startOfDay(new Date(completion.at))) !== dayIso) continue;
+        if (!task.repeat) {
+          // A one-off completed on its own day is already listed there (all-day) or on the timeline (timed).
+          if (key === dayIso) continue;
+          onDay.push({ event: task, done: true, daysOverdue: 0 });
+        } else if (mode === 'rolling' && !timed) {
+          onDay.push({ event: occurrenceOn(task, parseIso(key)), done: true, daysOverdue: 0 });
+        }
+      }
     }
   }
 
