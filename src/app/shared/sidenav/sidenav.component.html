@@ -1,0 +1,28 @@
+<nav class="sidenav-inner" aria-label="Main navigation">
+  <div class="sidenav-brand">
+    <img src="assets/WG-no-bg-sage.svg" alt="" class="brand-logo">
+    <span class="brand-name">Whoa Geier</span>
+    <!-- Below desktop width the page's own hamburger slides away with the page, so the drawer carries one at the page's edge. -->
+    <button type="button" mat-icon-button class="drawer-close" aria-label="Close navigation menu" (click)="drawer.close()">
+      <mat-icon>arrow_menu_close</mat-icon>
+    </button>
+  </div>
+
+  <ul class="nav-list">
+    <li *ngFor="let item of items">
+        <a class="nav-item"
+           [routerLink]="item.path"
+           routerLinkActive="active"
+           [routerLinkActiveOptions]="{ exact: item.path === '/' }"
+           (click)="drawer.close()">
+          <mat-icon>{{ item.icon }}</mat-icon>
+          <span>{{ item.label }}</span>
+        </a>
+    </li>
+  </ul>
+
+  <button type="button" class="nav-item sign-out" (click)="signOut()">
+    <mat-icon>logout</mat-icon>
+    <span>Sign out</span>
+  </button>
+</nav>

@@ -1,0 +1,79 @@
+:host {
+  display: block;
+  background: var(--color-surface, #fff);
+}
+
+.sidenav-inner {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: calc(16px + var(--app-safe-area-top, env(safe-area-inset-top, 0px))) 12px
+    calc(16px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
+  overflow-y: auto;
+}
+
+.sidenav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 0 20px 8px;
+  color: var(--color-void-indigo);
+  font-size: 18px;
+  font-weight: 600;
+
+  .brand-logo { width: 32px; height: 32px; }
+}
+
+// Same look as the page header's hamburger, at the right end of the row (the page's edge).
+.drawer-close {
+  margin-left: auto;
+  flex: none;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid color-mix(in srgb, var(--mat-sys-primary) 45%, transparent);
+  color: var(--color-void-indigo);
+
+  mat-icon { color: var(--color-void-indigo); }
+
+  @media (min-width: 1024px) { display: none; }
+}
+
+.nav-list {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+  flex: 1;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-size: 15px;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+
+  mat-icon { color: var(--color-void-indigo); }
+
+  &:hover { background: color-mix(in srgb, var(--mat-sys-primary) 8%, transparent); }
+
+  &.active {
+    background: color-mix(in srgb, var(--mat-sys-primary) 16%, transparent);
+    font-weight: 600;
+  }
+}
+
+.sign-out {
+  border-top: 1px solid rgba(0, 0, 0, 0.08);
+  margin-top: auto;
+}

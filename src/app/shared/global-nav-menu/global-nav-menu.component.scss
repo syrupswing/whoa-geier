@@ -1,11 +1,20 @@
 :host {
   display: inline-flex;
-  margin-left: auto;
+  // First in the header row, ahead of the logo, on the same side the drawer slides out from.
+  order: -1;
   // Reserves the button's footprint in the header, so the layout doesn't change when the
   // button itself is pinned to the top of the screen (see .stuck below).
   flex: none;
   width: 46px;
   height: 46px;
+  transition: opacity 0.2s ease;
+}
+
+// While the drawer is open its own hamburger takes over; this one keeps its place in the header
+// (so nothing shifts) but is hidden.
+:host(.drawer-open) {
+  visibility: hidden;
+  opacity: 0;
 }
 
 .global-nav-btn {
@@ -34,5 +43,12 @@
 
   mat-icon {
     color: var(--color-void-indigo);
+  }
+}
+
+// At desktop widths the sidebar is always on screen, so the button has nothing to open.
+@media (min-width: 1024px) {
+  :host {
+    display: none;
   }
 }

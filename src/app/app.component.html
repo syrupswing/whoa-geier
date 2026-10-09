@@ -9,13 +9,18 @@
 </div>
 
 <!-- Show main app when authenticated and not loading -->
-<div class="app-container" #appContainer *ngIf="authService.isAuthenticated() && !authService.isLoading()">
-  <div class="content">
+<div class="app-shell" *ngIf="authService.isAuthenticated() && !authService.isLoading()"
+     [class.drawer-open]="drawer.isOpen()"
+     [class.dragging]="drawer.dragging()">
+<app-sidenav class="sidenav"></app-sidenav>
+<div class="app-container" #appContainer appDrawerGesture (click)="onContainerClick($event)">
+  <!-- inert while the drawer is open: keeps keyboard focus and screen readers in the drawer. The container itself stays live so a tap or drag on it can close the drawer. -->
+  <div class="content" [attr.inert]="drawer.isOpen() ? '' : null">
     <router-outlet></router-outlet>
   </div>
   
   <!-- Floating AI Chat -->
-  <div class="floating-chat" *ngIf="showChat()" [@slideUp]>
+  <div class="floating-chat" *ngIf="showChat()" [@slideUp] [attr.inert]="drawer.isOpen() ? '' : null">
     <div class="chat-header">
       <img src="assets/icons/sparkle.svg" alt="AI" class="chat-header-icon">
       <h3>AI Assistant</h3>
@@ -85,4 +90,5 @@
     matTooltip="AI Assistant">
     <img src="assets/icons/sparkle.svg" alt="AI" class="toggle-icon">
   </button> -->
+</div>
 </div>

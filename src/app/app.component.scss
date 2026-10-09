@@ -9,8 +9,69 @@
   min-height: 100dvh;
   height: 100dvh;
   width: 100%;
+  flex: 1;
+  min-width: 0;
   overflow-y: auto;
   background-color: var(--color-background);
+}
+
+// Navigation sits on the left. At desktop widths it is a fixed sidebar beside the page; below
+// that it is a drawer underneath the page, which slides right to reveal it (and is dragged by touch).
+.app-shell {
+  --drawer-travel: 90vw;
+  position: relative;
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.app-shell > .sidenav {
+  position: relative;
+  z-index: 2;
+  flex: none;
+  width: 248px;
+  height: 100dvh;
+  border-right: 1px solid rgba(0, 0, 0, 0.08);
+}
+
+@media (max-width: 1023px) {
+  .app-shell > .sidenav {
+    position: absolute;
+    inset: 0 auto 0 0;
+    z-index: 0;
+    width: var(--drawer-travel);
+    border-right: 0;
+    visibility: hidden;
+    // Stays hidden from tabbing/screen readers once the page has slid back over it.
+    transition: visibility 0s linear 0.28s;
+  }
+
+  .app-shell.drawer-open > .sidenav,
+  .app-shell.dragging > .sidenav {
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .app-shell > .app-container {
+    position: relative;
+    z-index: 1;
+    transition: transform 0.28s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.28s ease;
+  }
+
+  .app-shell.drawer-open > .app-container,
+  .app-shell.dragging > .app-container {
+    box-shadow: -8px 0 28px rgba(26, 10, 46, 0.28);
+  }
+
+  .app-shell.drawer-open > .app-container {
+    transform: translateX(var(--drawer-travel));
+    overflow-y: hidden;
+  }
+
+  // The visible strip of page is an overlay, not interactive: a tap on it closes the drawer.
+  .app-shell.drawer-open > .app-container > * {
+    pointer-events: none;
+  }
 }
 
 .app-container::before {
@@ -842,6 +903,11 @@
 // screen. After the on-screen keyboard closes, iOS leaves 100dvh stuck about 59px short (the height of
 // the status bar), which left a blank strip at the bottom — 100lvh never changes, so size by that.
 @mixin standalone-viewport {
+  .app-shell,
+  .app-shell > .sidenav {
+    height: 100lvh;
+  }
+
   .app-container {
     height: 100lvh;
     min-height: 100lvh;

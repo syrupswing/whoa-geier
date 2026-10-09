@@ -13,6 +13,9 @@ import { AuthService } from './services/auth.service';
 import { LoadingAnimationComponent } from './components/loading-animation/loading-animation.component';
 import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
+import { SidenavComponent } from './shared/sidenav/sidenav.component';
+import { DrawerGestureDirective } from './shared/nav-drawer/drawer-gesture.directive';
+import { NavDrawerService } from './shared/nav-drawer/nav-drawer.service';
 import { TypewriterDirective } from './shared/typewriter/typewriter.directive';
 
 interface ChatMessage {
@@ -35,7 +38,9 @@ interface ChatMessage {
     MatFormFieldModule,
     MatInputModule,
     FormsModule,
-    TypewriterDirective
+    TypewriterDirective,
+    SidenavComponent,
+    DrawerGestureDirective
   ],
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.scss'],
@@ -67,7 +72,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
     private router: Router,
     public authService: AuthService,
     private aiOrchestrator: AiOrchestratorService,
-    public pushNotificationService: PushNotificationService
+    public pushNotificationService: PushNotificationService,
+    public drawer: NavDrawerService
   ) {
     // Redirect to dashboard if authenticated and on login page
     effect(() => {
@@ -82,10 +88,17 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.router.events.subscribe(event => {
       if (event instanceof NavigationEnd) {
         this.appContainer?.nativeElement.scrollTo({ top: 0 });
+        this.drawer.close();
       }
     });
   }
   
+  /** While the drawer is open the page is inert (see .app-shell.drawer-open), so a tap on it lands here and closes the drawer. */
+  onContainerClick(event: MouseEvent): void {
+    // Only a tap on the container itself: a click that bubbled up from a child (the hamburger that just opened the drawer) isn't one.
+    if (event.target === event.currentTarget && this.drawer.isOpen()) this.drawer.close();
+  }
+
   ngOnInit(): void {
     // Initialize push notifications (no-op on unsupported browsers)
     this.pushNotificationService.initialize();

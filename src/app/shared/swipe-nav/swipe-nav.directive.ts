@@ -1,3 +1,4 @@
+import { NavDrawerService } from '../nav-drawer/nav-drawer.service';
 import { Directive, ElementRef, EventEmitter, HostListener, Input, Output, inject } from '@angular/core';
 
 /** Farthest-left/right strip of the screen where a touch is left alone (iOS uses it for "go back"). */
@@ -23,6 +24,7 @@ const IGNORED_TARGETS = 'input, textarea, select, button, a, .cal-popover, [data
 })
 export class SwipeNavDirective {
   private host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private drawer = inject(NavDrawerService);
 
   @Output() swipePrev = new EventEmitter<void>();
   @Output() swipeNext = new EventEmitter<void>();
@@ -37,7 +39,8 @@ export class SwipeNavDirective {
     const target = event.target as Element | null;
     const nearEdge = touch && (touch.clientX < EDGE_GUARD_PX || touch.clientX > window.innerWidth - EDGE_GUARD_PX);
     // A second finger (pinch) or a start on an interactive control means this isn't a swipe.
-    this.start = event.touches.length !== 1 || nearEdge || target?.closest(IGNORED_TARGETS)
+    // A touch that began at the left edge belongs to the navigation drawer's open gesture.
+    this.start = event.touches.length !== 1 || nearEdge || this.drawer.gestureClaimed || target?.closest(IGNORED_TARGETS)
       ? null
       : { x: touch.clientX, y: touch.clientY, time: Date.now() };
   }
