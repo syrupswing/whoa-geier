@@ -86,6 +86,11 @@ const BRIEFING_TARGET_LABELS: Record<BriefingRefreshTarget, string> = {
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
 const CHAT_MESSAGES_KEY = 'dashboardChatMessages';
+/**
+ * The home chat starts empty each visit: no restored history, and the daily briefing isn't posted
+ * into it. Flip to bring the briefing blurb (and its refresh controls) back as the chat's first message.
+ */
+const SHOW_DAILY_BRIEFING_IN_CHAT = false;
 
 /** Playful loading phrases typed out on the hero heading before it settles on the real greeting. */
 const HERO_LOADING_PHRASES = [
@@ -184,20 +189,12 @@ function pickRandomHeroPhrase(): string {
   return HERO_LOADING_PHRASES[Math.floor(Math.random() * HERO_LOADING_PHRASES.length)];
 }
 
-/** Restores chat history saved by a previous visit so navigating away and back doesn't lose it. */
-function loadPersistedChatMessages(): ChatMessage[] {
+/** Earlier versions saved the chat between visits; that history is no longer restored, so drop what's still stored. */
+function discardPersistedChatMessages(): void {
   try {
-    const raw = localStorage.getItem(CHAT_MESSAGES_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw) as { text: string; isUser: boolean; timestamp: string; briefingDate?: string }[];
-    const today = new Date().toLocaleDateString('en-CA');
-    return parsed
-      // A daily briefing blurb from an earlier day is obsolete — today's replaces it.
-      .filter(message => !message.briefingDate || message.briefingDate === today)
-      // Already shown in a previous visit — render instantly rather than replaying the typewriter.
-      .map(message => ({ ...message, timestamp: new Date(message.timestamp), instant: true }));
+    localStorage.removeItem(CHAT_MESSAGES_KEY);
   } catch {
-    return [];
+    // localStorage unavailable (e.g. private browsing) — nothing to clear
   }
 }
 
@@ -246,7 +243,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   showWeatherWidget = false;
   
   // AI Chat properties
-  chatMessages = signal<ChatMessage[]>(loadPersistedChatMessages());
+  chatMessages = signal<ChatMessage[]>([]);
   chatInput = '';;
   isChatLoading = signal(false);
   /** Which panel the calendar header's kebab menu shows: its actions, or the calendar checkboxes. */
@@ -315,10 +312,13 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   ) {
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
 
+    discardPersistedChatMessages();
+
     // Keeps the auto-posted briefing blurb current: the clock moving on, fresh weather, or a
     // refreshed briefing all re-evaluate what's still ahead. Rewriting is a no-op when the
     // text comes out the same, so the once-a-minute clock tick is cheap.
     effect(() => {
+      if (!SHOW_DAILY_BRIEFING_IN_CHAT) return;
       const briefing = this.remiScheduleService.todayBriefing();
       const now = this.currentTime();
       this.weatherService.weather();
@@ -327,16 +327,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       untracked(() => this.pruneObsoleteBriefings(now));
       if (!briefing) return;
       untracked(() => this.syncBriefingMessage(briefing, now));
-    });
-
-    // Persist chat history so it survives navigating away and back.
-    effect(() => {
-      const messages = this.chatMessages();
-      try {
-        localStorage.setItem(CHAT_MESSAGES_KEY, JSON.stringify(messages));
-      } catch {
-        // localStorage unavailable (e.g. private browsing) — chat still works in-memory
-      }
     });
   }
 
@@ -413,7 +403,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
     // Read-only — just fetches today's cached briefing doc if one exists; the effect in the
     // constructor turns it into the chat blurb. Never triggers a full regeneration.
-    void this.remiScheduleService.loadTodayBriefing();
+    if (SHOW_DAILY_BRIEFING_IN_CHAT) void this.remiScheduleService.loadTodayBriefing();
 
     // Normally onHeroTyped() hands off once the loading phrase has finished typing; this
     // is only a backstop so the greeting still shows up if that never fires.

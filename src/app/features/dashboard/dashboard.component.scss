@@ -64,8 +64,24 @@
 }
 
 .dashboard-hero {
-  display: grid;
+  // Most of a screen tall, with the chat centered in it; the calendar and widgets follow.
+  display: flex;
+  flex-direction: column;
   gap: 14px;
+  // Room between the chat and the calendar that follows it.
+  margin-bottom: 28px;
+  position: relative;
+
+  // Out of the flow (the hamburger is the only thing in it), so it doesn't push the chat off true center.
+  > .header {
+    position: absolute;
+    top: 0;
+    left: 0;
+  }
+  // Share of the screen the hero takes before the calendar starts; the chat is centered in it, so a
+  // smaller share also lifts the chat and brings the calendar up.
+  --hero-screen-share: 75dvh;
+  min-height: calc(var(--hero-screen-share) - 48px - var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   &.connected {
     color: #4a8a50;
   }
@@ -258,6 +274,9 @@
 }
 
 .home-chat {
+  flex: 1;
+  // The greeting, input and any messages sit together at the vertical center of the first screen.
+  justify-content: center;
   // Input card height + its bottom offset + breathing room.
   --chat-dock-clearance: 150px;
   // Grid item of .dashboard-hero: without this, an unbreakable run of text can widen the
@@ -266,6 +285,44 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  margin-top: 80px;
+
+  // Centered above the input: the logo on top, the heading beneath. The heading keeps room for two
+  // lines so the typing animation (and the wrap it causes) doesn't bounce everything below it.
+  .hero-greeting {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 24px 28px 16px;
+    text-align: center;
+
+    // Once there's a conversation (or a reply is pending) the greeting steps aside.
+    &.hidden {
+      display: none;
+    }
+
+    .hero-logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 64px;
+      height: 64px;
+
+      img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 560px;
+      line-height: 1.25;
+      min-height: calc(2 * 1.25 * var(--hero-h1-size));
+    }
+  }
 
   .home-chat-messages {
     display: flex;
@@ -2308,6 +2365,7 @@
 @media (max-width: 767px) {
   .dashboard-hero {
     gap: 12px;
+    min-height: calc(var(--hero-screen-share) - 40px - var(--app-safe-area-top, env(safe-area-inset-top, 0px)) - var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   }
 
   .dashboard-container {

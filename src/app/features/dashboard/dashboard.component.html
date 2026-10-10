@@ -2,17 +2,6 @@
 
   <section class="dashboard-hero">
     <div class="header">
-      <h1
-        [class.is-loading-phrase]="heroLoadingStyle()"
-        [class.tw-cursor-hold]="isHeroLoading()"
-        [appTypewriter]="heroHeading()"
-        [typewriterSpeed]="40"
-        [typewriterSpacePause]="180"
-        [typewriterEraseSpeed]="28"
-        [typewriterCursor]="true"
-        [typewriterErase]="true"
-        (typewriterDone)="onHeroTyped()"
-        (typewriterCleared)="onHeroCleared()"></h1>
       <app-global-nav-menu></app-global-nav-menu>
     </div>
 
@@ -124,6 +113,27 @@
         </div>
       </div>
 
+      <!-- Logo and heading, centered right above the input: the logo animates until the greeting has finished typing, then stays put. Hidden (not removed, so the animation carries on) once there's a conversation or a reply is pending. -->
+      <div class="hero-greeting" [class.hidden]="chatMessages().length > 0 || isChatLoading()">
+        <div class="hero-logo">
+          <app-loading-animation *ngIf="heroAnimating(); else heroStaticLogo" [size]="64"></app-loading-animation>
+          <ng-template #heroStaticLogo>
+            <img src="assets/WG-no-bg-sage.svg" alt="Whoa Geier logo">
+          </ng-template>
+        </div>
+        <h1
+          [class.is-loading-phrase]="heroLoadingStyle()"
+          [class.tw-cursor-hold]="isHeroLoading()"
+          [appTypewriter]="heroHeading()"
+          [typewriterSpeed]="40"
+          [typewriterSpacePause]="180"
+          [typewriterEraseSpeed]="28"
+          [typewriterCursor]="true"
+          [typewriterErase]="true"
+          (typewriterDone)="onHeroTyped()"
+          (typewriterCleared)="onHeroCleared()"></h1>
+      </div>
+
       <div class="home-chat-dock" #chatDock>
       <button
         type="button"
@@ -140,7 +150,7 @@
           #chatTextarea
           name="chatInput"
           rows="2"
-          placeholder="Ask about schedule, todos, or anything else..."
+          placeholder="What can I do ya for?"
           [(ngModel)]="chatInput"
           (input)="autoResizeChatInput()"
           (blur)="resetViewportAfterKeyboard()"
