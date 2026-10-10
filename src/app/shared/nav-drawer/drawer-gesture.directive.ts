@@ -15,6 +15,8 @@ const SWIPE_NAV_SELECTOR = '[data-swipe-nav]';
 const LOCK_DISTANCE_PX = 8;
 /** A flick this fast (px per ms) opens/closes the drawer regardless of how far it travelled. */
 const FLICK_SPEED = 0.4;
+/** A little longer than the stylesheet's 0.28s slide, so the inline position is only dropped once it has finished. */
+const SETTLE_MS = 340;
 
 /**
  * Lets touch screens drag the page sideways to reveal or hide the navigation drawer. Goes on the
@@ -41,6 +43,8 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
   private lastX = 0;
   private lastTime = 0;
   private velocity = 0;
+  private frame = 0;
+  private settleTimer = 0;
 
   ngOnInit(): void {
     this.el = this.host.querySelector<HTMLElement>('.app-container') ?? this.host;
@@ -54,6 +58,8 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    cancelAnimationFrame(this.frame);
+    clearTimeout(this.settleTimer);
     this.host.removeEventListener('touchstart', this.onStart, true);
     this.host.removeEventListener('touchmove', this.onMove);
     this.host.removeEventListener('touchend', this.onEnd);
@@ -66,6 +72,8 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
   }
 
   private onStart = (e: TouchEvent): void => {
+    // A new touch while the last release is still settling takes over from wherever the page is.
+    this.cancelSettle();
     this.reset();
     if (this.drawer.isDesktop() || e.touches.length !== 1) return;
     const t = e.touches[0];
@@ -106,7 +114,13 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
     this.lastTime = now;
 
     this.offset = Math.min(Math.max(this.start.base + dx, 0), this.travel);
-    this.el.style.transform = `translateX(${this.offset}px)`;
+    // One write per frame, however many touchmove events arrive.
+    if (!this.frame) {
+      this.frame = requestAnimationFrame(() => {
+        this.frame = 0;
+        this.el.style.transform = `translate3d(${this.offset}px, 0, 0)`;
+      });
+    }
   };
 
   private onEnd = (): void => {
@@ -129,15 +143,30 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
     return false;
   }
 
-  /** Hands control back to the stylesheet, which animates from the finger's last position to the settled state. */
+  /**
+   * Animates from the finger's last position straight to the settled position. The inline
+   * transform stays until the transition ends, so the stylesheet's open/closed state (which
+   * Angular applies a moment later) never pulls the page toward the old state mid-release.
+   */
   private finish(open: boolean): void {
+    cancelAnimationFrame(this.frame);
+    this.frame = 0;
     this.el.style.transition = '';
-    this.el.style.transform = '';
+    this.el.style.transform = `translate3d(${open ? this.travel : 0}px, 0, 0)`;
     this.zone.run(() => {
       this.drawer.isOpen.set(open);
       this.drawer.dragging.set(false);
     });
+    this.settleTimer = window.setTimeout(() => this.cancelSettle(), SETTLE_MS);
     this.reset();
+  }
+
+  /** Hands the transform back to the stylesheet; the state it describes now matches where the page already is. */
+  private cancelSettle(): void {
+    if (!this.settleTimer) return;
+    clearTimeout(this.settleTimer);
+    this.settleTimer = 0;
+    this.el.style.transform = '';
   }
 
   private reset(): void {
