@@ -66,9 +66,9 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
     this.host.removeEventListener('touchcancel', this.onCancel);
   }
 
-  /** How far the content travels when open: the drawer's width. */
+  /** How far the content travels when open: the drawer's width (the stylesheet sets it in vw, so it has to be measured, not parsed). */
   private get travel(): number {
-    return parseFloat(getComputedStyle(this.el).getPropertyValue('--drawer-travel')) || window.innerWidth * 0.9;
+    return this.host.querySelector<HTMLElement>('.sidenav')?.offsetWidth || window.innerWidth * 0.9;
   }
 
   private onStart = (e: TouchEvent): void => {
@@ -104,7 +104,8 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
       // Closed, only a rightward drag opens it; leftward belongs to the page.
       if (this.start.base === 0 && dx < 0) { this.locked = 'scroll'; this.reset(); return; }
       this.locked = 'drag';
-      this.zone.run(() => this.drawer.dragging.set(true));
+      // Straight on the DOM, not a signal: no change detection at the start of a drag.
+      this.host.classList.add('dragging');
       this.el.style.transition = 'none';
     }
 
@@ -153,10 +154,11 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
     this.frame = 0;
     this.el.style.transition = '';
     this.el.style.transform = `translate3d(${open ? this.travel : 0}px, 0, 0)`;
-    this.zone.run(() => {
-      this.drawer.isOpen.set(open);
-      this.drawer.dragging.set(false);
-    });
+    // The visual state goes on the DOM now so the slide starts at once; Angular is told a frame
+    // later, since its change-detection pass would otherwise stall the first frames of the animation.
+    this.host.classList.remove('dragging');
+    this.host.classList.toggle('drawer-open', open);
+    requestAnimationFrame(() => this.zone.run(() => this.drawer.isOpen.set(open)));
     this.settleTimer = window.setTimeout(() => this.cancelSettle(), SETTLE_MS);
     this.reset();
   }
