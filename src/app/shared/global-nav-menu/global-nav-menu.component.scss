@@ -1,13 +1,15 @@
 :host {
   display: inline-flex;
-  // First in the header row, ahead of the logo, on the same side the drawer slides out from.
+  // Always first in the header, above the page heading, on the same side the drawer slides out from.
   order: -1;
   // Reserves the button's footprint in the header, so the layout doesn't change when the
   // button itself is pinned to the top of the screen (see .stuck below).
   flex: none;
   width: 46px;
   height: 46px;
-  transition: opacity 0.2s ease;
+  // Back in only once the page has finished sliding over the drawer: while the page is still
+  // transformed, a pinned (position: fixed) button is placed relative to it and would jump.
+  transition: opacity 0.2s ease 0.3s, visibility 0s linear 0.3s;
 }
 
 // While the drawer is open its own hamburger takes over; this one keeps its place in the header
@@ -15,6 +17,7 @@
 :host(.drawer-open) {
   visibility: hidden;
   opacity: 0;
+  transition: none;
 }
 
 .global-nav-btn {
@@ -34,7 +37,8 @@
   // whatever scrolls beneath it (its resting style is transparent). top/left are set inline.
   &.stuck {
     position: fixed;
-    z-index: 60;
+    // Above pages' own sticky headers (the calendar's sit at 120), which stack beneath this button.
+    z-index: 130;
     background: color-mix(in srgb, var(--color-surface, #fff) 92%, transparent);
     -webkit-backdrop-filter: blur(6px);
     backdrop-filter: blur(6px);

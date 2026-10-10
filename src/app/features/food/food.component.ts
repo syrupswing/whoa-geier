@@ -6,7 +6,6 @@ import { GroceryListComponent } from '../grocery-list/grocery-list.component';
 import { RecipesComponent } from '../recipes/recipes.component';
 import { RestaurantsComponent } from '../restaurants/restaurants.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 @Component({
   selector: 'app-food',
@@ -16,7 +15,6 @@ import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.c
     MatTabsModule,
     MatIconModule,
     GlobalNavMenuComponent,
-    HomeLogoBtnComponent,
     GroceryListComponent,
     RecipesComponent,
     RestaurantsComponent

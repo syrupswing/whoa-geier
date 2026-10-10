@@ -12,7 +12,6 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { RecipeService, Recipe, RecipeSuggestion } from '../../services/recipe.service';
 import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
@@ -33,7 +32,6 @@ export type { Recipe };
     MatExpansionModule,
     LoadingAnimationComponent,
     MatSnackBarModule,
-    HomeLogoBtnComponent,
     GlobalNavMenuComponent,
     TypewriterDirective
   ],

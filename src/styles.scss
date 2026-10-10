@@ -395,12 +395,12 @@ button.card-expand-btn.mat-mdc-icon-button {
   }
 }
 
-/* Global page header — shared across all feature pages */
+/* Global page header — shared across all feature pages: the nav button, with the page heading underneath */
 .header {
   display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 16px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
   margin-bottom: 8px;
 
   h1 {
@@ -409,7 +409,7 @@ button.card-expand-btn.mat-mdc-icon-button {
     line-height: 1.2;
     color: var(--color-text-primary);
     font-weight: 700;
-    flex: 1;
+    width: 100%;
   }
 
   .subtitle {

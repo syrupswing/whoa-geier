@@ -44,22 +44,9 @@
   display: grid;
   gap: 20px;
 
-  // Top-aligned so a heading that wraps to a second line grows downward instead of
-  // shifting its first line up (a centered row would split the extra height both ways).
-  .header {
-    align-items: flex-start;
-
-    // The nav button is 46px against the 52px logo — nudge it to the logo's center line.
-    app-global-nav-menu {
-      margin-top: 3px;
-    }
-  }
-
   h1 {
     --hero-h1-size: 2rem;
     font-size: var(--hero-h1-size);
-    // Centers the first line against the 52px logo button beside it (line-height is 1.2).
-    margin-top: calc((52px - 1.2 * var(--hero-h1-size)) / 2);
     color: var(--mat-sidenav-content-text-color);
 
     // Loading phrases read as a lighter aside; the real greeting settles into full weight.

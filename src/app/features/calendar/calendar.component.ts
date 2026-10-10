@@ -21,7 +21,6 @@ import { TASK_COLOR, toIsoDate, buildTaskChecklist, completionFor, expandRecurri
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
 import { HouseholdService } from '../../services/household.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { CalendarSearchDialogComponent, CalendarSearchResult } from '../../components/calendar-search-dialog/calendar-search-dialog.component';
 import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
@@ -52,8 +51,7 @@ interface TimelineEvent extends CalendarEvent {
     MatSnackBarModule,
     CalendarSkeletonComponent,
     SwipeNavDirective,
-    GlobalNavMenuComponent,
-    HomeLogoBtnComponent
+    GlobalNavMenuComponent
   ],
   templateUrl: './calendar.component.html',
   styleUrls: ['./calendar.component.scss'],

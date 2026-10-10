@@ -12,7 +12,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { RemiScheduleComponent } from '../remi-schedule/remi-schedule.component';
 import { FamilyMemoryComponent } from '../family-memory/family-memory.component';
 
@@ -31,7 +30,6 @@ const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
     MatButtonModule,
     MatSnackBarModule,
     GlobalNavMenuComponent,
-    HomeLogoBtnComponent,
     RemiScheduleComponent,
     FamilyMemoryComponent
   ],

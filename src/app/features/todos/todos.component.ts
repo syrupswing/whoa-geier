@@ -22,7 +22,6 @@ import { LoadingAnimationComponent } from '../../components/loading-animation/lo
 import { TodoService, TodoItem } from '../../services/todo.service';
 import { MATERIAL_ICONS } from '../../shared/material-icons';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { HouseholdService } from '../../services/household.service';
 
 type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft-start-date' | 'hard-recurring' | 'soft-recurring';
@@ -48,8 +47,7 @@ type UrgencyType = 'hard-deadline' | 'soft-deadline' | 'hard-start-date' | 'soft
     MatTooltipModule,
     MatExpansionModule,
     MatMenuModule,
-    GlobalNavMenuComponent,
-    HomeLogoBtnComponent
+    GlobalNavMenuComponent
   ],
   templateUrl: './todos.component.html',
   styleUrls: ['./todos.component.scss']

@@ -10,7 +10,6 @@ import { RouterLink } from '@angular/router';
 import { QuickLink, QuickLinkService } from '../../services/quick-link.service';
 import { QuickLinkDialogComponent } from '../../components/quick-link-dialog/quick-link-dialog.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 
 @Component({
   selector: 'app-quick-links',
@@ -23,8 +22,7 @@ import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.c
     MatTooltipModule,
     MatSnackBarModule,
     RouterLink,
-    GlobalNavMenuComponent,
-    HomeLogoBtnComponent
+    GlobalNavMenuComponent
   ],
   templateUrl: './quick-links.component.html',
   styleUrls: ['./quick-links.component.scss']

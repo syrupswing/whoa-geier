@@ -8,7 +8,6 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatChipsModule } from '@angular/material/chips';
 import { LocalStorageService } from '../../services/local-storage.service';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 export interface OrderLink {
@@ -41,7 +40,6 @@ export interface Restaurant {
     MatFormFieldModule,
     MatInputModule,
     MatChipsModule,
-    HomeLogoBtnComponent,
     GlobalNavMenuComponent
   ],
   templateUrl: './restaurants.component.html',

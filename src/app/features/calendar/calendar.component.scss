@@ -90,6 +90,11 @@
   overflow: clip;
   --cal-nav-height: 52px;
   --cal-sticky-top: var(--app-mobile-top-inset, 0px);
+  // Below desktop width the pinned nav button sits at the top of the screen, so the sticky
+  // headers stack beneath it: its top gap (10px) + its height (46px) + a little breathing room.
+  @media (max-width: 1023px) {
+    --cal-sticky-top: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 62px);
+  }
   box-shadow: 0 6px 16px rgba(26, 10, 46, 0.08);
   border: 1px solid rgba(61, 53, 80, 0.06);
 }
@@ -112,7 +117,8 @@
   // On phones the header sticks below the status-bar area (--cal-sticky-top). This opaque cover
   // fills that strip, so scrolling content doesn't show through above the stuck header. It sits
   // just above the row, so while the row is in its normal spot it falls outside the card and is
-  // clipped away.
+  // clipped away. Page-colored rather than white, so the strip behind the pinned nav button reads
+  // as empty page, not a slab of the card.
   &::before {
     content: '';
     position: absolute;
@@ -120,7 +126,7 @@
     right: 0;
     bottom: 100%;
     height: var(--cal-sticky-top);
-    background: #fff;
+    background: var(--color-background);
     pointer-events: none;
   }
 }

@@ -11,7 +11,6 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
-import { HomeLogoBtnComponent } from '../../shared/home-logo-btn/home-logo-btn.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
 
@@ -45,7 +44,6 @@ interface QuizResult {
     MatChipsModule,
     LoadingAnimationComponent,
     GlobalNavMenuComponent,
-    HomeLogoBtnComponent,
     TypewriterDirective
   ],
   templateUrl: './remi-world.component.html',
