@@ -11,6 +11,7 @@ import {
   getDocs, 
   onSnapshot,
   query,
+  where,
   Unsubscribe,
   QuerySnapshot,
   DocumentData,
@@ -137,6 +138,33 @@ export class FirestoreService {
       });
     } catch (err: any) {
       this.error.set(`Error setting up subscription: ${err.message}`);
+      console.error('Firestore subscription setup error:', err);
+      return null;
+    }
+  }
+
+  /**
+   * Subscribe to the documents of a collection whose `field` equals `value` — for collections whose
+   * security rules only allow reads that are provably limited to what the caller may see.
+   */
+  subscribeToWhereEquals<T>(
+    collectionName: string,
+    field: string,
+    value: string,
+    callback: (items: T[]) => void
+  ): Unsubscribe | null {
+    if (!this.db) {
+      console.warn('Firestore not initialized');
+      return null;
+    }
+    try {
+      const q = query(collection(this.db, collectionName), where(field, '==', value));
+      return onSnapshot(q, (snapshot: QuerySnapshot<DocumentData>) => {
+        callback(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as T)));
+      }, (err) => {
+        console.error('Firestore subscription error:', err);
+      });
+    } catch (err: any) {
       console.error('Firestore subscription setup error:', err);
       return null;
     }

@@ -1,4 +1,4 @@
-import { Component, signal, inject } from '@angular/core';
+import { Component, Input, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -43,7 +43,9 @@ export class RecipesComponent {
   private aiOrchestrator = inject(AiOrchestratorService);
   private snackBar = inject(MatSnackBar);
 
-  searchTerm = '';
+  /** Inside the Food page the page supplies the header and search. */
+  @Input() embedded = false;
+  @Input() searchTerm = '';
   filterTag = '';
   showAddForm = false;
   editingRecipeId: string | null = null;

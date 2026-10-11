@@ -14,6 +14,17 @@
      appDrawerGesture>
 <app-sidenav class="sidenav"></app-sidenav>
 <div class="app-container" #appContainer (click)="onContainerClick($event)">
+  <!-- In-app twins of push alerts: tapping a push opens the app, and the matching alert waits here. -->
+  <div class="notification-banner" *ngIf="notifications.active().length" [attr.inert]="drawer.contentInert() ? '' : null">
+    <div class="notification-item" *ngFor="let n of notifications.active()">
+      <mat-icon class="notification-icon">notifications_active</mat-icon>
+      <button type="button" class="notification-text" (click)="notifications.open(n)">{{ n.title }}</button>
+      <button mat-icon-button type="button" (click)="notifications.dismiss(n)" aria-label="Dismiss notification">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+  </div>
+
   <!-- inert while the drawer is open: keeps keyboard focus and screen readers in the drawer. The container itself stays live so a tap or drag on it can close the drawer. -->
   <div class="content" [attr.inert]="drawer.contentInert() ? '' : null">
     <router-outlet></router-outlet>

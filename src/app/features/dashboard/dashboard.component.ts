@@ -28,7 +28,6 @@ import { LoadingAnimationComponent } from '../../components/loading-animation/lo
 import { GroceryService } from '../../services/grocery.service';
 import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
 import { WeatherService } from '../../services/weather.service';
-import { TodoService } from '../../services/todo.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { RemiScheduleService, RemiDailyBriefing } from '../../services/remi-schedule.service';
@@ -299,7 +298,6 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     public groceryService: GroceryService,
     private aiOrchestrator: AiOrchestratorService,
     public weatherService: WeatherService,
-    public todoService: TodoService,
     public firestoreService: FirestoreService,
     public pushNotificationService: PushNotificationService,
     public remiScheduleService: RemiScheduleService,
@@ -1025,11 +1023,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   getNotificationCount(): number {
-    const eventCount = this.getTodayEvents().length;
-    const overdueTodos = this.todoService
-      .getSortedIncompleteItems()
-      .filter(item => this.todoService.getDaysOverdue(item) > 0).length;
-    return eventCount + overdueTodos;
+    return this.getTodayEvents().length;
   }
 
   formatEventTime(event: CalendarEvent): string {

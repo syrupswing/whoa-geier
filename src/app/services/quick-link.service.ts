@@ -50,22 +50,14 @@ export class QuickLinkService {
       order: 1
     },
     {
-      id: 'recipes',
-      title: 'Recipes',
-      icon: 'chef_hat',
-      url: '/recipes',
+      id: 'food',
+      title: 'Food',
+      subtitle: 'Recipes, delivery & going out',
+      icon: 'local_dining',
+      url: '/food',
       isExternal: false,
       isEditable: false,
       order: 2
-    },
-    {
-      id: 'restaurants',
-      title: 'Restaurants and delivery',
-      icon: 'local_dining',
-      url: '/restaurants',
-      isExternal: false,
-      isEditable: false,
-      order: 3
     },
     {
       id: 'quick-links-page',
@@ -87,11 +79,11 @@ export class QuickLinkService {
       order: 5
     },
     {
-      id: 'todos',
-      title: 'To-Do List',
-      subtitle: 'Tasks & reminders',
-      icon: 'checklist',
-      url: '/todos',
+      id: 'backlog',
+      title: 'Backlog',
+      subtitle: 'Tasks for someday',
+      icon: 'inbox',
+      url: '/backlog',
       isExternal: false,
       isEditable: false,
       order: 6

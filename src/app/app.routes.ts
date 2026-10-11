@@ -19,20 +19,20 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
-    path: 'todos',
-    loadComponent: () => import('./features/todos/todos.component').then(m => m.TodosComponent),
+    path: 'backlog',
+    loadComponent: () => import('./features/backlog/backlog.component').then(m => m.BacklogComponent),
     canActivate: [authGuard]
   },
+  // The to-do list was replaced by the backlog.
+  { path: 'todos', redirectTo: 'backlog', pathMatch: 'full' },
   {
-    path: 'recipes',
-    loadComponent: () => import('./features/recipes/recipes.component').then(m => m.RecipesComponent),
+    path: 'food',
+    loadComponent: () => import('./features/food/food.component').then(m => m.FoodComponent),
     canActivate: [authGuard]
   },
-  {
-    path: 'restaurants',
-    loadComponent: () => import('./features/restaurants/restaurants.component').then(m => m.RestaurantsComponent),
-    canActivate: [authGuard]
-  },
+  // Recipes and restaurants used to be separate pages.
+  { path: 'recipes', redirectTo: 'food', pathMatch: 'full' },
+  { path: 'restaurants', redirectTo: 'food', pathMatch: 'full' },
   {
     path: 'calendar',
     loadComponent: () => import('./features/calendar/calendar.component').then(m => m.CalendarComponent),

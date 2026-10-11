@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { TodoService } from './todo.service';
+import { BacklogService } from './backlog.service';
 import { GroceryService } from './grocery.service';
 import { MemoryService, ExplicitFact } from './memory.service';
 import { HouseholdService } from './household.service';
@@ -76,7 +76,7 @@ export interface QuickAddDestination {
   providedIn: 'root'
 })
 export class QuickAddCreationService {
-  private todoService = inject(TodoService);
+  private backlogService = inject(BacklogService);
   private groceryService = inject(GroceryService);
   private memoryService = inject(MemoryService);
   private householdService = inject(HouseholdService);
@@ -91,7 +91,11 @@ export class QuickAddCreationService {
         return { path: '/calendar', queryParams: { date: item.date || this.todayIso(), ...highlight }, label: 'View on the calendar' };
       case 'reminder':
       case 'todo':
-        return { path: '/todos', queryParams: highlight, label: 'View in the to-do list' };
+        // A dated one becomes a calendar task; an undated to-do goes to the backlog.
+        if (item.date) {
+          return { path: '/calendar', queryParams: { date: item.date, ...highlight }, label: 'View on the calendar' };
+        }
+        return { path: '/backlog', queryParams: highlight, label: 'View in the backlog' };
       case 'shopping_item':
         return { path: '/grocery-list', queryParams: highlight, label: 'View in the shopping list' };
       case 'fact':
@@ -142,17 +146,21 @@ export class QuickAddCreationService {
       }
       case 'reminder':
       case 'todo': {
-        const dueDate = item.date
-          ? new Date(`${item.date}T${item.time || '00:00'}:00`).toISOString()
-          : undefined;
         const memberId = this.resolvePersonToMemberId(item.person);
-        return this.todoService.addItem({
-          title: item.title || 'Untitled',
-          completed: false,
-          dueDate,
-          urgency: item.type === 'reminder' ? 'hard-deadline' : 'soft-deadline',
-          ...(memberId ? { memberId } : {})
-        });
+        // Anything with a day is a task on the calendar; an undated to-do waits in the backlog.
+        if (item.date) {
+          const { start, end } = this.buildEventTimes(item);
+          const task: Parameters<AppCalendarEventService['addEvent']>[0] = {
+            summary: item.title || 'Untitled',
+            start,
+            end,
+            kind: 'task'
+          };
+          if (item.time) task.isPointInTime = true;
+          if (memberId) task.memberId = memberId;
+          return this.appCalendarEventService.addEvent(task);
+        }
+        return this.backlogService.addItem({ title: item.title || 'Untitled', memberId });
       }
       case 'fact': {
         const memberId = this.resolvePersonToMemberId(item.person);
@@ -217,10 +225,8 @@ export class QuickAddCreationService {
       }
       case 'todo':
       case 'reminder': {
-        const match = this.todoService.items()
-          .filter(t => !t.completed)
-          .find(t => this.isSimilar(t.title, title));
-        return match ? `Looks similar to an open to-do: "${match.title}".` : null;
+        const match = this.backlogService.open().find(t => this.isSimilar(t.title, title));
+        return match ? `Looks similar to a task already in the backlog: "${match.title}".` : null;
       }
       case 'fact': {
         const match = this.memoryService.explicitFacts().find(f => this.isSimilar(f.factText, title));

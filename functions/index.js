@@ -127,7 +127,7 @@ const ITEM_SCHEMA_BLOCK = (
   `Classify each item as exactly one of these types:\n` +
   `- "event": has a specific date/time and describes something happening (e.g. "soccer practice Tuesday at 4")\n` +
   `- "reminder": a task tied to a specific date/time, phrased as a reminder (e.g. "remind me to bring snacks tomorrow")\n` +
-  `- "todo": a task with no fixed time, or only a due date with no time\n` +
+  `- "todo": a task. With a "date" it goes on the calendar as a task; with no date it goes to the undated backlog\n` +
   `- "shopping_item": something to buy or add to the shopping list (e.g. "we need milk", "add paper towels to the list")\n` +
   `- "fact": a persistent statement about a person or household rule, not a scheduled item (e.g. ` +
   `"Remi is allergic to shellfish", "oil change every 5000 miles")\n\n` +
@@ -339,7 +339,7 @@ const ORCHESTRATOR_TEMPLATES = {
         ? `\nUpcoming calendar events: ${context.calendarEvents.join('; ')}.`
         : '';
       const todosClause = context.todos.length
-        ? `\nOpen to-do items: ${context.todos.join('; ')}.`
+        ? `\nBacklog tasks (no day set): ${context.todos.join('; ')}.`
         : '';
       const groceryClause = (context.pantryItems || []).length || context.groceryItems.length
         ? `\nFood on hand: ` +
@@ -462,7 +462,7 @@ async function buildFamilyChatContext(db, payload) {
   const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap] = await Promise.all([
     db.collection('app-cache').doc('calendar-events').get(),
     db.collection('remi-daily-briefing').doc(today).get(),
-    db.collection('todoItems').where('completed', '==', false).get(),
+    db.collection('backlog').where('completed', '==', false).get(),
     db.collection('groceryItems').get(),
     db.collection('smartAlerts').where('status', '==', 'pending').get()
   ]);
@@ -572,12 +572,12 @@ async function buildFamilyChatContext(db, payload) {
     console.error('buildFamilyChatContext schedule error:', err);
   }
 
+  // The backlog's undated tasks. A private one belongs to one person and this context is shared
+  // with anyone chatting, so it can't reveal them without knowing who's asking.
   const todos = todosSnap.docs
     .map(d => d.data())
-    // Private todos are personal to one member — this context is shared with anyone
-    // chatting, so it can't reveal them without knowing who's asking.
-    .filter(t => !t.isPrivate && (!t.snoozedUntil || new Date(t.snoozedUntil) <= now))
-    .map(t => (t.dueDate ? `${t.title} (due ${t.dueDate.split('T')[0]})` : t.title))
+    .filter(t => t.scope !== 'private')
+    .map(t => t.title)
     .slice(0, 20);
 
   const groceryDocs = grocerySnap.docs.map(d => d.data()).filter(g => g.name);
@@ -1361,7 +1361,7 @@ async function sendPushToTokens(db, tokens, data) {
 }
 
 /**
- * Every few minutes, finds today's tasks with a push alert time that has passed and that aren't
+ * Every few minutes, finds today's tasks (and events, which alert at their time regardless of completion) with a push alert time that has passed and that aren't
  * complete (or snoozed), and pushes the task's title — to just its owner when the task is private,
  * otherwise to every device. Each occurrence is alerted once (pushAlertsSent on the task).
  */
@@ -1373,19 +1373,24 @@ exports.taskPushAlerts = onSchedule(
     const today = toDateStr(now);
     const nowTime = now.toLocaleTimeString('en-GB', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' });
 
-    const snap = await db.collection('calendarEvents').where('kind', '==', 'task').get();
+    // Tasks and events both carry pushAlertTime (an event's kind may be unset), so query by it.
+    const snap = await db.collection('calendarEvents').where('pushAlertTime', '>', '').get();
     for (const doc of snap.docs) {
       const task = doc.data();
+      const isTask = task.kind === 'task';
       if (!task.pushAlertTime || nowTime < task.pushAlertTime) continue;
 
       const startStr = task.start?.dateTime ? toDateStr(new Date(task.start.dateTime)) : task.start?.date;
       if (!startStr) continue;
       // The occurrence's key is the date it's due; only alert on that day.
-      const dueDate = taskDueDate(task, startStr, today);
+      // An event alerts on each day it starts (a multi-day one only on its first day).
+      const dueDate = isTask
+        ? taskDueDate(task, startStr, today)
+        : (task.repeat ? (occurrenceStartsOnDate(startStr, task.repeat, today) ? today : null) : startStr);
       if (dueDate !== today) continue;
 
-      if (task.completions?.[today]) continue;
-      if (task.snoozes?.[today] && new Date(task.snoozes[today]) > now) continue;
+      if (isTask && task.completions?.[today]) continue;
+      if (isTask && task.snoozes?.[today] && new Date(task.snoozes[today]) > now) continue;
       if (task.pushAlertsSent?.[today]) continue;
 
       let uid = null;
@@ -1416,9 +1421,28 @@ exports.taskPushAlerts = onSchedule(
       });
       await doc.ref.update(update);
 
-      const sent = await sendPushToTokens(db, tokens, { title: `${task.summary || 'A task'} - reminder`, body: '' });
+      const title = isTask ? `${task.summary || 'A task'} - reminder` : (task.summary || 'Event');
+      // The in-app twin of this push: tapping the push opens the app, which shows this as a banner
+      // linking to (and highlighting) the item. Written before sending so it's there by the time
+      // anyone taps. 'family' stands in for "everyone" because rules can only filter on a value.
+      await db.collection('notifications').add({
+        title,
+        itemId: doc.id,
+        itemKind: isTask ? 'task' : 'event',
+        date: today,
+        targetUid: uid || 'family',
+        dismissedBy: [],
+        createdAt: now.toISOString()
+      });
+
+      const sent = await sendPushToTokens(db, tokens, { title, body: '' });
       console.log(`taskPushAlerts: task ${doc.id} alerted ${sent}/${tokens.length} device(s).`);
     }
+
+    // In-app notifications only matter for a couple of days; drop older ones.
+    const cutoff = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const stale = await db.collection('notifications').where('createdAt', '<', cutoff).get();
+    await Promise.all(stale.docs.map(d => d.ref.delete()));
   }
 );
 

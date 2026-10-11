@@ -1,42 +1,29 @@
 <div class="food-container">
   <div class="header">
-    <h1>Food hub</h1>
+    <h1>Food</h1>
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
-  <mat-tab-group 
-    [(selectedIndex)]="selectedTabIndex"
-    animationDuration="300ms"
-    class="food-tabs">
-    
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">shopping_cart</mat-icon>
-        Grocery List
-      </ng-template>
-      <div class="tab-content">
-        <app-grocery-list></app-grocery-list>
-      </div>
-    </mat-tab>
+  <mat-form-field appearance="outline" class="search-field">
+    <mat-icon matPrefix>search</mat-icon>
+    <mat-label>Search recipes and restaurants</mat-label>
+    <input matInput [(ngModel)]="searchTerm" placeholder="Search by name...">
+  </mat-form-field>
 
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">restaurant</mat-icon>
-        Recipes
-      </ng-template>
-      <div class="tab-content">
-        <app-recipes></app-recipes>
-      </div>
-    </mat-tab>
+  <div class="view-chips" role="tablist" aria-label="Show">
+    <button
+      *ngFor="let v of views"
+      type="button"
+      role="tab"
+      class="view-chip"
+      [class.active]="view() === v.value"
+      [attr.aria-selected]="view() === v.value"
+      (click)="view.set(v.value)">
+      <mat-icon>{{ v.icon }}</mat-icon>
+      {{ v.label }}
+    </button>
+  </div>
 
-    <mat-tab>
-      <ng-template mat-tab-label>
-        <mat-icon class="tab-icon">delivery_dining</mat-icon>
-        Restaurants
-      </ng-template>
-      <div class="tab-content">
-        <app-restaurants></app-restaurants>
-      </div>
-    </mat-tab>
-  </mat-tab-group>
+  <app-recipes *ngIf="showRecipes()" [embedded]="true" [searchTerm]="searchTerm"></app-recipes>
+  <app-restaurants *ngIf="showRestaurants()" [embedded]="true" [searchTerm]="searchTerm" [mode]="restaurantMode()"></app-restaurants>
 </div>

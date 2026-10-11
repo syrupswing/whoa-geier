@@ -31,6 +31,8 @@ export interface CalendarEventDialogData {
   event?: CalendarEvent;
   /** Pre-fills the date on add — typically whatever day the calendar widget is currently showing. */
   defaultDate?: Date;
+  /** Pre-fills an add from something that already exists, such as a backlog task being scheduled. */
+  prefill?: { title: string; itemKind?: CalendarItemKind; memberId?: string | null; scope?: 'private' | 'family' };
 }
 
 type Scope = 'private' | 'family';
@@ -217,7 +219,7 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
         </ng-container>
         </div>
 
-        <div class="form-group" *ngIf="formData.itemKind === 'task'">
+        <div class="form-group">
           <button mat-stroked-button type="button" *ngIf="formData.pushAlertTime === null; else alertField" (click)="addNotification()">
             <mat-icon>notifications</mat-icon>
             Add notification
@@ -237,7 +239,7 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             <ng-template #alertTimeEditor>
             <div class="field-with-action">
               <app-time-field
-                label="Push alert if not complete by"
+                [label]="formData.itemKind === 'task' ? 'Push alert if not complete by' : 'Push alert at'"
                 [value]="formData.pushAlertTime!"
                 (valueChange)="formData.pushAlertTime = $event"></app-time-field>
               <button mat-icon-button type="button" class="confirm-alert" (click)="confirmAlertTime()" aria-label="Confirm alert time">
@@ -250,7 +252,7 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             </div>
             </ng-template>
             <p class="kind-hint">
-              {{ formData.scope === 'private' ? 'Only you are' : 'Whole family is' }} alerted if not checked off by this time.
+              {{ formData.scope === 'private' ? 'Only you are' : 'Whole family is' }} alerted {{ formData.itemKind === 'task' ? 'if not checked off by this time.' : 'at this time.' }}
             </p>
           </ng-template>
         </div>
@@ -343,14 +345,21 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       overflow: hidden;
       max-width: 100%;
 
-      // Narrow screens: tighter segments and no link icons, so all four still fit in one bar.
-      @media (max-width: 420px) {
-        .external-btn {
-          padding: 0 8px;
+      // Narrow screens: the one joined bar comes apart into separate outlined buttons that wrap
+      // onto a second line, instead of squeezing together.
+      @media (max-width: 480px) {
+        display: flex;
+        flex-wrap: wrap;
+        align-self: stretch;
+        gap: 8px;
+        border: 0;
+        overflow: visible;
 
-          mat-icon {
-            display: none;
-          }
+        .item-kind-toggle,
+        .external-btn {
+          border: 1px solid var(--kind-bar-border);
+          border-radius: 4px;
+          overflow: hidden;
         }
       }
     }
@@ -620,6 +629,13 @@ export class CalendarEventDialogComponent {
         pushAlertTime: null,
         alertSameAsEvent: false
       };
+      const prefill = data.prefill;
+      if (prefill) {
+        this.formData.title = prefill.title;
+        if (prefill.itemKind) this.formData.itemKind = prefill.itemKind;
+        if (prefill.memberId !== undefined) this.formData.memberId = prefill.memberId;
+        if (prefill.scope) this.formData.scope = prefill.scope;
+      }
     }
   }
 
@@ -935,7 +951,7 @@ export class CalendarEventDialogComponent {
     this.setOptionalField(result, 'endApproximate', true, f.hasTime && f.hasDuration && f.endApproximate, isEdit);
     this.setOptionalField(result, 'memberId', f.memberId as string, !!f.memberId, isEdit);
     const pushAlertTime = f.alertSameAsEvent && f.hasTime ? f.startTime : f.pushAlertTime;
-    this.setOptionalField(result, 'pushAlertTime', pushAlertTime as string, f.itemKind === 'task' && !!pushAlertTime, isEdit);
+    this.setOptionalField(result, 'pushAlertTime', pushAlertTime as string, !!pushAlertTime, isEdit);
     this.setOptionalField(
       result, 'repeat', this.buildRepeatRule(), f.repeats, isEdit
     );

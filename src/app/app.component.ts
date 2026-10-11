@@ -13,6 +13,7 @@ import { AuthService } from './services/auth.service';
 import { LoadingAnimationComponent } from './components/loading-animation/loading-animation.component';
 import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
+import { InAppNotificationService } from './services/in-app-notification.service';
 import { SidenavComponent } from './shared/sidenav/sidenav.component';
 import { DrawerGestureDirective } from './shared/nav-drawer/drawer-gesture.directive';
 import { NavDrawerService } from './shared/nav-drawer/nav-drawer.service';
@@ -73,7 +74,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
     public authService: AuthService,
     private aiOrchestrator: AiOrchestratorService,
     public pushNotificationService: PushNotificationService,
-    public drawer: NavDrawerService
+    public drawer: NavDrawerService,
+    public notifications: InAppNotificationService
   ) {
     // Redirect to dashboard if authenticated and on login page
     effect(() => {

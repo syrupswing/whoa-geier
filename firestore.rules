@@ -150,6 +150,30 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // The family's backlog of undated tasks. scope 'private' means only the creator may see it.
+    // The client reads with two queries (scope == 'family', createdByUid == me) so these rules
+    // are provable from the query alone. A creator stamp is fixed once set.
+    match /backlog/{itemId} {
+      allow read: if isAuthenticated()
+        && (resource.data.scope == 'family' || resource.data.createdByUid == request.auth.uid);
+      allow create: if isAuthenticated()
+        && request.resource.data.createdByUid == request.auth.uid
+        && request.resource.data.scope in ['family', 'private'];
+      allow update: if isAuthenticated()
+        && (resource.data.scope == 'family' || resource.data.createdByUid == request.auth.uid)
+        && request.resource.data.createdByUid == resource.data.createdByUid
+        && request.resource.data.scope in ['family', 'private']
+        // Only the creator may flip who can see it.
+        && (request.resource.data.scope == resource.data.scope || resource.data.createdByUid == request.auth.uid);
+      allow delete: if isAuthenticated()
+        && (resource.data.scope == 'family' || resource.data.createdByUid == request.auth.uid);
+    }
+
+    // Restaurants the family orders from or eats at (shared, like recipes)
+    match /restaurants/{restaurantId} {
+      allow read, create, update, delete: if isAuthenticated();
+    }
+
     // Vehicles and their maintenance records (migrated from device-local storage so a
     // nightly smart-alerts job can see mileage/due-date data)
     match /vehicles/{vehicleId} {
@@ -242,6 +266,17 @@ service cloud.firestore {
     // only the server reads them, so there's no client read.
     match /fcm-tokens/{token} {
       allow create, update: if isAuthenticated() && request.resource.data.get('uid', null) == request.auth.uid;
+    }
+
+    // In-app twins of push alerts, written only by the server (Admin SDK). targetUid is a uid for a
+    // private alert or 'family' for everyone's. A person may read their own and the family's, and the
+    // only thing they may change is the dismissedBy list (so they can clear one from their banner).
+    match /notifications/{id} {
+      allow read: if isAuthenticated()
+        && (resource.data.targetUid == 'family' || resource.data.targetUid == request.auth.uid);
+      allow update: if isAuthenticated()
+        && (resource.data.targetUid == 'family' || resource.data.targetUid == request.auth.uid)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dismissedBy', 'updatedAt']);
     }
 
     // Default: deny all access unless explicitly granted above

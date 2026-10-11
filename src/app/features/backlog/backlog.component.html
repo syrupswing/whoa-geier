@@ -1,0 +1,80 @@
+<div class="backlog-container">
+  <div class="header">
+    <h1>Backlog</h1>
+    <app-global-nav-menu></app-global-nav-menu>
+  </div>
+
+  <p class="intro">Tasks that need doing sometime, with no day or time yet. Schedule one to move it onto the calendar.</p>
+
+  <div *ngIf="backlog.isLoading()" class="loading-state">
+    <app-loading-animation [size]="40"></app-loading-animation>
+  </div>
+
+  <ng-container *ngIf="!backlog.isLoading()">
+    <div class="quick-add">
+      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="quick-add-field">
+        <mat-label>Add a task</mat-label>
+        <input matInput [(ngModel)]="newTitle" (keyup.enter)="quickAdd()" placeholder="What needs doing?" autocomplete="off">
+      </mat-form-field>
+      <button mat-icon-button color="primary" type="button" (click)="quickAdd()" [disabled]="!newTitle.trim()" aria-label="Add task">
+        <mat-icon>add_circle</mat-icon>
+      </button>
+    </div>
+
+    <div class="import-banner" *ngIf="backlog.importableTodos().length">
+      <mat-icon>move_down</mat-icon>
+      <span>{{ backlog.importableTodos().length }} open task{{ backlog.importableTodos().length === 1 ? '' : 's' }} in the old to-do list.</span>
+      <button mat-stroked-button type="button" (click)="importOldTodos()">Import</button>
+    </div>
+
+    <p class="empty" *ngIf="backlog.open().length === 0">Nothing in the backlog. Add a task above.</p>
+
+    <ul class="task-list" *ngIf="backlog.open().length">
+      <li *ngFor="let item of backlog.open()" class="task" [attr.data-highlight-id]="item.id">
+        <mat-checkbox [checked]="false" (change)="toggle(item)" [attr.aria-label]="'Complete ' + item.title"></mat-checkbox>
+        <button type="button" class="task-body" (click)="edit(item)">
+          <span class="task-title">{{ item.title }}</span>
+          <span class="task-meta" *ngIf="item.notes || memberName(item) || item.scope === 'private'">
+            <mat-icon *ngIf="item.scope === 'private'" class="meta-icon" aria-label="Private">lock_person</mat-icon>
+            <span *ngIf="memberName(item)" class="chip">{{ memberName(item) }}</span>
+            <span *ngIf="item.notes" class="notes">{{ item.notes }}</span>
+          </span>
+        </button>
+        <button mat-button type="button" class="schedule-btn" (click)="schedule(item)">
+          <mat-icon>event</mat-icon>
+          Schedule
+        </button>
+        <button mat-icon-button type="button" [matMenuTriggerFor]="menu" aria-label="More">
+          <mat-icon>more_vert</mat-icon>
+        </button>
+        <mat-menu #menu="matMenu">
+          <button mat-menu-item type="button" (click)="edit(item)"><mat-icon>edit</mat-icon>Edit</button>
+          <button mat-menu-item type="button" (click)="schedule(item)"><mat-icon>event</mat-icon>Schedule</button>
+          <button mat-menu-item type="button" (click)="remove(item)"><mat-icon>delete</mat-icon>Delete</button>
+        </mat-menu>
+      </li>
+    </ul>
+
+    <section class="done-section" *ngIf="backlog.done().length">
+      <div class="done-header">
+        <button mat-button type="button" (click)="showDone.set(!showDone())">
+          <mat-icon>{{ showDone() ? 'expand_less' : 'expand_more' }}</mat-icon>
+          Completed ({{ backlog.done().length }})
+        </button>
+        <button mat-button type="button" *ngIf="showDone()" (click)="clearDone()">Clear</button>
+      </div>
+      <ul class="task-list done" *ngIf="showDone()">
+        <li *ngFor="let item of backlog.done()" class="task" [attr.data-highlight-id]="item.id">
+          <mat-checkbox [checked]="true" (change)="toggle(item)" [attr.aria-label]="'Mark ' + item.title + ' not done'"></mat-checkbox>
+          <span class="task-body static">
+            <span class="task-title">{{ item.title }}</span>
+            <span class="task-meta" *ngIf="item.completedByName">
+              <span class="notes">Done by {{ item.completedByName }}</span>
+            </span>
+          </span>
+          <button mat-icon-button type="button" (click)="remove(item)" aria-label="Delete"><mat-icon>delete</mat-icon></button>
+        </li>
+      </ul>
+    </section>
+  </ng-container>
+</div>

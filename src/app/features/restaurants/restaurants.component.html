@@ -1,10 +1,10 @@
 <div class="restaurants-container">
-  <div class="header">
+  <div class="header" *ngIf="!embedded">
     <h1>Restaurants</h1>
     <app-global-nav-menu></app-global-nav-menu>
   </div>
   <div class="search-section">
-    <mat-form-field appearance="outline" class="search-field">
+    <mat-form-field appearance="outline" class="search-field" *ngIf="!embedded">
       <mat-label>Search restaurants</mat-label>
       <input matInput [(ngModel)]="searchTerm" placeholder="Search by name...">
       <mat-icon matPrefix>search</mat-icon>
@@ -139,6 +139,11 @@
             <mat-label>Website</mat-label>
             <input matInput [(ngModel)]="newRestaurant.website" placeholder="example.com">
           </mat-form-field>
+
+          <div class="full-width">
+            <mat-checkbox [(ngModel)]="newRestaurant.dineOut">Going out</mat-checkbox>
+            <mat-checkbox [(ngModel)]="newRestaurant.delivery">Delivery</mat-checkbox>
+          </div>
 
           <mat-form-field appearance="outline" class="full-width">
             <mat-label>Delivery Apps (comma separated)</mat-label>
