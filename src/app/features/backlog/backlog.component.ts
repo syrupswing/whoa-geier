@@ -13,6 +13,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BacklogService, BacklogItem } from '../../services/backlog.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { HouseholdService } from '../../services/household.service';
+import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { ConfirmService } from '../../components/confirm-dialog/confirm-dialog.component';
@@ -29,7 +30,7 @@ import { highlightWhenPresent } from '../../utils/highlight';
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatFormFieldModule,
-    MatInputModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, LoadingAnimationComponent
+    MatInputModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, LoadingAnimationComponent, AddButtonComponent
   ],
   templateUrl: './backlog.component.html',
   styleUrls: ['./backlog.component.scss']
@@ -58,6 +59,18 @@ export class BacklogComponent {
     this.newTitle = '';
     const memberId = this.household.myMemberId() ?? undefined;
     await this.backlog.addItem({ title, scope: 'family', memberId });
+  }
+
+  /** The full add form (notes, who it's for, privacy); the field below it stays for one-line quick adds. */
+  openAdd(): void {
+    const ref = this.dialog.open<BacklogItemDialogComponent, BacklogItemDialogData, BacklogItemDialogResult>(
+      BacklogItemDialogComponent, { width: '500px', maxWidth: '95vw', data: { title: this.newTitle.trim() } }
+    );
+    ref.afterClosed().subscribe(async result => {
+      if (!result) return;
+      this.newTitle = '';
+      await this.backlog.addItem(result);
+    });
   }
 
   memberName(item: BacklogItem): string | null {

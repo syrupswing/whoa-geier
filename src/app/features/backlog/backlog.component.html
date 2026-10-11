@@ -4,6 +4,8 @@
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
+  <app-add-button label="Add task with details" (pressed)="openAdd()"></app-add-button>
+
   <p class="intro">Tasks that need doing sometime, with no day or time yet. Schedule one to move it onto the calendar.</p>
 
   <div *ngIf="backlog.isLoading()" class="loading-state">

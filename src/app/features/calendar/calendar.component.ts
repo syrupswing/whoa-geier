@@ -20,6 +20,7 @@ import { highlightWhenPresent } from '../../utils/highlight';
 import { TASK_COLOR, toIsoDate, buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
 import { HouseholdService } from '../../services/household.service';
+import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { CalendarSearchDialogComponent, CalendarSearchResult } from '../../components/calendar-search-dialog/calendar-search-dialog.component';
@@ -51,7 +52,8 @@ interface TimelineEvent extends CalendarEvent {
     MatSnackBarModule,
     CalendarSkeletonComponent,
     SwipeNavDirective,
-    GlobalNavMenuComponent
+    GlobalNavMenuComponent,
+    AddButtonComponent
   ],
   templateUrl: './calendar.component.html',
   styleUrls: ['./calendar.component.scss'],

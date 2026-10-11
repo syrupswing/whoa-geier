@@ -4,6 +4,13 @@
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
+  <app-add-button *ngIf="!addsBoth()" (pressed)="addForView()"></app-add-button>
+  <app-add-button *ngIf="addsBoth()" [matMenuTriggerFor]="addMenu"></app-add-button>
+  <mat-menu #addMenu="matMenu">
+    <button mat-menu-item (click)="addRecipe()"><mat-icon>menu_book</mat-icon>Recipe</button>
+    <button mat-menu-item (click)="addRestaurant()"><mat-icon>storefront</mat-icon>Restaurant</button>
+  </mat-menu>
+
   <mat-form-field appearance="outline" class="search-field">
     <mat-icon matPrefix>search</mat-icon>
     <mat-label>Search recipes and restaurants</mat-label>

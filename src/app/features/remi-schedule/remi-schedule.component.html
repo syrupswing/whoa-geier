@@ -109,19 +109,14 @@
         </div>
       </ng-template>
 
-      <button mat-stroked-button (click)="openAddException()">
-        <mat-icon>add</mat-icon>
-        Add exception
-      </button>
+      <app-add-button label="Add exception" (pressed)="openAddException()"></app-add-button>
     </mat-card-content>
   </mat-card>
 
-  <!-- Add/edit exception form -->
-  <mat-card *ngIf="showAddException()" class="form-card">
-    <mat-card-header>
-      <mat-card-title>Schedule exception</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
+  <!-- Add/edit exception form, in a modal dialog so it holds the user's focus -->
+  <ng-template #exceptionDialog>
+    <h2 mat-dialog-title>Schedule exception</h2>
+    <mat-dialog-content class="exception-dialog">
       <div class="form-grid">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>What's different that day?</mat-label>
@@ -180,12 +175,12 @@
           </mat-radio-group>
         </div>
       </div>
-    </mat-card-content>
-    <mat-card-actions>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
       <button mat-button (click)="cancelExceptionForm()">Cancel</button>
       <button mat-raised-button color="primary" (click)="saveException()">Save</button>
-    </mat-card-actions>
-  </mat-card>
+    </mat-dialog-actions>
+  </ng-template>
 
   <!-- Upcoming lunch menu -->
   <mat-card class="form-card">

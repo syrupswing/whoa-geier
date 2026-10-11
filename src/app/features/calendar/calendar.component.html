@@ -4,6 +4,8 @@
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
+  <app-add-button label="Add item" (pressed)="openAddEventDialog()"></app-add-button>
+
   <div *ngIf="outlookService.error()" class="error-box">
     <mat-icon>error</mat-icon>
     <p>{{ outlookService.error() }}</p>
@@ -66,10 +68,6 @@
         <button mat-menu-item (click)="openSearchDialog()">
           <mat-icon>search</mat-icon>
           <span>Search</span>
-        </button>
-        <button mat-menu-item (click)="openAddEventDialog()">
-          <mat-icon>add</mat-icon>
-          <span>Add item</span>
         </button>
         <a mat-menu-item [href]="googleCalendarUrl()" target="_blank" rel="noopener">
           <!-- Material UI's "Google" icon (the font has no brand glyph for it), drawn inline. -->

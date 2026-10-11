@@ -5,6 +5,8 @@
   </div>
   <p class="subtitle">Fast access to family resources and favorite destinations</p>
 
+  <app-add-button label="Add quick link" (pressed)="openAddQuickLinkDialog()"></app-add-button>
+
   <div class="quick-links-section">
     <ng-container *ngFor="let link of quickLinkService.allLinks()">
       <a
@@ -75,14 +77,5 @@
       </a>
     </ng-container>
 
-    <button
-      class="quick-link-card add-link-card"
-      (click)="openAddQuickLinkDialog()">
-      <mat-icon class="quick-link-icon add-icon">add_circle</mat-icon>
-      <div class="quick-link-content">
-        <h3 class="quick-link-title">Add Quick Link</h3>
-        <p class="quick-link-subtitle">Create custom link</p>
-      </div>
-    </button>
   </div>
 </div>

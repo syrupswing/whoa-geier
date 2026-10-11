@@ -1,8 +1,9 @@
-import { Component, Input, signal, inject } from '@angular/core';
+import { Component, Input, TemplateRef, ViewChild, signal, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -25,6 +26,7 @@ export type { Recipe };
     FormsModule,
     MatCardModule,
     MatButtonModule,
+    MatDialogModule,
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
@@ -39,6 +41,9 @@ export type { Recipe };
   styleUrls: ['./recipes.component.scss']
 })
 export class RecipesComponent {
+  private dialog = inject(MatDialog);
+  private dialogRef: MatDialogRef<unknown> | null = null;
+  @ViewChild('formDialog') private formDialog?: TemplateRef<unknown>;
   recipeService = inject(RecipeService);
   private aiOrchestrator = inject(AiOrchestratorService);
   private snackBar = inject(MatSnackBar);
@@ -47,7 +52,28 @@ export class RecipesComponent {
   @Input() embedded = false;
   @Input() searchTerm = '';
   filterTag = '';
-  showAddForm = false;
+  private _showAddForm = false;
+
+  /** Whether the add/edit form is open; it lives in a modal dialog, so setting this opens or closes it. */
+  get showAddForm(): boolean {
+    return this._showAddForm;
+  }
+  set showAddForm(open: boolean) {
+    this._showAddForm = open;
+    if (open && !this.dialogRef && this.formDialog) {
+      this.dialogRef = this.dialog.open(this.formDialog, { width: '640px', maxWidth: '95vw', autoFocus: 'first-tabbable' });
+      this.dialogRef.afterClosed().subscribe(() => {
+        this.dialogRef = null;
+        // Dismissed via backdrop or Esc rather than Save/Cancel
+        if (this._showAddForm) {
+          this._showAddForm = false;
+          this.resetForm();
+        }
+      });
+    } else if (!open && this.dialogRef) {
+      this.dialogRef.close();
+    }
+  }
   editingRecipeId: string | null = null;
 
   // AI features
@@ -93,6 +119,11 @@ export class RecipesComponent {
 
   getTotalTime(recipe: Recipe): number {
     return recipe.prepTime + recipe.cookTime;
+  }
+
+  /** Opens the add form; used by the Food page's add button. */
+  openAddForm(): void {
+    this.showAddForm = true;
   }
 
   toggleAddForm(): void {

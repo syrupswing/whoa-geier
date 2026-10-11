@@ -22,27 +22,7 @@
     }
   }
 
-  .form-card {
-    margin-bottom: 24px;
 
-    .form-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap: 16px;
-      margin-top: 16px;
-
-      .full-width {
-        grid-column: 1 / -1;
-      }
-    }
-
-    mat-card-actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 12px;
-      padding: 16px;
-    }
-  }
 
   .vehicles-grid {
     display: grid;
@@ -186,5 +166,27 @@
       color: var(--color-text-secondary);
       margin-bottom: 24px;
     }
+  }
+}
+
+// Lives in a modal dialog (rendered outside the page container), so it can't be nested under it.
+.form-dialog {
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+  }
+
+  mat-card-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px;
   }
 }

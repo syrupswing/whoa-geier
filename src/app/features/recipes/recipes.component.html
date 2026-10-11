@@ -189,65 +189,6 @@
       <span class="count">({{ getFilteredRecipes().length }})</span>
     </h2>
 
-    <!-- Add Recipe Form -->
-    <mat-card class="add-form-card" *ngIf="showAddForm">
-      <mat-card-header>
-        <mat-card-title>{{ editingRecipeId ? 'Edit Recipe' : 'Add New Recipe' }}</mat-card-title>
-      </mat-card-header>
-      <mat-card-content>
-        <div class="form-grid">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Recipe Name</mat-label>
-            <input matInput [(ngModel)]="newRecipe.name" required>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Description</mat-label>
-            <textarea matInput [(ngModel)]="newRecipe.description" rows="2"></textarea>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Prep Time (min)</mat-label>
-            <input matInput type="number" [(ngModel)]="newRecipe.prepTime">
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Cook Time (min)</mat-label>
-            <input matInput type="number" [(ngModel)]="newRecipe.cookTime">
-          </mat-form-field>
-
-          <mat-form-field appearance="outline">
-            <mat-label>Servings</mat-label>
-            <input matInput type="number" [(ngModel)]="newRecipe.servings">
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Ingredients (one per line)</mat-label>
-            <textarea matInput [(ngModel)]="newRecipe.ingredients" rows="4"></textarea>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Instructions (one per line)</mat-label>
-            <textarea matInput [(ngModel)]="newRecipe.instructions" rows="4"></textarea>
-          </mat-form-field>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Tags (comma separated)</mat-label>
-            <input matInput [(ngModel)]="newRecipe.tags" placeholder="e.g., Italian, Quick, Pasta">
-          </mat-form-field>
-        </div>
-      </mat-card-content>
-      <mat-card-actions>
-        <button mat-raised-button color="primary" (click)="saveRecipe()" [disabled]="!newRecipe.name.trim()">
-          <mat-icon>save</mat-icon>
-          {{ editingRecipeId ? 'Update Recipe' : 'Save Recipe' }}
-        </button>
-        <button mat-button (click)="toggleAddForm()">
-          Cancel
-        </button>
-      </mat-card-actions>
-    </mat-card>
-
     <div class="recipe-grid" *ngIf="getFilteredRecipes().length > 0; else noRecipes">
       <mat-card *ngFor="let recipe of getFilteredRecipes()" class="recipe-card">
         <mat-card-header>
@@ -327,8 +268,63 @@
     </ng-template>
   </div>
 
+  <!-- Add/edit recipe form, shown in a modal dialog so it holds the user's focus -->
+  <ng-template #formDialog>
+    <h2 mat-dialog-title>{{ editingRecipeId ? 'Edit Recipe' : 'Add New Recipe' }}</h2>
+    <mat-dialog-content class="add-form-dialog">
+      <div class="form-grid">
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Recipe Name</mat-label>
+            <input matInput [(ngModel)]="newRecipe.name" required>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Description</mat-label>
+            <textarea matInput [(ngModel)]="newRecipe.description" rows="2"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Prep Time (min)</mat-label>
+            <input matInput type="number" [(ngModel)]="newRecipe.prepTime">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Cook Time (min)</mat-label>
+            <input matInput type="number" [(ngModel)]="newRecipe.cookTime">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline">
+            <mat-label>Servings</mat-label>
+            <input matInput type="number" [(ngModel)]="newRecipe.servings">
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Ingredients (one per line)</mat-label>
+            <textarea matInput [(ngModel)]="newRecipe.ingredients" rows="4"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Instructions (one per line)</mat-label>
+            <textarea matInput [(ngModel)]="newRecipe.instructions" rows="4"></textarea>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="full-width">
+            <mat-label>Tags (comma separated)</mat-label>
+            <input matInput [(ngModel)]="newRecipe.tags" placeholder="e.g., Italian, Quick, Pasta">
+          </mat-form-field>
+        </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button (click)="toggleAddForm()">Cancel</button>
+      <button mat-raised-button color="primary" (click)="saveRecipe()" [disabled]="!newRecipe.name.trim()">
+          <mat-icon>save</mat-icon>
+          {{ editingRecipeId ? 'Update Recipe' : 'Save Recipe' }}
+        </button>
+    </mat-dialog-actions>
+  </ng-template>
+
   <!-- Add Recipe FAB -->
-  <button mat-fab color="primary" class="add-recipe-fab" (click)="toggleAddForm()">
+  <button *ngIf="!embedded" mat-fab color="primary" class="add-recipe-fab" (click)="toggleAddForm()">
     <mat-icon>{{ showAddForm ? 'close' : 'add' }}</mat-icon>
   </button>
 </div>

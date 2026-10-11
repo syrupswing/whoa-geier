@@ -110,26 +110,6 @@
     }
   }
 
-  &.add-link-card {
-    border: none;
-    background: transparent;
-    box-shadow: none;
-
-    .add-icon {
-      color: #667eea;
-    }
-
-    &:hover {
-      border-color: #667eea;
-      background: rgba(102, 126, 234, 0.1);
-
-      .add-icon {
-        opacity: 1;
-        color: #933ea7;
-      }
-    }
-  }
-
   &.minecraft-themed {
     background: linear-gradient(180deg,
       #5C8A3E 0%,

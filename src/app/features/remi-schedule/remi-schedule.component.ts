@@ -1,9 +1,11 @@
-import { Component, OnInit, computed, signal } from '@angular/core';
+import { Component, OnInit, TemplateRef, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatCheckboxModule } from '@angular/material/checkbox';
@@ -36,6 +38,8 @@ interface UpcomingDay {
     MatCardModule,
     MatIconModule,
     MatButtonModule,
+    MatDialogModule,
+    AddButtonComponent,
     MatFormFieldModule,
     MatInputModule,
     MatCheckboxModule,
@@ -47,6 +51,9 @@ interface UpcomingDay {
   styleUrl: './remi-schedule.component.scss'
 })
 export class RemiScheduleComponent implements OnInit {
+  private dialog = inject(MatDialog);
+  @ViewChild('exceptionDialog') private exceptionDialog?: TemplateRef<unknown>;
+
   readonly weekdayLabels = WEEKDAY_LABELS;
 
   settingsForm: RemiScheduleSettings = {
@@ -87,7 +94,24 @@ export class RemiScheduleComponent implements OnInit {
   constructor(
     public remiScheduleService: RemiScheduleService,
     private snackBar: MatSnackBar
-  ) {}
+  ) {
+    // The exception form lives in a modal dialog that follows showAddException; dismissing it (Esc, backdrop) turns the flag off.
+    let ref: MatDialogRef<unknown> | null = null;
+    effect(() => {
+      const open = this.showAddException();
+      untracked(() => {
+        if (open && !ref && this.exceptionDialog) {
+          ref = this.dialog.open(this.exceptionDialog, { width: '640px', maxWidth: '95vw', autoFocus: 'first-tabbable' });
+          ref.afterClosed().subscribe(() => {
+            ref = null;
+            this.showAddException.set(false);
+          });
+        } else if (!open && ref) {
+          ref.close();
+        }
+      });
+    });
+  }
 
   async ngOnInit(): Promise<void> {
     await this.remiScheduleService.loadSettings();

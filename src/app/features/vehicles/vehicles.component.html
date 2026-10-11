@@ -3,10 +3,12 @@
     <h1>Vehicle maintenance</h1>
     <app-global-nav-menu></app-global-nav-menu>
   </div>
-  <button mat-raised-button color="primary" (click)="openAddVehicle()">
-    <mat-icon>add</mat-icon>
-    Add Vehicle
-  </button>
+  <app-add-button *ngIf="vehicleService.vehicles().length === 0" label="Add vehicle" (pressed)="openAddVehicle()"></app-add-button>
+  <app-add-button *ngIf="vehicleService.vehicles().length > 0" label="Add" [matMenuTriggerFor]="addMenu"></app-add-button>
+  <mat-menu #addMenu="matMenu">
+    <button mat-menu-item (click)="openAddVehicle()"><mat-icon>directions_car</mat-icon>Vehicle</button>
+    <button mat-menu-item (click)="openAddMaintenance()"><mat-icon>build</mat-icon>Maintenance record</button>
+  </mat-menu>
 
   <!-- Alerts -->
   <div class="alerts" *ngIf="vehicleService.getOverdueMaintenance().length > 0">
@@ -27,12 +29,10 @@
     </mat-card>
   </div>
 
-  <!-- Add Vehicle Form -->
-  <mat-card *ngIf="showAddVehicle()" class="form-card">
-    <mat-card-header>
-      <mat-card-title>{{ editingVehicleId() ? 'Edit Vehicle' : 'Add New Vehicle' }}</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
+  <!-- Add/edit forms open in modal dialogs so they hold the user's focus -->
+  <ng-template #vehicleDialog>
+    <h2 mat-dialog-title>{{ editingVehicleId() ? 'Edit Vehicle' : 'Add New Vehicle' }}</h2>
+    <mat-dialog-content class="form-dialog">
       <div class="form-grid">
         <mat-form-field appearance="outline">
           <mat-label>Vehicle Name</mat-label>
@@ -80,21 +80,18 @@
           <mat-datepicker #registrationPicker></mat-datepicker>
         </mat-form-field>
       </div>
-    </mat-card-content>
-    <mat-card-actions>
-      <button mat-button (click)="cancelVehicleForm()">Cancel</button>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+<button mat-button (click)="cancelVehicleForm()">Cancel</button>
       <button mat-raised-button color="primary" (click)="addVehicle()">
         {{ editingVehicleId() ? 'Update Vehicle' : 'Add Vehicle' }}
       </button>
-    </mat-card-actions>
-  </mat-card>
+    </mat-dialog-actions>
+  </ng-template>
 
-  <!-- Add Maintenance Form -->
-  <mat-card *ngIf="showAddMaintenance()" class="form-card">
-    <mat-card-header>
-      <mat-card-title>Add Maintenance Record</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
+  <ng-template #maintenanceDialog>
+    <h2 mat-dialog-title>Add Maintenance Record</h2>
+    <mat-dialog-content class="form-dialog">
       <div class="form-grid">
         <mat-form-field appearance="outline" class="full-width">
           <mat-label>Vehicle</mat-label>
@@ -155,12 +152,12 @@
           <input matInput type="number" [(ngModel)]="maintenanceForm.nextDueMileage" placeholder="Optional">
         </mat-form-field>
       </div>
-    </mat-card-content>
-    <mat-card-actions>
-      <button mat-button (click)="showAddMaintenance.set(false)">Cancel</button>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+<button mat-button (click)="showAddMaintenance.set(false)">Cancel</button>
       <button mat-raised-button color="primary" (click)="addMaintenance()">Add Record</button>
-    </mat-card-actions>
-  </mat-card>
+    </mat-dialog-actions>
+  </ng-template>
 
   <!-- Vehicles List -->
   <div class="vehicles-grid" *ngIf="vehicleService.vehicles().length > 0">
@@ -246,10 +243,6 @@
   <mat-card *ngIf="vehicleService.vehicles().length === 0 && !showAddVehicle()" class="empty-state">
     <mat-icon>directions_car</mat-icon>
     <h2>No Vehicles Yet</h2>
-    <p>Add your first vehicle to start tracking maintenance</p>
-    <button mat-raised-button color="primary" (click)="openAddVehicle()">
-      <mat-icon>add</mat-icon>
-      Add Vehicle
-    </button>
+    <p>Tap + above to add your first vehicle and start tracking maintenance</p>
   </mat-card>
 </div>

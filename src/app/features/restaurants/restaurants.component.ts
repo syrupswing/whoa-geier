@@ -1,8 +1,9 @@
-import { Component, Input, inject } from '@angular/core';
+import { Component, Input, TemplateRef, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -21,6 +22,7 @@ export type { Restaurant, OrderLink };
     FormsModule,
     MatCardModule,
     MatButtonModule,
+    MatDialogModule,
     MatIconModule,
     MatFormFieldModule,
     MatInputModule,
@@ -32,6 +34,9 @@ export type { Restaurant, OrderLink };
   styleUrls: ['./restaurants.component.scss']
 })
 export class RestaurantsComponent {
+  private dialog = inject(MatDialog);
+  private dialogRef: MatDialogRef<unknown> | null = null;
+  @ViewChild('formDialog') private formDialog?: TemplateRef<unknown>;
   private restaurantService = inject(RestaurantService);
 
   restaurants = this.restaurantService.restaurants;
@@ -41,7 +46,28 @@ export class RestaurantsComponent {
   @Input() searchTerm = '';
   @Input() mode: 'all' | 'delivery' | 'dineOut' = 'all';
   filterCuisine = '';
-  showAddForm = false;
+  private _showAddForm = false;
+
+  /** Whether the add/edit form is open; it lives in a modal dialog, so setting this opens or closes it. */
+  get showAddForm(): boolean {
+    return this._showAddForm;
+  }
+  set showAddForm(open: boolean) {
+    this._showAddForm = open;
+    if (open && !this.dialogRef && this.formDialog) {
+      this.dialogRef = this.dialog.open(this.formDialog, { width: '640px', maxWidth: '95vw', autoFocus: 'first-tabbable' });
+      this.dialogRef.afterClosed().subscribe(() => {
+        this.dialogRef = null;
+        // Dismissed via backdrop or Esc rather than Save/Cancel
+        if (this._showAddForm) {
+          this._showAddForm = false;
+          this.resetForm();
+        }
+      });
+    } else if (!open && this.dialogRef) {
+      this.dialogRef.close();
+    }
+  }
   editingRestaurantId: string | null = null;
 
   newRestaurant = {
@@ -101,6 +127,11 @@ export class RestaurantsComponent {
   getStarArray(rating?: number): boolean[] {
     const stars = rating || 0;
     return Array(5).fill(false).map((_, i) => i < stars);
+  }
+
+  /** Opens the add form; used by the Food page's add button. */
+  openAddForm(): void {
+    this.showAddForm = true;
   }
 
   toggleAddForm(): void {

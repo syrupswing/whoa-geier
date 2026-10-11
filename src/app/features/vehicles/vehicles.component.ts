@@ -1,9 +1,11 @@
-import { Component, signal } from '@angular/core';
+import { Component, TemplateRef, ViewChild, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
@@ -15,6 +17,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { VehicleService, Vehicle, MaintenanceRecord } from '../../services/vehicle.service';
+import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 @Component({
@@ -36,12 +39,19 @@ import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-
     MatBadgeModule,
     MatChipsModule,
     MatExpansionModule,
-    GlobalNavMenuComponent
+    MatDialogModule,
+    MatMenuModule,
+    GlobalNavMenuComponent,
+    AddButtonComponent
   ],
   templateUrl: './vehicles.component.html',
   styleUrls: ['./vehicles.component.scss']
 })
 export class VehiclesComponent {
+  private dialog = inject(MatDialog);
+  @ViewChild('vehicleDialog') private vehicleDialog?: TemplateRef<unknown>;
+  @ViewChild('maintenanceDialog') private maintenanceDialog?: TemplateRef<unknown>;
+
   showAddVehicle = signal(false);
   showAddMaintenance = signal(false);
   selectedVehicleId = signal<string | null>(null);
@@ -72,8 +82,6 @@ export class VehiclesComponent {
     nextDueMileage: null as number | null
   };
 
-  constructor(public vehicleService: VehicleService) {}
-
   getVehicleIcon(type: string): string {
     switch (type) {
       case 'car': return 'directions_car';
@@ -101,6 +109,34 @@ export class VehiclesComponent {
       case 'other': return 'Other';
       default: return type;
     }
+  }
+
+  constructor(public vehicleService: VehicleService) {
+    this.openFormInDialog(this.showAddVehicle, () => this.vehicleDialog, () => this.cancelVehicleForm());
+    this.openFormInDialog(this.showAddMaintenance, () => this.maintenanceDialog, () => {
+      this.showAddMaintenance.set(false);
+      this.resetMaintenanceForm();
+    });
+  }
+
+  /** Shows a form template in a modal dialog while its flag is on; dismissing the dialog (Esc, backdrop) turns the flag off. */
+  private openFormInDialog(open: ReturnType<typeof signal<boolean>>, template: () => TemplateRef<unknown> | undefined, onDismiss: () => void): void {
+    let ref: MatDialogRef<unknown> | null = null;
+    effect(() => {
+      const isOpen = open();
+      untracked(() => {
+        const tpl = template();
+        if (isOpen && !ref && tpl) {
+          ref = this.dialog.open(tpl, { width: '640px', maxWidth: '95vw', autoFocus: 'first-tabbable' });
+          ref.afterClosed().subscribe(() => {
+            ref = null;
+            if (open()) onDismiss();
+          });
+        } else if (!isOpen && ref) {
+          ref.close();
+        }
+      });
+    });
   }
 
   openAddVehicle(): void {

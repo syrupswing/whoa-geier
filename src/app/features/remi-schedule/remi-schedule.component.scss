@@ -223,3 +223,54 @@
     margin-top: 12px;
   }
 }
+
+// Lives in a modal dialog (rendered outside the page container), so it can't be nested under it.
+.exception-dialog {
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+  }
+
+  .checkbox-row {
+    display: flex;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  .hint-text {
+    font-size: 0.8rem;
+    opacity: 0.7;
+    margin: 0;
+  }
+
+  .parse-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+
+  .lunch-choice {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    .lunch-choice-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .lunch-choice-options {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+  }
+}
