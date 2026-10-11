@@ -83,7 +83,7 @@ export class BacklogService implements OnDestroy {
         this.COLLECTION_NAME, 'createdByUid', uid, items => this.ownItems.set(items)
       );
       this.unsubscribes = [family, own].filter((u): u is Unsubscribe => !!u);
-    });
+    }, { allowSignalWrites: true });
   }
 
   ngOnDestroy(): void {

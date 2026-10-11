@@ -53,7 +53,7 @@ export class InAppNotificationService {
       const own = this.firestore.subscribeToWhereEquals<InAppNotification>('notifications', 'targetUid', uid, items => this.private_.set(items));
       const shared = this.firestore.subscribeToWhereEquals<InAppNotification>('notifications', 'targetUid', 'family', items => this.family.set(items));
       unsubscribes = [own, shared].filter((u): u is Unsubscribe => !!u);
-    });
+    }, { allowSignalWrites: true });
   }
 
   /** Hides a notification for this user only (a family one stays for everyone else). */
