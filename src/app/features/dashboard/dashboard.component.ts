@@ -27,7 +27,7 @@ import { CalendarEventDialogComponent, CalendarEventDialogResult } from '../../c
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 import { GroceryService } from '../../services/grocery.service';
 import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
-import { WeatherService } from '../../services/weather.service';
+import { HourlyForecast, WeatherService } from '../../services/weather.service';
 import { FirestoreService } from '../../services/firestore.service';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { RemiScheduleService, RemiDailyBriefing } from '../../services/remi-schedule.service';
@@ -247,6 +247,30 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   isChatLoading = signal(false);
   /** Which panel the calendar header's kebab menu shows: its actions, or the calendar checkboxes. */
   calendarMenuView = signal<'actions' | 'calendars'>('actions');
+
+  /** Whether the hourly-forecast column shows beside the day's timeline (remembered on this device). */
+  showHourlyWeather = signal(DashboardComponent.loadShowHourlyWeather());
+  private static loadShowHourlyWeather(): boolean {
+    try {
+      return localStorage.getItem('calendarHourlyWeather') === 'true';
+    } catch {
+      return false;
+    }
+  }
+
+  toggleHourlyWeather(): void {
+    const next = !this.showHourlyWeather();
+    this.showHourlyWeather.set(next);
+    try {
+      localStorage.setItem('calendarHourlyWeather', String(next));
+    } catch { /* not remembered — fine */ }
+    if (next) void this.weatherService.loadHourly();
+  }
+
+  weatherAt(hour: number): HourlyForecast | undefined {
+    const key = `${toIsoDate(this.viewDate())}T${String(hour).padStart(2, '0')}`;
+    return this.weatherService.hourly().get(key);
+  }
   /** Shown while the sticky input is pinned with a good stretch of chat still below the viewport. */
   showChatScrollBtn = signal(false);
   private suppressChatScrollDetection = false;
@@ -356,6 +380,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   );
 
   ngOnInit(): void {
+    if (this.showHourlyWeather()) void this.weatherService.loadHourly();
     this.calendarTimeout = window.setTimeout(
       () => this.calendarLoadTimedOut.set(true),
       DashboardComponent.CALENDAR_LOAD_TIMEOUT_MS

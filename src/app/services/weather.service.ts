@@ -32,6 +32,13 @@ export interface RemainingForecast {
   maxPrecipChance: number;
 }
 
+/** One hour of the forecast. */
+export interface HourlyForecast {
+  tempF: number;
+  /** Chance of precipitation, 0-100. */
+  pop: number;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -39,7 +46,16 @@ export class WeatherService {
   private readonly API_URL = 'https://api.openweathermap.org/data/2.5/weather';
   private readonly FORECAST_URL = 'https://api.openweathermap.org/data/2.5/forecast';
   
+  // Open-Meteo gives true hourly steps (OpenWeather's free forecast is 3-hourly), with no key needed.
+  // Coordinates are for the same home zipcode as the rest of the weather (55410, Minneapolis).
+  private readonly HOURLY_URL = 'https://api.open-meteo.com/v1/forecast';
+  private readonly HOME_LAT = 44.9066;
+  private readonly HOME_LON = -93.3204;
+
   weather = signal<WeatherData | null>(null);
+  /** Hourly forecast keyed by local 'YYYY-MM-DDTHH' (e.g. '2026-10-12T14'); empty until loaded. */
+  hourly = signal<ReadonlyMap<string, HourlyForecast>>(new Map());
+  private hourlyLoadedAt = 0;
   forecast = signal<RemainingForecast | null>(null);
   /** When the current conditions were last successfully fetched. */
   lastUpdated = signal<Date | null>(null);
@@ -73,6 +89,30 @@ export class WeatherService {
     // Default to Minneapolis zipcode 55410
     this.fetchWeatherByZipcode('55410');
     void this.fetchRemainingForecast('55410');
+  }
+
+  /** Loads two weeks of hourly temperature and precipitation chance; skips the fetch if it's under 30 minutes old. */
+  async loadHourly(force = false): Promise<void> {
+    if (!force && Date.now() - this.hourlyLoadedAt < 30 * 60 * 1000) return;
+    try {
+      const url = `${this.HOURLY_URL}?latitude=${this.HOME_LAT}&longitude=${this.HOME_LON}`
+        + '&hourly=temperature_2m,precipitation_probability&temperature_unit=fahrenheit&timezone=auto&forecast_days=14';
+      const response = await fetch(url);
+      if (!response.ok) return;
+      const data = await response.json();
+      const times: string[] = data.hourly?.time ?? [];
+      const temps: number[] = data.hourly?.temperature_2m ?? [];
+      const pops: (number | null)[] = data.hourly?.precipitation_probability ?? [];
+      const byHour = new Map<string, HourlyForecast>();
+      times.forEach((time, i) => {
+        if (temps[i] == null) return;
+        byHour.set(time.slice(0, 13), { tempF: Math.round(temps[i]), pop: Math.round(pops[i] ?? 0) });
+      });
+      this.hourly.set(byHour);
+      this.hourlyLoadedAt = Date.now();
+    } catch (error) {
+      console.error('Error fetching hourly forecast:', error);
+    }
   }
 
   /** Loads the rest of today's forecast, refreshed alongside the current conditions so it never goes stale. */

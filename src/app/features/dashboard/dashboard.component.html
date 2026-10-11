@@ -219,6 +219,11 @@
 
     <mat-menu #calendarMenu="matMenu" class="cal-selector-menu">
       <ng-container *ngIf="calendarMenuView() === 'actions'">
+        <button mat-menu-item (click)="toggleHourlyWeather()">
+          <mat-icon>wb_sunny</mat-icon>
+          <span>Hourly weather</span>
+          <mat-icon *ngIf="showHourlyWeather()" class="cal-menu-check">check</mat-icon>
+        </button>
         <button mat-menu-item (click)="openSearchDialog()">
           <mat-icon>search</mat-icon>
           <span>Search</span>
@@ -480,12 +485,22 @@
       <div class="cal-playhead-edge cal-playhead-edge--bottom" *ngIf="isViewingToday && playheadEdge() === 'below'">
         <span class="cal-playhead-time">{{ formatTime(currentTime()) }}</span>
       </div>
-      <div class="cal-timeline-inner" [style.--cal-hour-px]="effectiveHourPx + 'px'"
+      <div class="cal-timeline-inner" [class.with-weather]="showHourlyWeather()" [style.--cal-hour-px]="effectiveHourPx + 'px'"
         [style.marginTop.px]="-getVisibleHourRange().start * effectiveHourPx">
 
         <!-- Hour grid -->
         <div class="cal-hour-row" *ngFor="let hour of allHours; trackBy: trackByHour">
           <span class="cal-hour-label">{{ formatHour(hour) }}</span>
+        </div>
+
+        <!-- Hourly forecast: temperature and chance of precipitation, down the right edge -->
+        <div class="cal-weather-col" *ngIf="showHourlyWeather()" aria-label="Hourly weather">
+          <div class="cal-weather-row" *ngFor="let hour of allHours; trackBy: trackByHour">
+            <ng-container *ngIf="weatherAt(hour) as w">
+              <span class="cal-weather-temp">{{ w.tempF }}°</span>
+              <span class="cal-weather-pop" [class.likely]="w.pop >= 50">{{ w.pop }}%</span>
+            </ng-container>
+          </div>
         </div>
 
         <!-- Events layer -->
