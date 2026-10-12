@@ -2610,7 +2610,8 @@
     flex-direction: column;
     gap: 2px;
     padding: 6px 8px;
-    max-height: 260px;
+    // Fits the viewport rather than a fixed height, so the list only scrolls when it truly must.
+    max-height: calc(100vh - 96px);
     overflow-y: auto;
   }
 
