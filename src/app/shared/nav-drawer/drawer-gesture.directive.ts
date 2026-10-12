@@ -153,7 +153,8 @@ export class DrawerGestureDirective implements OnInit, OnDestroy {
     cancelAnimationFrame(this.frame);
     this.frame = 0;
     this.el.style.transition = '';
-    this.el.style.transform = `translate3d(${open ? this.travel : 0}px, 0, 0)`;
+    // 'none' rather than translate3d(0): any transform, even an identity one, makes the page the containing block for position:fixed children (the pinned nav button), so the button would sit in the wrong place until the settle ends.
+    this.el.style.transform = open ? `translate3d(${this.travel}px, 0, 0)` : 'none';
     // The visual state goes on the DOM now so the slide starts at once; Angular is told a frame
     // later, since its change-detection pass would otherwise stall the first frames of the animation.
     this.host.classList.remove('dragging');

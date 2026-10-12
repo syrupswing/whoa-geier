@@ -14,7 +14,10 @@
 
 // While the drawer is open its own hamburger takes over; this one keeps its place in the header
 // (so nothing shifts) but is hidden.
-:host(.drawer-open) {
+:host(.drawer-open),
+// Mid-drag the page is transformed, which would re-anchor the pinned (fixed) button to the scrolling page; the shell's classes change at once, ahead of the drawer signal.
+:host-context(.app-shell.dragging),
+:host-context(.app-shell.drawer-open) {
   visibility: hidden;
   opacity: 0;
   transition: none;
