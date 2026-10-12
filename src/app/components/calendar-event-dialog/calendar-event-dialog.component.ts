@@ -10,6 +10,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatCheckboxModule } from '@angular/material/checkbox';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { CalendarEvent, CalendarItemKind, RepeatRule } from '../../services/google-calendar.service';
@@ -18,6 +19,7 @@ import { HouseholdService } from '../../services/household.service';
 import { AuthService } from '../../services/auth.service';
 import { TimeFieldComponent } from '../time-field/time-field.component';
 import { nextDayIso } from '../../services/app-calendar-event.service';
+import { PlaceSuggestService, PlaceSuggestion } from '../../services/place-suggest.service';
 
 export type AppCalendarEventFormResult = Omit<CalendarEvent, 'id' | 'source'>;
 
@@ -62,6 +64,7 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
     MatRadioModule,
     MatCheckboxModule,
     MatSelectModule,
+    MatAutocompleteModule,
     MatDatepickerModule,
     MatNativeDateModule,
     TimeFieldComponent
@@ -104,6 +107,26 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             [(ngModel)]="formData.title"
             [placeholder]="formData.itemKind === 'task' ? 'e.g., Renew car registration' : 'e.g., Dentist appointment'"
             required>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="formData.itemKind === 'event'">
+          <mat-label>Location</mat-label>
+          <mat-icon matPrefix>location_on</mat-icon>
+          <input
+            matInput
+            name="location"
+            autocomplete="off"
+            placeholder="Search for a place or address"
+            [(ngModel)]="formData.location"
+            (ngModelChange)="onLocationInput($event)"
+            [matAutocomplete]="locationAuto">
+          <mat-autocomplete #locationAuto="matAutocomplete" (optionSelected)="onLocationPicked($event.option.value)">
+            <mat-option *ngFor="let s of locationSuggestions" [value]="s.text">
+              <span class="place-main">{{ s.main }}</span>
+              <span class="place-secondary" *ngIf="s.secondary">{{ s.secondary }}</span>
+            </mat-option>
+          </mat-autocomplete>
+          <mat-hint class="place-unavailable" *ngIf="locationLookupFailed">Address suggestions unavailable — you can still type the location.</mat-hint>
         </mat-form-field>
         </div>
 
@@ -329,6 +352,19 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
       width: 100%;
     }
 
+    .place-main {
+      margin-right: 8px;
+    }
+
+    .place-unavailable {
+      color: var(--color-text-secondary);
+    }
+
+    .place-secondary {
+      font-size: 0.8rem;
+      color: var(--color-text-secondary);
+    }
+
     .title-field {
       margin-bottom: 8px;
     }
@@ -537,6 +573,8 @@ export class CalendarEventDialogComponent {
   formData: {
     itemKind: CalendarItemKind;
     title: string;
+    /** Free text; the autocomplete just fills it with a full address. */
+    location: string;
     /** Off = all day. On without a duration = a point in time. */
     hasTime: boolean;
     hasDuration: boolean;
@@ -567,7 +605,8 @@ export class CalendarEventDialogComponent {
     @Inject(MAT_DIALOG_DATA) public data: CalendarEventDialogData,
     public householdService: HouseholdService,
     private authService: AuthService,
-    private confirmService: ConfirmService
+    private confirmService: ConfirmService,
+    private placeSuggest: PlaceSuggestService
   ) {
     const event = data.event;
     if (event) {
@@ -585,6 +624,7 @@ export class CalendarEventDialogComponent {
       this.formData = {
         itemKind: event.kind ?? 'event',
         title: event.summary,
+        location: event.location ?? '',
         hasTime: !isAllDay,
         hasDuration: !isAllDay && !event.isPointInTime,
         multiDay: this.dateOnly(endDate) > this.dateOnly(startDate),
@@ -609,6 +649,7 @@ export class CalendarEventDialogComponent {
       this.formData = {
         itemKind: 'event',
         title: '',
+        location: '',
         // All day on the day being viewed, private to the creator, unless the user says otherwise.
         hasTime: false,
         hasDuration: false,
@@ -637,6 +678,29 @@ export class CalendarEventDialogComponent {
         if (prefill.scope) this.formData.scope = prefill.scope;
       }
     }
+  }
+
+  locationSuggestions: PlaceSuggestion[] = [];
+  locationLookupFailed = false;
+  private suggestTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Looks up suggestions once typing pauses, ignoring answers that arrive after the text has moved on. */
+  onLocationInput(text: string): void {
+    clearTimeout(this.suggestTimer);
+    this.suggestTimer = setTimeout(async () => {
+      const { suggestions, failed } = await this.placeSuggest.suggest(text ?? '');
+      if (text !== this.formData.location) return;
+      this.locationSuggestions = suggestions;
+      this.locationLookupFailed = failed;
+    }, 300);
+  }
+
+  onLocationPicked(text: string): void {
+    clearTimeout(this.suggestTimer);
+    this.locationSuggestions = [];
+    this.locationLookupFailed = false;
+    this.placeSuggest.endSession();
+    this.formData.location = text;
   }
 
   /** A timed item's alert starts out as "same time as event"; an all-day item's at 6:00 PM. Either can be changed. */
@@ -879,6 +943,11 @@ export class CalendarEventDialogComponent {
     return { allDay: false, start, end };
   }
 
+  /** The trimmed location, or '' — tasks have none. */
+  private eventLocation(): string {
+    return this.formData.itemKind === 'event' ? this.formData.location.trim() : '';
+  }
+
   /** Opens Google Calendar's new-event form, prefilled with this form's title and date/time. */
   googleEventUrl(): string {
     const { allDay, start, end } = this.externalEventRange();
@@ -890,6 +959,8 @@ export class CalendarEventDialogComponent {
       text: this.formData.title.trim(),
       dates: allDay ? `${ymd(start)}/${ymd(end)}` : `${stamp(start)}/${stamp(end)}`
     });
+    const location = this.eventLocation();
+    if (location) params.set('location', location);
     return `https://calendar.google.com/calendar/render?${params.toString()}`;
   }
 
@@ -907,6 +978,8 @@ export class CalendarEventDialogComponent {
       enddt: allDay ? ymd(end) : stamp(end),
       allday: String(allDay)
     });
+    const location = this.eventLocation();
+    if (location) params.set('location', location);
     return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
   }
 
@@ -946,6 +1019,8 @@ export class CalendarEventDialogComponent {
     // `undefined` here becomes a real field delete (see FirestoreService.updateDocument).
     // Adding has nothing to clear yet, and Firestore's create path rejects literal
     // `undefined` values outright, so a falsy field is simply left off the new document.
+    const location = this.eventLocation();
+    this.setOptionalField(result, 'location', location, !!location, isEdit);
     this.setOptionalField(result, 'isPointInTime', true, f.hasTime && !f.hasDuration, isEdit);
     this.setOptionalField(result, 'startApproximate', true, f.hasTime && f.hasDuration && f.startApproximate, isEdit);
     this.setOptionalField(result, 'endApproximate', true, f.hasTime && f.hasDuration && f.endApproximate, isEdit);

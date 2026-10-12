@@ -1889,6 +1889,55 @@ exports.driveTime = onCall(
 );
 
 // ---------------------------------------------------------------------------
+// Place suggestions: address autocomplete for an event's location
+//
+// Uses the Google Places API (New) Autocomplete endpoint with the same server-side key as drive
+// time, so the browser never holds a Maps key. The event stores the chosen text as-is, which is
+// exactly what driveTime takes as a destination.
+// ---------------------------------------------------------------------------
+
+exports.placeSuggestions = onCall(
+  { secrets: ['GOOGLE_MAPS_API_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const { input, sessionToken } = request.data || {};
+    if (typeof input !== 'string' || !input.trim() || input.length > 200) {
+      throw new HttpsError('invalid-argument', 'Type part of an address or place name');
+    }
+
+    const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': googleMapsApiKey.value()
+      },
+      body: JSON.stringify({
+        input: input.trim(),
+        ...(typeof sessionToken === 'string' && sessionToken.length <= 100 ? { sessionToken } : {})
+      })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error('placeSuggestions request failed:', response.status, JSON.stringify(body));
+      throw new HttpsError('internal', 'Address suggestions are unavailable right now');
+    }
+    const suggestions = (body.suggestions || [])
+      .map(s => s.placePrediction)
+      .filter(Boolean)
+      .slice(0, 5)
+      .map(p => ({
+        text: p.text?.text || '',
+        main: p.structuredFormat?.mainText?.text || p.text?.text || '',
+        secondary: p.structuredFormat?.secondaryText?.text || ''
+      }))
+      .filter(s => s.text);
+    return { suggestions };
+  }
+);
+
+// ---------------------------------------------------------------------------
 // Schedule exceptions: turn a parent's free-text description of one day into fields
 // ---------------------------------------------------------------------------
 
