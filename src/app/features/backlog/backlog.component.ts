@@ -140,9 +140,4 @@ export class BacklogComponent {
     });
     if (ok) await Promise.all(done.map(item => this.backlog.deleteItem(item.id)));
   }
-
-  async importOldTodos(): Promise<void> {
-    const count = await this.backlog.importFromTodos();
-    this.snackBar.open(`Imported ${count} task${count === 1 ? '' : 's'} from the old to-do list`, 'Close', { duration: 4000 });
-  }
 }

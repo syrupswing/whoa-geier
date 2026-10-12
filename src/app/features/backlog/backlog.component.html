@@ -23,12 +23,6 @@
       </button>
     </div>
 
-    <div class="import-banner" *ngIf="backlog.importableTodos().length">
-      <mat-icon>move_down</mat-icon>
-      <span>{{ backlog.importableTodos().length }} open task{{ backlog.importableTodos().length === 1 ? '' : 's' }} in the old to-do list.</span>
-      <button mat-stroked-button type="button" (click)="importOldTodos()">Import</button>
-    </div>
-
     <p class="empty" *ngIf="backlog.open().length === 0">Nothing in the backlog. Add a task above.</p>
 
     <ul class="task-list" *ngIf="backlog.open().length">

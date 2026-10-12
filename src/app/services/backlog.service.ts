@@ -2,7 +2,6 @@ import { Injectable, OnDestroy, computed, effect, inject, signal } from '@angula
 import { Unsubscribe } from 'firebase/firestore';
 import { AuthService } from './auth.service';
 import { FirestoreService } from './firestore.service';
-import { TodoService } from './todo.service';
 
 /** A task waiting for its turn: like a calendar task, but with no day or timing. */
 export interface BacklogItem {
@@ -18,8 +17,6 @@ export interface BacklogItem {
   completed: boolean;
   completedAt?: string;
   completedByName?: string;
-  /** The old to-do this was imported from, so an import never copies the same one twice. */
-  importedFromTodoId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -32,7 +29,6 @@ export type NewBacklogItem = Pick<BacklogItem, 'title'> & Partial<Pick<BacklogIt
 export class BacklogService implements OnDestroy {
   private firestore = inject(FirestoreService);
   private auth = inject(AuthService);
-  private todoService = inject(TodoService);
 
   private readonly COLLECTION_NAME = 'backlog';
 
@@ -54,15 +50,6 @@ export class BacklogService implements OnDestroy {
       .filter(item => item.completed)
       .sort((a, b) => (b.completedAt ?? '').localeCompare(a.completedAt ?? ''))
   );
-
-  /** Open to-dos from the old to-do list that haven't been copied into the backlog yet. */
-  importableTodos = computed(() => {
-    const imported = new Set(this.items().map(item => item.importedFromTodoId).filter(Boolean));
-    const uid = this.auth.currentUser()?.uid;
-    return this.todoService.items().filter(todo =>
-      !todo.completed && !imported.has(todo.id) && (!todo.isPrivate || todo.userId === uid)
-    );
-  });
 
   constructor() {
     effect(() => {
@@ -90,7 +77,7 @@ export class BacklogService implements OnDestroy {
     this.unsubscribes.forEach(u => u());
   }
 
-  async addItem(item: NewBacklogItem & { importedFromTodoId?: string }): Promise<string | null> {
+  async addItem(item: NewBacklogItem): Promise<string | null> {
     const user = this.auth.currentUser();
     if (!user) return null;
     const data: Partial<BacklogItem> = {
@@ -102,7 +89,6 @@ export class BacklogService implements OnDestroy {
     };
     if (item.notes?.trim()) data.notes = item.notes.trim();
     if (item.memberId) data.memberId = item.memberId;
-    if (item.importedFromTodoId) data.importedFromTodoId = item.importedFromTodoId;
     return this.firestore.addDocument<BacklogItem>(this.COLLECTION_NAME, data);
   }
 
@@ -120,18 +106,5 @@ export class BacklogService implements OnDestroy {
 
   async deleteItem(id: string): Promise<boolean> {
     return this.firestore.deleteDocument(this.COLLECTION_NAME, id);
-  }
-
-  /** Copies the old to-do list's open items in, minus their due dates and recurrence. Returns how many. */
-  async importFromTodos(): Promise<number> {
-    const todos = this.importableTodos();
-    const results = await Promise.all(todos.map(todo => this.addItem({
-      title: todo.title,
-      notes: todo.description,
-      memberId: todo.memberId,
-      scope: todo.isPrivate ? 'private' : 'family',
-      importedFromTodoId: todo.id
-    })));
-    return results.filter(Boolean).length;
   }
 }

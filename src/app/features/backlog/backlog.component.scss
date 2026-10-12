@@ -27,22 +27,6 @@
   }
 }
 
-.import-banner {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px 12px;
-  padding: 10px 14px;
-  margin-bottom: 16px;
-  border: 1px dashed var(--color-border, rgba(0, 0, 0, 0.3));
-  border-radius: 8px;
-
-  span {
-    flex: 1;
-    min-width: 160px;
-  }
-}
-
 .empty {
   color: var(--color-text-secondary);
   text-align: center;
