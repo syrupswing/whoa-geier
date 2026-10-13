@@ -17,7 +17,7 @@ const openWeatherApiKey = defineSecret('OPEN_WEATHER_API_KEY');
  * Pick the cheapest available Claude model (haiku preferred) and call it with a prompt.
  * Shared by the aiProxy callable and the daily briefing generator so both stay in sync.
  */
-async function callClaude(token, prompt, maxTokens = 1024, history = []) {
+async function callClaude(token, prompt, maxTokens = 1024, history = [], options = {}) {
   const modelsResponse = await fetch('https://api.anthropic.com/v1/models', {
     headers: { 'x-api-key': token, 'anthropic-version': '2023-06-01' }
   });
@@ -40,7 +40,11 @@ async function callClaude(token, prompt, maxTokens = 1024, history = []) {
     body: JSON.stringify({
       model,
       max_tokens: maxTokens,
-      messages: [...history, { role: 'user', content: prompt }]
+      messages: [...history, { role: 'user', content: prompt }],
+      // Haiku 5.x thinks by default, and thinking tokens count against max_tokens: a structured-JSON job
+      // can spend its whole budget thinking and return no text. Only Haiku is switched off here, since
+      // other models reject or constrain {type: 'disabled'}.
+      ...(options.thinkingOff && /haiku/.test(model) ? { thinking: { type: 'disabled' } } : {})
     })
   });
 
@@ -155,7 +159,8 @@ const ORCHESTRATOR_TEMPLATES = {
     // keeps its own per-event record of what it applied, and an aiSuggestions row per event would be noise.
     usesMemory: true,
     logSuggestion: false,
-    maxTokens: 2000,
+    thinkingOff: true,
+    maxTokens: 3000,
     buildPrompt: (payload, context) => {
       const children = (payload.children || []).map(c => `- ${c.name} (id "${c.id}")`).join('\n');
       const events = (payload.events || []).map(e => (
@@ -679,7 +684,7 @@ exports.orchestratedGenerate = onCall(
 
       const prompt = template.buildPrompt(payload || {}, context);
       const history = sanitizeConversationHistory(payload?.conversationHistory);
-      const raw = await callClaude(token, prompt, template.maxTokens || 1024, history);
+      const raw = await callClaude(token, prompt, template.maxTokens || 1024, history, { thinkingOff: template.thinkingOff });
       const result = template.parseResponse(raw);
 
       let suggestionId = null;
