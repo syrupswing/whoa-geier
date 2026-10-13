@@ -12,6 +12,8 @@ export interface RemiScheduleSettings {
   calendarIcalUrls?: string[];
   /** The household member this schedule belongs to. Set once the schedule has moved onto day profiles (see migrateToDayProfiles). */
   memberId?: string;
+  /** Set once every saved exception has been copied onto day profiles; only then do readers switch to them. */
+  exceptionsMigrated?: boolean;
   /** @deprecated superseded by calendarIcalUrls; still read for older saved settings. */
   calendarIcalUrl?: string;
 }
@@ -140,7 +142,13 @@ export class RemiScheduleService {
   }
 
   async saveSettings(settings: RemiScheduleSettings): Promise<boolean> {
-    const toSave = { ...settings, memberId: settings.memberId ?? this.settings().memberId };
+    // The form that produced these settings may predate a migration, so keep what the service already knows.
+    const current = this.settings();
+    const toSave = {
+      ...settings,
+      memberId: settings.memberId ?? current.memberId,
+      exceptionsMigrated: settings.exceptionsMigrated ?? current.exceptionsMigrated
+    };
     const ok = await this.firestoreService.setDocument(SETTINGS_COLLECTION, SETTINGS_DOC_ID, toSave);
     if (ok) {
       this.settings.set(toSave);
@@ -150,8 +158,14 @@ export class RemiScheduleService {
     return ok;
   }
 
+  /** Remi's member id once the schedule lives on day profiles, else null (the legacy exceptions apply). */
+  private migratedMemberId(): string | null {
+    const { memberId, exceptionsMigrated } = this.settings();
+    return memberId && exceptionsMigrated ? memberId : null;
+  }
+
   async getExceptions(): Promise<RemiScheduleException[]> {
-    const memberId = this.settings().memberId;
+    const memberId = this.migratedMemberId();
     if (memberId) {
       // A day stored only for its activities or meals isn't a schedule exception.
       return (await this.dayProfiles.fetchForMember(memberId))
@@ -176,20 +190,25 @@ export class RemiScheduleService {
   }
 
   async saveException(exception: RemiScheduleException): Promise<boolean> {
-    const memberId = this.settings().memberId;
+    const memberId = this.migratedMemberId();
     if (memberId) {
-      const stored = await this.firestoreService.getDocument<DayProfile>('dayProfiles', `${memberId}_${exception.date}`);
-      await this.dayProfiles.applyFields(
-        memberId, exception.date, exceptionToFields(exception, stored), { by: 'manual' }
-      );
-      return true;
+      try {
+        const stored = await this.firestoreService.getDocument<DayProfile>('dayProfiles', `${memberId}_${exception.date}`);
+        await this.dayProfiles.applyFields(
+          memberId, exception.date, exceptionToFields(exception, stored), { by: 'manual' }
+        );
+        return true;
+      } catch (err) {
+        console.error('saveException error:', err);
+        return false;
+      }
     }
     const { date, ...data } = exception;
     return this.firestoreService.setDocument(EXCEPTIONS_COLLECTION, date, data);
   }
 
   async deleteException(date: string): Promise<boolean> {
-    const memberId = this.settings().memberId;
+    const memberId = this.migratedMemberId();
     if (memberId) return this.dayProfiles.clearManual(memberId, date);
     return this.firestoreService.deleteDocument(EXCEPTIONS_COLLECTION, date);
   }
@@ -207,28 +226,33 @@ export class RemiScheduleService {
     try {
       await this.loadSettings();
       const settings = this.settings();
-      if (settings.memberId) return true;
+      if (settings.memberId && settings.exceptionsMigrated) return true;
       // Without a saved schedule there's nothing to move, and creating a member for it would be premature.
       if (!(await this.firestoreService.getDocument(SETTINGS_COLLECTION, SETTINGS_DOC_ID))) return false;
 
-      const routine = routineFromSettings(settings);
-      let member = this.household.members().find(m => m.name.trim().toLowerCase() === 'remi');
-      let memberId: string;
-      if (member) {
-        memberId = member.id;
-        await this.household.updateMember(memberId, { kind: 'child', routine: { ...member.routine, ...routine } });
-      } else {
-        memberId = await this.household.addMember({
-          name: 'Remi', dietaryRestrictions: [], preferences: {}, kind: 'child', routine
-        });
+      let memberId = settings.memberId;
+      if (!memberId) {
+        const routine = routineFromSettings(settings);
+        const member = this.household.members().find(m => m.name.trim().toLowerCase() === 'remi');
+        if (member) {
+          memberId = member.id;
+          await this.household.updateMember(memberId, { kind: 'child', routine: { ...member.routine, ...routine } });
+        } else {
+          memberId = await this.household.addMember({
+            name: 'Remi', dietaryRestrictions: [], preferences: {}, kind: 'child', routine
+          });
+        }
       }
 
+      // A day that already has a profile was edited after an earlier attempt, so the saved exception doesn't replace it.
+      // applyFields throws if a write fails, which stops here before the schedule is marked migrated.
       for (const exception of await this.legacyExceptions()) {
+        if (await this.dayProfiles.hasStored(memberId, exception.date)) continue;
         await this.dayProfiles.applyFields(
           memberId, exception.date, exceptionToFields(exception, null), { by: 'manual' }
         );
       }
-      return await this.saveSettings({ ...settings, memberId });
+      return await this.saveSettings({ ...settings, memberId, exceptionsMigrated: true });
     } catch (err) {
       console.error('migrateToDayProfiles error:', err);
       return false;

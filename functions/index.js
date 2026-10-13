@@ -63,7 +63,7 @@ async function callClaude(token, prompt, maxTokens = 1024, history = []) {
       stop_reason: result.stop_reason,
       content: result.content
     }));
-    throw new Error('Invalid response format from Claude API');
+    throw new Error(`Invalid response format from Claude API (stop_reason: ${result.stop_reason || 'unknown'})`);
   }
   return text;
 }
@@ -812,7 +812,7 @@ async function resolveScheduleForDate(db, dateStr) {
   // Once the schedule has been migrated, the member's routine plus that day's profile is the source
   // of truth; before then (or if the member has since been removed) the legacy exceptions apply.
   let day = null;
-  if (settings.memberId) {
+  if (settings.memberId && settings.exceptionsMigrated) {
     const [householdDoc, profileDoc] = await Promise.all([
       db.collection('household').doc('main').get(),
       db.collection('dayProfiles').doc(`${settings.memberId}_${dateStr}`).get()

@@ -116,7 +116,8 @@ export class DayProfileService implements OnDestroy {
    * Writes fields into a day's profile. A field already held by a higher-ranked source is left alone
    * (a calendar guess never overwrites what a parent typed); pass `by: 'manual'` for a deliberate edit.
    * A field given as `undefined` is cleared, so the day falls back to the routine for it.
-   * Returns the fields that were actually written or cleared.
+   * Returns the fields that were actually written or cleared. Throws if the write fails, so a
+   * caller can't mistake a denied or failed save for "nothing to change".
    */
   async applyFields(
     memberId: string,
@@ -143,7 +144,10 @@ export class DayProfileService implements OnDestroy {
       written.push(key);
     }
     if (!written.length) return written;
-    return (await this.save(memberId, date, merged, sources)) ? written : [];
+    if (!(await this.save(memberId, date, merged, sources))) {
+      throw new Error(`Could not save the day profile for ${date}`);
+    }
+    return written;
   }
 
   /** Drops stored overrides that came from a calendar event no longer present, so those fields fall back to the routine. */
@@ -174,6 +178,11 @@ export class DayProfileService implements OnDestroy {
   async fetchForMember(memberId: string): Promise<DayProfile[]> {
     const all = await this.firestoreService.getCollection<DayProfile>(COLLECTION);
     return all.filter(p => p.memberId === memberId).sort((a, b) => a.date.localeCompare(b.date));
+  }
+
+  /** Whether anything is stored for the day, read straight from the server. */
+  async hasStored(memberId: string, date: string): Promise<boolean> {
+    return (await this.fetch(memberId, date)) !== null;
   }
 
   private fetch(memberId: string, date: string): Promise<DayProfile | null> {
