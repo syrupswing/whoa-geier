@@ -287,6 +287,16 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dismissedBy', 'updatedAt']);
     }
 
+    // Shared cache of the family's Google Calendar events, written by GoogleCalendarService whenever
+    // it syncs and read by the chat function (via the Admin SDK) and by the app on startup, before
+    // sign-in to Google finishes. Without this rule the writes are denied and the cache goes stale.
+    match /app-cache/{docId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if false;
+    }
+
     // Default: deny all access unless explicitly granted above
     match /{document=**} {
       allow read, write: if false;
