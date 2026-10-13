@@ -62,6 +62,7 @@ export class MemberSettingsComponent {
   timeBDraft = '';
   lunchDraft: SchoolMeals['lunch'] | '' = '';
   calendarsDraft = '';
+  emailDraft = '';
 
   // ── Display ──────────────────────────────────────────────────
 
@@ -72,6 +73,13 @@ export class MemberSettingsComponent {
   dietaryLabel = computed(() => (this.member()?.dietaryRestrictions ?? []).join(', '));
   schoolDaysLabel = computed(() => this.daysLabel(this.member()?.routine?.schoolDays));
   workDaysLabel = computed(() => this.daysLabel(this.member()?.routine?.workDays));
+  /** Where this person's login stands: signed in and linked, invited by email, or neither. */
+  loginLabel = computed(() => {
+    const id = this.memberIdSig();
+    const invite = id ? this.household.invites().find(i => i.memberId === id) : undefined;
+    if (!invite) return '';
+    return invite.claimedByUid ? `${invite.id} · signed in` : `${invite.id} · invited, not signed in yet`;
+  });
   schoolTimesLabel = computed(() => {
     const r = this.member()?.routine;
     const parts = [r?.dropOffTime && `Drop-off ${this.time(r.dropOffTime)}`, r?.pickUpTime && `Pick-up ${this.time(r.pickUpTime)}`];
@@ -96,6 +104,10 @@ export class MemberSettingsComponent {
   }
 
   // ── Editing ──────────────────────────────────────────────────
+
+  beginLogin(): void {
+    this.emailDraft = this.household.invites().find(i => i.memberId === this.memberIdSig())?.id ?? '';
+  }
 
   beginName(): void { this.nameDraft = this.member()?.name ?? ''; }
   beginRole(): void { this.kindDraft = this.member()?.kind ?? ''; }
@@ -140,6 +152,17 @@ export class MemberSettingsComponent {
     return this.memberIdSig()
       ? this.change(row, { name })
       : this.run(row, async () => this.memberIdSig.set(await this.settings.setMyFirstName(name)));
+  }
+
+  /** Sets, changes or (when emptied) removes the email whose sign-in is linked to this person. */
+  saveLogin(row: SettingRowComponent): Promise<void> {
+    const id = this.memberIdSig()!;
+    const email = this.emailDraft.trim();
+    return this.run(row, async () => {
+      const current = this.household.invites().find(i => i.memberId === id);
+      if (email) await this.household.inviteMember(id, email);
+      else if (current && !current.claimedByUid) await this.household.cancelInvite(current.id);
+    });
   }
 
   saveRole(row: SettingRowComponent): Promise<void> {

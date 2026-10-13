@@ -232,6 +232,15 @@ service cloud.firestore {
     }
 
     // User-added quick links (the hardcoded system links never touch Firestore)
+    // Standing offers to link whoever signs in with an email to a household member (doc id = lower-cased
+    // email). Created by an adult adding someone, claimed on that person's first sign-in.
+    match /memberInvites/{email} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
     match /quickLinks/{linkId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();

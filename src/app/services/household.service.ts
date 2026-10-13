@@ -30,6 +30,16 @@ interface MemberLink {
   linkedAt: string;
 }
 
+/** A standing offer to link whoever signs in with `email` to a household member. Doc id is the lower-cased email. */
+export interface MemberInvite {
+  id: string;
+  memberId: string;
+  invitedByUid?: string;
+  /** Set once that person has signed in and been linked. */
+  claimedByUid?: string;
+  claimedAt?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -42,6 +52,7 @@ export class HouseholdService {
   private readonly DOC_ID = 'main';
   private readonly LOCAL_STORAGE_KEY = 'household';
   private readonly MEMBER_LINKS_COLLECTION = 'memberLinks';
+  private readonly INVITES_COLLECTION = 'memberInvites';
 
   household = signal<Household | null>(null);
   members = computed(() => this.household()?.members ?? []);
@@ -49,10 +60,15 @@ export class HouseholdService {
 
   /** The household member the currently signed-in account is linked to, if any. */
   myMemberId = signal<string | null>(null);
+  /** Invitations by email, pending or claimed. Doc ids are the lower-cased emails. */
+  invites = signal<MemberInvite[]>([]);
   private memberLinkUnsubscribe: Unsubscribe | null = null;
 
   constructor() {
     this.load();
+    if (this.firestoreService.isInitialized()) {
+      this.firestoreService.subscribeToCollection<MemberInvite>(this.INVITES_COLLECTION, items => this.invites.set(items));
+    }
     // AuthService.currentUser resolves asynchronously (onAuthStateChanged), so this must
     // react to it rather than check once — re-subscribing to the right uid's link doc
     // whenever sign-in state actually changes.
@@ -74,8 +90,60 @@ export class HouseholdService {
     this.memberLinkUnsubscribe = this.firestoreService.subscribeToDocument<MemberLink>(
       this.MEMBER_LINKS_COLLECTION,
       uid,
-      (link) => this.myMemberId.set(link?.memberId ?? null)
+      (link) => {
+        this.myMemberId.set(link?.memberId ?? null);
+        // First sign-in of someone who was invited by email: link them without making them pick themselves.
+        if (!link) void this.claimInvite(uid);
+      }
     );
+  }
+
+  private normalizeEmail(email: string): string {
+    return email.trim().toLowerCase();
+  }
+
+  /** The invitation for a member, if they have one. */
+  inviteFor(memberId: string): MemberInvite | undefined {
+    return this.invites().find(i => i.memberId === memberId);
+  }
+
+  /**
+   * Offers to link whoever signs in with `email` to this member (replacing an unclaimed offer they already
+   * had). The link happens on that person's first sign-in; a claimed invitation can't be reassigned.
+   */
+  async inviteMember(memberId: string, email: string): Promise<void> {
+    const id = this.normalizeEmail(email);
+    if (!/^\S+@\S+\.\S+$/.test(id)) throw new Error('Enter a valid email address');
+    const taken = this.invites().find(i => i.id === id && i.memberId !== memberId);
+    if (taken) throw new Error('That email is already invited as someone else');
+
+    const previous = this.inviteFor(memberId);
+    if (previous && previous.id !== id && !previous.claimedByUid) await this.cancelInvite(previous.id);
+    const invite: Omit<MemberInvite, 'id'> = { memberId, invitedByUid: this.authService.currentUser()?.uid };
+    await this.firestoreService.setDocument(this.INVITES_COLLECTION, id, invite);
+  }
+
+  async cancelInvite(email: string): Promise<void> {
+    await this.firestoreService.deleteDocument(this.INVITES_COLLECTION, this.normalizeEmail(email));
+  }
+
+  private async claimInvite(uid: string): Promise<void> {
+    const user = this.authService.currentUser();
+    if (!user?.email || user.uid !== uid) return;
+    const id = this.normalizeEmail(user.email);
+    const invite = await this.firestoreService.getDocument<MemberInvite>(this.INVITES_COLLECTION, id);
+    if (!invite || (invite.claimedByUid && invite.claimedByUid !== uid)) return;
+    // The member may have been removed since the invitation was sent.
+    const members = (await this.firestoreService.getDocument<Household>(this.COLLECTION_NAME, this.DOC_ID))?.members ?? [];
+    if (!members.some(m => m.id === invite.memberId)) return;
+
+    await this.linkCurrentUserToMember(invite.memberId);
+    await this.firestoreService.setDocument(this.INVITES_COLLECTION, id, {
+      memberId: invite.memberId,
+      invitedByUid: invite.invitedByUid,
+      claimedByUid: uid,
+      claimedAt: new Date().toISOString()
+    });
   }
 
   /** Claims a household member profile as "me" for the currently signed-in account. */

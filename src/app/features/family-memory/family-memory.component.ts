@@ -48,6 +48,7 @@ export class FamilyMemoryComponent {
   memberNameInput = '';
   memberDietaryInput = '';
   memberKindInput: '' | 'child' | 'adult' = '';
+  memberEmailInput = '';
   isSavingMember = signal(false);
 
   // Reference library
@@ -130,12 +131,21 @@ export class FamilyMemoryComponent {
         .map(s => s.trim())
         .filter(Boolean);
 
-      await this.householdService.addMember({
+      const id = await this.householdService.addMember({
         name, dietaryRestrictions, preferences: {}, ...(this.memberKindInput && { kind: this.memberKindInput })
       });
+      if (this.memberEmailInput.trim()) {
+        try {
+          await this.householdService.inviteMember(id, this.memberEmailInput);
+        } catch (err) {
+          // The person is added either way; only the email offer failed.
+          this.snackBar.open(`${name} was added, but the invite failed: ${(err as Error).message}`, 'Close', { duration: 5000 });
+        }
+      }
       this.memberNameInput = '';
       this.memberDietaryInput = '';
       this.memberKindInput = '';
+      this.memberEmailInput = '';
     } finally {
       this.isSavingMember.set(false);
     }

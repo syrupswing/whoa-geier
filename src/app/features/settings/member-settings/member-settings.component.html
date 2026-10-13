@@ -11,6 +11,15 @@
   <app-setting-row *ngIf="isMe" label="Signed in as" [value]="auth.currentUser()?.email" [editable]="false"></app-setting-row>
 
   <ng-container *ngIf="member() as m">
+    <app-setting-row *ngIf="!isMe" #loginRow label="Login email" [value]="loginLabel()" emptyText="No login yet" [saving]="saving()"
+      hint="When they sign in with this email they're linked automatically and see what the family shares."
+      (editStart)="beginLogin()" (save)="saveLogin(loginRow)">
+      <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Email they sign in with</mat-label>
+        <input matInput type="email" name="loginEmail" [(ngModel)]="emailDraft" autocomplete="off" placeholder="name@example.com">
+      </mat-form-field>
+    </app-setting-row>
+
     <app-setting-row #roleRow label="Role" [value]="roleLabel()" emptyText="Not tracked" [saving]="saving()"
       (editStart)="beginRole()" (save)="saveRole(roleRow)">
       <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
