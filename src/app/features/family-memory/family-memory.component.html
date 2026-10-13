@@ -6,7 +6,7 @@
     <mat-card-content>
       <p class="hint-text">
         Add each person facts and future AI suggestions can be attached to individually, instead of
-        everything defaulting to "whole household".
+        everything defaulting to "whole household". Each person's own settings are in their tab above.
       </p>
 
       <div class="member-list" *ngIf="householdService.members().length">
@@ -45,6 +45,15 @@
         </mat-form-field>
 
         <mat-form-field appearance="outline">
+          <mat-label>Role</mat-label>
+          <mat-select [(ngModel)]="memberKindInput">
+            <mat-option value="">Not tracked</mat-option>
+            <mat-option value="child">Child (school days)</mat-option>
+            <mat-option value="adult">Adult (work days)</mat-option>
+          </mat-select>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
           <mat-label>Dietary restrictions (comma-separated, optional)</mat-label>
           <input
             matInput
@@ -59,28 +68,6 @@
         Add member
       </button>
     </mat-card-actions>
-  </mat-card>
-
-  <mat-card class="form-card">
-    <mat-card-header>
-      <mat-card-title>Regular routines</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <p class="hint-text">
-        Each person's usual week. A day follows this unless a calendar event or an edit says otherwise.
-      </p>
-      <app-member-routine-editor></app-member-routine-editor>
-    </mat-card-content>
-  </mat-card>
-
-  <mat-card class="form-card">
-    <mat-card-header>
-      <mat-card-title>A person's day</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <app-pending-day-suggestions></app-pending-day-suggestions>
-      <app-member-day-editor></app-member-day-editor>
-    </mat-card-content>
   </mat-card>
 
   <mat-card class="form-card">

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal } from '@angular/core';
+import { Component, Input, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -52,6 +52,12 @@ export class MemberDayEditorComponent {
   private readonly snackBar = inject(MatSnackBar);
 
   memberId = signal<string | null>(null);
+  /** True when the host pins the editor to one person, which hides the person picker. */
+  fixedMember = false;
+  @Input({ alias: 'memberId' }) set pinnedMemberId(value: string | null) {
+    this.fixedMember = !!value;
+    if (value) this.memberId.set(value);
+  }
   date = signal(todayStr());
   form: DayForm = emptyForm();
   isSaving = signal(false);

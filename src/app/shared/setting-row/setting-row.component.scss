@@ -1,0 +1,81 @@
+:host {
+  display: block;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+
+  &:last-child {
+    border-bottom: 0;
+  }
+}
+
+.setting-row {
+  display: grid;
+  grid-template-columns: minmax(120px, 11rem) 1fr;
+  gap: 4px 16px;
+  align-items: start;
+  padding: 10px 0;
+}
+
+.setting-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  opacity: 0.7;
+  padding-top: 10px;
+}
+
+.setting-body {
+  margin: 0;
+  min-width: 0;
+}
+
+.setting-view {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+
+  .setting-value {
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+    font-size: 0.95rem;
+
+    &.empty {
+      opacity: 0.5;
+      font-style: italic;
+    }
+  }
+
+  .edit-btn {
+    flex: none;
+    margin-left: auto;
+  }
+}
+
+.setting-edit {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.setting-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.setting-hint {
+  margin: 0;
+  font-size: 0.75rem;
+  opacity: 0.6;
+}
+
+@media (max-width: 600px) {
+  .setting-row {
+    grid-template-columns: 1fr;
+  }
+
+  .setting-label {
+    padding-top: 0;
+  }
+}

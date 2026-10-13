@@ -14,9 +14,6 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MemoryService, ExplicitFact } from '../../services/memory.service';
 import { HouseholdService, FamilyMember } from '../../services/household.service';
 import { ReferenceDocsService, ReferenceDoc } from '../../services/reference-docs.service';
-import { MemberRoutineEditorComponent } from '../../shared/member-routine-editor/member-routine-editor.component';
-import { MemberDayEditorComponent } from '../../shared/member-day-editor/member-day-editor.component';
-import { PendingDaySuggestionsComponent } from '../../shared/pending-day-suggestions/pending-day-suggestions.component';
 
 const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule', 'other'] as const;
 
@@ -35,10 +32,7 @@ const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule
     MatButtonToggleModule,
     MatChipsModule,
     MatTooltipModule,
-    MatSnackBarModule,
-    MemberRoutineEditorComponent,
-    MemberDayEditorComponent,
-    PendingDaySuggestionsComponent
+    MatSnackBarModule
   ],
   templateUrl: './family-memory.component.html',
   styleUrl: './family-memory.component.scss'
@@ -53,6 +47,7 @@ export class FamilyMemoryComponent {
 
   memberNameInput = '';
   memberDietaryInput = '';
+  memberKindInput: '' | 'child' | 'adult' = '';
   isSavingMember = signal(false);
 
   // Reference library
@@ -135,9 +130,12 @@ export class FamilyMemoryComponent {
         .map(s => s.trim())
         .filter(Boolean);
 
-      await this.householdService.addMember({ name, dietaryRestrictions, preferences: {} });
+      await this.householdService.addMember({
+        name, dietaryRestrictions, preferences: {}, ...(this.memberKindInput && { kind: this.memberKindInput })
+      });
       this.memberNameInput = '';
       this.memberDietaryInput = '';
+      this.memberKindInput = '';
     } finally {
       this.isSavingMember.set(false);
     }

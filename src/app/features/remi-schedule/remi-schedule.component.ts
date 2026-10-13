@@ -1,10 +1,9 @@
-import { Component, OnInit, TemplateRef, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Component, Input, OnInit, TemplateRef, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
-import { PendingDaySuggestionsComponent } from '../../shared/pending-day-suggestions/pending-day-suggestions.component';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -46,8 +45,7 @@ interface UpcomingDay {
     MatCheckboxModule,
     MatRadioModule,
     MatTooltipModule,
-    MatSnackBarModule,
-    PendingDaySuggestionsComponent
+    MatSnackBarModule
   ],
   templateUrl: './remi-schedule.component.html',
   styleUrl: './remi-schedule.component.scss'
@@ -55,6 +53,9 @@ interface UpcomingDay {
 export class RemiScheduleComponent implements OnInit {
   private dialog = inject(MatDialog);
   @ViewChild('exceptionDialog') private exceptionDialog?: TemplateRef<unknown>;
+
+  /** False when the regular schedule is edited elsewhere (the member's settings), leaving just exceptions and lunch menus. */
+  @Input() showRecurring = true;
 
   readonly weekdayLabels = WEEKDAY_LABELS;
 

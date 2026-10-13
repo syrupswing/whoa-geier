@@ -1,0 +1,21 @@
+<div class="setting-row" [class.editing]="editing()">
+  <dt class="setting-label">{{ label }}</dt>
+  <dd class="setting-body">
+    <div class="setting-view" *ngIf="!editing()">
+      <span class="setting-value" [class.empty]="!value">{{ value || emptyText }}</span>
+      <ng-content select="[action]"></ng-content>
+      <button *ngIf="editable" mat-icon-button type="button" class="edit-btn" (click)="start()" [attr.aria-label]="'Edit ' + label">
+        <mat-icon>edit</mat-icon>
+      </button>
+    </div>
+
+    <form class="setting-edit" *ngIf="editing()" (ngSubmit)="save.emit()">
+      <ng-content select="[editor]"></ng-content>
+      <div class="setting-actions">
+        <button mat-button type="button" (click)="close()">Cancel</button>
+        <button mat-flat-button color="primary" type="submit" [disabled]="saving">Save</button>
+      </div>
+    </form>
+    <p class="setting-hint" *ngIf="hint">{{ hint }}</p>
+  </dd>
+</div>

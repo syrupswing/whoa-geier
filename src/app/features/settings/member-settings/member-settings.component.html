@@ -1,0 +1,119 @@
+<dl class="setting-list">
+  <app-setting-row #nameRow label="First name" [value]="member()?.name" [saving]="saving()"
+    [hint]="memberId ? '' : 'Used to recognize your events and to show who changed what.'"
+    (editStart)="beginName()" (save)="saveName(nameRow)">
+    <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
+      <mat-label>First name</mat-label>
+      <input matInput name="firstName" [(ngModel)]="nameDraft" autocomplete="given-name">
+    </mat-form-field>
+  </app-setting-row>
+
+  <app-setting-row *ngIf="isMe" label="Signed in as" [value]="auth.currentUser()?.email" [editable]="false"></app-setting-row>
+
+  <ng-container *ngIf="member() as m">
+    <app-setting-row #roleRow label="Role" [value]="roleLabel()" emptyText="Not tracked" [saving]="saving()"
+      (editStart)="beginRole()" (save)="saveRole(roleRow)">
+      <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Role</mat-label>
+        <mat-select name="role" [(ngModel)]="kindDraft">
+          <mat-option value="">Not tracked</mat-option>
+          <mat-option value="child">Child (school days)</mat-option>
+          <mat-option value="adult">Adult (work days)</mat-option>
+        </mat-select>
+      </mat-form-field>
+    </app-setting-row>
+
+    <app-setting-row #dietaryRow label="Dietary restrictions" [value]="dietaryLabel()" emptyText="None" [saving]="saving()"
+      (editStart)="beginDietary()" (save)="saveDietary(dietaryRow)">
+      <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
+        <mat-label>Comma-separated</mat-label>
+        <input matInput name="dietary" [(ngModel)]="dietaryDraft" placeholder="shellfish allergy, no dairy">
+      </mat-form-field>
+    </app-setting-row>
+
+    <!-- Children -->
+    <ng-container *ngIf="m.kind === 'child'">
+      <app-setting-row #schoolDaysRow label="School days" [value]="schoolDaysLabel()" [saving]="saving()"
+        (editStart)="beginDays('schoolDays')" (save)="saveDays(schoolDaysRow, 'schoolDays')">
+        <div editor class="weekday-picker">
+          <button *ngFor="let label of weekdays; let day = index" type="button" class="weekday-chip"
+            [class.selected]="daysDraft.includes(day)" (click)="toggleDay(day)">{{ label }}</button>
+        </div>
+      </app-setting-row>
+
+      <app-setting-row #schoolTimesRow label="Drop-off & pick-up" [value]="schoolTimesLabel()" [saving]="saving()"
+        (editStart)="beginTimes('dropOffTime', 'pickUpTime')" (save)="saveTimes(schoolTimesRow, 'dropOffTime', 'pickUpTime')">
+        <div editor class="time-pair">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Drop-off</mat-label>
+            <input matInput type="time" name="dropOff" [(ngModel)]="timeADraft">
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Pick-up</mat-label>
+            <input matInput type="time" name="pickUp" [(ngModel)]="timeBDraft">
+          </mat-form-field>
+        </div>
+      </app-setting-row>
+
+      <app-setting-row #lunchRow label="School lunch" [value]="lunch(m.routine?.schoolMeals?.lunch)" [saving]="saving()"
+        (editStart)="beginLunch()" (save)="saveLunch(lunchRow)">
+        <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
+          <mat-label>School lunch</mat-label>
+          <mat-select name="lunch" [(ngModel)]="lunchDraft">
+            <mat-option value="">Not set</mat-option>
+            <mat-option value="hot">Hot lunch</mat-option>
+            <mat-option value="pack">Packed lunch</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </app-setting-row>
+
+      <app-setting-row *ngIf="isRemi()" #calendarsRow label="School calendars" [value]="calendarsLabel()" emptyText="None linked"
+        [saving]="saving()" hint="iCal links (Google Calendar → Settings → Secret address in iCal format). Events appear in the daily briefing."
+        (editStart)="beginCalendars()" (save)="saveCalendars(calendarsRow)">
+        <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
+          <mat-label>One link per line</mat-label>
+          <textarea matInput name="calendars" rows="3" [(ngModel)]="calendarsDraft"
+            placeholder="https://calendar.google.com/calendar/ical/.../basic.ics"></textarea>
+        </mat-form-field>
+      </app-setting-row>
+    </ng-container>
+
+    <!-- Adults -->
+    <ng-container *ngIf="m.kind === 'adult'">
+      <app-setting-row #workDaysRow label="Work days" [value]="workDaysLabel()" [saving]="saving()"
+        (editStart)="beginDays('workDays')" (save)="saveDays(workDaysRow, 'workDays')">
+        <div editor class="weekday-picker">
+          <button *ngFor="let label of weekdays; let day = index" type="button" class="weekday-chip"
+            [class.selected]="daysDraft.includes(day)" (click)="toggleDay(day)">{{ label }}</button>
+        </div>
+      </app-setting-row>
+
+      <app-setting-row #workTimesRow label="Work hours" [value]="workTimesLabel()" [saving]="saving()"
+        (editStart)="beginTimes('workStartTime', 'workStopTime')" (save)="saveTimes(workTimesRow, 'workStartTime', 'workStopTime')">
+        <div editor class="time-pair">
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Start</mat-label>
+            <input matInput type="time" name="workStart" [(ngModel)]="timeADraft">
+          </mat-form-field>
+          <mat-form-field appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Stop</mat-label>
+            <input matInput type="time" name="workStop" [(ngModel)]="timeBDraft">
+          </mat-form-field>
+        </div>
+      </app-setting-row>
+    </ng-container>
+  </ng-container>
+</dl>
+
+<ng-container *ngIf="member() as m">
+  <ng-container *ngIf="m.kind">
+    <h3 class="member-subheading">Day by day</h3>
+    <p class="hint-text">What {{ m.name }}'s days look like, including changes picked up from calendars.</p>
+    <app-member-day-editor [memberId]="m.id"></app-member-day-editor>
+  </ng-container>
+
+  <ng-container *ngIf="isRemi()">
+    <h3 class="member-subheading">Schedule exceptions &amp; lunch menu</h3>
+    <app-remi-schedule [showRecurring]="false"></app-remi-schedule>
+  </ng-container>
+</ng-container>

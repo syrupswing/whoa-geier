@@ -1,8 +1,6 @@
 <div class="remi-schedule-container">
-  <app-pending-day-suggestions></app-pending-day-suggestions>
-
   <!-- Recurring schedule settings -->
-  <mat-card class="form-card">
+  <mat-card class="form-card" *ngIf="showRecurring">
     <mat-card-header>
       <mat-card-title>Recurring schedule</mat-card-title>
     </mat-card-header>

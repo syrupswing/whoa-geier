@@ -4,67 +4,51 @@
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
-  <!-- Notifications -->
+  <!-- General: applies to everyone, or to this device -->
+  <h2 class="section-heading">General</h2>
   <mat-card class="form-card">
-    <mat-card-header>
-      <mat-card-title>Notifications</mat-card-title>
-    </mat-card-header>
     <mat-card-content>
-      <p class="hint-text">Push notifications deliver Remi's morning briefing and family reminders to this device.</p>
+      <dl class="setting-list">
+        <app-setting-row label="Notifications" [value]="notificationStatus()" [editable]="false"
+          hint="Push notifications deliver Remi's morning briefing and family reminders to this device.">
+          <button action mat-stroked-button color="primary" type="button"
+            *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'default'"
+            (click)="enableNotifications()" [disabled]="isRequestingPermission()">
+            Enable
+          </button>
+        </app-setting-row>
 
-      <div class="setting-row" *ngIf="!pushNotificationService.isSupported()">
-        <mat-icon class="status-icon status-icon--off">notifications_off</mat-icon>
-        <span>This device or browser doesn't support push notifications.</span>
-      </div>
-
-      <div class="setting-row" *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'granted'">
-        <mat-icon class="status-icon status-icon--on">notifications_active</mat-icon>
-        <span>Enabled on this device</span>
-      </div>
-
-      <div class="setting-row" *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'denied'">
-        <mat-icon class="status-icon status-icon--off">notifications_off</mat-icon>
-        <span>Blocked — turn notifications back on for this site in your browser settings.</span>
-      </div>
-
-      <div class="setting-row" *ngIf="pushNotificationService.isSupported() && pushNotificationService.permissionState() === 'default'">
-        <mat-icon class="status-icon">notifications_none</mat-icon>
-        <span>Not enabled on this device</span>
-        <button
-          mat-stroked-button
-          color="primary"
-          (click)="enableNotifications()"
-          [disabled]="isRequestingPermission()">
-          Enable
-        </button>
-      </div>
+        <app-setting-row #homeRow label="Home address" [value]="homeLocation.address()" [saving]="isSavingHome()"
+          hint="The starting point for drive times to calendar events that have a location."
+          (editStart)="homeAddressDraft = homeLocation.address()" (save)="saveHomeAddress(homeRow)">
+          <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
+            <mat-label>Address</mat-label>
+            <input matInput name="homeAddress" [(ngModel)]="homeAddressDraft" autocomplete="street-address">
+          </mat-form-field>
+        </app-setting-row>
+      </dl>
     </mat-card-content>
   </mat-card>
 
-  <!-- Home address -->
-  <mat-card class="form-card">
-    <mat-card-header>
-      <mat-card-title>Home address</mat-card-title>
-    </mat-card-header>
-    <mat-card-content>
-      <p class="hint-text">The starting point for drive times to calendar events that have a location.</p>
-      <form class="home-address-row" (ngSubmit)="saveHomeAddress()">
-        <mat-form-field appearance="outline" class="home-address-field">
-          <mat-label>Address</mat-label>
-          <input matInput name="homeAddress" [(ngModel)]="homeAddressDraft" autocomplete="street-address">
-        </mat-form-field>
-        <button mat-stroked-button color="primary" type="submit" [disabled]="isSavingHome() || homeAddressDraft.trim() === homeLocation.address()">
-          Save
-        </button>
-      </form>
-    </mat-card-content>
+  <!-- People: you first, then everyone else in the household, so anyone can configure anyone -->
+  <h2 class="section-heading">People</h2>
+  <app-pending-day-suggestions></app-pending-day-suggestions>
+  <mat-card class="form-card people-card">
+    <mat-tab-group class="people-tabs" animationDuration="0ms" mat-align-tabs="start" dynamicHeight>
+      <mat-tab *ngFor="let tab of tabs(); trackBy: trackTab">
+        <ng-template mat-tab-label>
+          <span class="tab-label" [class.tab-label--me]="tab.isMe">{{ tab.label }}</span>
+        </ng-template>
+        <ng-template matTabContent>
+          <div class="tab-body">
+            <app-member-settings [memberId]="tab.memberId" [isMe]="tab.isMe"></app-member-settings>
+          </div>
+        </ng-template>
+      </mat-tab>
+    </mat-tab-group>
   </mat-card>
 
-  <!-- Family memory -->
+  <!-- Household-wide knowledge -->
   <h2 class="section-heading" id="family-memory">Family memory</h2>
   <app-family-memory></app-family-memory>
-
-  <!-- Remi's schedule -->
-  <h2 class="section-heading">Remi's schedule</h2>
-  <app-remi-schedule></app-remi-schedule>
 </div>

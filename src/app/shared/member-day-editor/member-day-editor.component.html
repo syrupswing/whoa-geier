@@ -1,6 +1,6 @@
 <div class="day-editor" *ngIf="trackedMembers().length; else noTracked">
   <div class="form-grid">
-    <mat-form-field appearance="outline">
+    <mat-form-field appearance="outline" *ngIf="!fixedMember">
       <mat-label>Person</mat-label>
       <mat-select [ngModel]="memberId()" (ngModelChange)="memberId.set($event)">
         <mat-option *ngFor="let member of trackedMembers()" [value]="member.id">{{ member.name }}</mat-option>
