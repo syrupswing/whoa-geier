@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, effect, ViewChild, ElementRef, AfterViewChecked } from '@angular/core';
+import { Component, OnInit, signal, effect, ViewChild, ElementRef, AfterViewChecked, Injector } from '@angular/core';
 import { RouterOutlet, Router, NavigationEnd } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -14,6 +14,9 @@ import { LoadingAnimationComponent } from './components/loading-animation/loadin
 import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
 import { InAppNotificationService } from './services/in-app-notification.service';
+import { RemiScheduleService } from './services/remi-schedule.service';
+import { HouseholdService } from './services/household.service';
+import { DayDetectionService } from './services/day-detection.service';
 import { SidenavComponent } from './shared/sidenav/sidenav.component';
 import { DrawerGestureDirective } from './shared/nav-drawer/drawer-gesture.directive';
 import { NavDrawerService } from './shared/nav-drawer/nav-drawer.service';
@@ -75,8 +78,21 @@ export class AppComponent implements OnInit, AfterViewChecked {
     private aiOrchestrator: AiOrchestratorService,
     public pushNotificationService: PushNotificationService,
     public drawer: NavDrawerService,
-    public notifications: InAppNotificationService
+    public notifications: InAppNotificationService,
+    remiSchedule: RemiScheduleService,
+    household: HouseholdService,
+    injector: Injector
   ) {
+    // One-time move of Remi's schedule onto day profiles; a no-op once done. Waits for the household to
+    // load so it finds Remi if he's already a member instead of adding a second one.
+    effect(() => {
+      if (this.authService.isAuthenticated() && !household.isLoading()) {
+        void remiSchedule.migrateToDayProfiles();
+        // Created on first sign-in rather than at startup: it calls the AI function, which needs a signed-in user.
+        injector.get(DayDetectionService);
+      }
+    });
+
     // Redirect to dashboard if authenticated and on login page
     effect(() => {
       if (this.authService.isAuthenticated() && this.router.url === '/login') {

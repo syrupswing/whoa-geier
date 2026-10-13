@@ -3,12 +3,17 @@ import { Unsubscribe } from 'firebase/firestore';
 import { FirestoreService } from './firestore.service';
 import { LocalStorageService } from './local-storage.service';
 import { AuthService } from './auth.service';
+import { MemberKind, MemberRoutine } from './day-profile.service';
 
 export interface FamilyMember {
   id: string;
   name: string;
   dietaryRestrictions: string[];
   preferences: Record<string, any>;
+  /** Decides which day-profile fields apply (school vs. work); unset members get no day profile. */
+  kind?: MemberKind;
+  /** The member's regular week, which stored day-profile overrides sit on top of. */
+  routine?: MemberRoutine;
 }
 
 export interface Household {
@@ -125,10 +130,11 @@ export class HouseholdService {
     return this.members().find(m => m.id === memberId);
   }
 
-  async addMember(member: Omit<FamilyMember, 'id'>): Promise<void> {
+  async addMember(member: Omit<FamilyMember, 'id'>): Promise<string> {
     const newMember: FamilyMember = { ...member, id: crypto.randomUUID() };
     const current = this.household() ?? { id: this.DOC_ID, members: [] };
     await this.persist({ ...current, members: [...current.members, newMember] });
+    return newMember.id;
   }
 
   async updateMember(memberId: string, updates: Partial<Omit<FamilyMember, 'id'>>): Promise<void> {

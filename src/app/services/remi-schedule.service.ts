@@ -1,6 +1,8 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { FirestoreService } from './firestore.service';
+import { HouseholdService } from './household.service';
+import { DayProfile, DayProfileFields, DayProfileService } from './day-profile.service';
 
 export interface RemiScheduleSettings {
   schoolDays: number[]; // 0-6, Sunday-Saturday
@@ -8,6 +10,8 @@ export interface RemiScheduleSettings {
   schoolEndTime: string; // "HH:mm"
   defaultLunchPlan: 'hot' | 'pack';
   calendarIcalUrls?: string[];
+  /** The household member this schedule belongs to. Set once the schedule has moved onto day profiles (see migrateToDayProfiles). */
+  memberId?: string;
   /** @deprecated superseded by calendarIcalUrls; still read for older saved settings. */
   calendarIcalUrl?: string;
 }
@@ -111,6 +115,9 @@ const DEFAULT_SETTINGS: RemiScheduleSettings = {
 })
 export class RemiScheduleService {
   private firestoreService = inject(FirestoreService);
+  private household = inject(HouseholdService);
+  private dayProfiles = inject(DayProfileService);
+  private migrating = false;
 
   settings = signal<RemiScheduleSettings>(DEFAULT_SETTINGS);
   todayBriefing = signal<RemiDailyBriefing | null>(null);
@@ -133,14 +140,25 @@ export class RemiScheduleService {
   }
 
   async saveSettings(settings: RemiScheduleSettings): Promise<boolean> {
-    const ok = await this.firestoreService.setDocument(SETTINGS_COLLECTION, SETTINGS_DOC_ID, settings);
+    const toSave = { ...settings, memberId: settings.memberId ?? this.settings().memberId };
+    const ok = await this.firestoreService.setDocument(SETTINGS_COLLECTION, SETTINGS_DOC_ID, toSave);
     if (ok) {
-      this.settings.set(settings);
+      this.settings.set(toSave);
+      // The briefing reads the regular times from the member's routine, so keep it in step.
+      if (toSave.memberId) await this.syncRoutine(toSave.memberId, toSave);
     }
     return ok;
   }
 
   async getExceptions(): Promise<RemiScheduleException[]> {
+    const memberId = this.settings().memberId;
+    if (memberId) {
+      // A day stored only for its activities or meals isn't a schedule exception.
+      return (await this.dayProfiles.fetchForMember(memberId))
+        .filter(p => p.schoolDay === false || p.dayTitle || p.dayNote || p.dropOffTime !== undefined ||
+          p.pickUpTime !== undefined || p.schoolMeals?.lunch)
+        .map(profileToException);
+    }
     const items = await this.firestoreService.getCollection<Omit<RemiScheduleException, 'date'> & { id: string }>(EXCEPTIONS_COLLECTION);
     return items
       .map(({ id, ...rest }) => ({ date: id, ...rest }))
@@ -158,12 +176,76 @@ export class RemiScheduleService {
   }
 
   async saveException(exception: RemiScheduleException): Promise<boolean> {
+    const memberId = this.settings().memberId;
+    if (memberId) {
+      const stored = await this.firestoreService.getDocument<DayProfile>('dayProfiles', `${memberId}_${exception.date}`);
+      await this.dayProfiles.applyFields(
+        memberId, exception.date, exceptionToFields(exception, stored), { by: 'manual' }
+      );
+      return true;
+    }
     const { date, ...data } = exception;
     return this.firestoreService.setDocument(EXCEPTIONS_COLLECTION, date, data);
   }
 
   async deleteException(date: string): Promise<boolean> {
+    const memberId = this.settings().memberId;
+    if (memberId) return this.dayProfiles.clearManual(memberId, date);
     return this.firestoreService.deleteDocument(EXCEPTIONS_COLLECTION, date);
+  }
+
+  /**
+   * One-time move onto day profiles: finds (or creates) Remi in the household as a child with the
+   * regular schedule as his routine, copies each saved exception into his day profiles, then records
+   * his member id on the settings doc. That last write is what switches readers (this service and
+   * the briefing function) over, so a failure part-way just retries on the next launch. The old
+   * exceptions collection is left in place as a backup. Returns whether the schedule is now migrated.
+   */
+  async migrateToDayProfiles(): Promise<boolean> {
+    if (this.migrating) return false;
+    this.migrating = true;
+    try {
+      await this.loadSettings();
+      const settings = this.settings();
+      if (settings.memberId) return true;
+      // Without a saved schedule there's nothing to move, and creating a member for it would be premature.
+      if (!(await this.firestoreService.getDocument(SETTINGS_COLLECTION, SETTINGS_DOC_ID))) return false;
+
+      const routine = routineFromSettings(settings);
+      let member = this.household.members().find(m => m.name.trim().toLowerCase() === 'remi');
+      let memberId: string;
+      if (member) {
+        memberId = member.id;
+        await this.household.updateMember(memberId, { kind: 'child', routine: { ...member.routine, ...routine } });
+      } else {
+        memberId = await this.household.addMember({
+          name: 'Remi', dietaryRestrictions: [], preferences: {}, kind: 'child', routine
+        });
+      }
+
+      for (const exception of await this.legacyExceptions()) {
+        await this.dayProfiles.applyFields(
+          memberId, exception.date, exceptionToFields(exception, null), { by: 'manual' }
+        );
+      }
+      return await this.saveSettings({ ...settings, memberId });
+    } catch (err) {
+      console.error('migrateToDayProfiles error:', err);
+      return false;
+    } finally {
+      this.migrating = false;
+    }
+  }
+
+  private async legacyExceptions(): Promise<RemiScheduleException[]> {
+    const items = await this.firestoreService.getCollection<Omit<RemiScheduleException, 'date'> & { id: string }>(EXCEPTIONS_COLLECTION);
+    return items.map(({ id, ...rest }) => ({ date: id, ...rest }));
+  }
+
+  private async syncRoutine(memberId: string, settings: RemiScheduleSettings): Promise<void> {
+    const member = this.household.getMemberById(memberId);
+    if (!member) return;
+    await this.household.updateMember(memberId, { routine: { ...member.routine, ...routineFromSettings(settings) } });
   }
 
   async getUpcomingLunchMenu(dates: string[]): Promise<Map<string, RemiLunchMenuEntry>> {
@@ -249,4 +331,42 @@ export class RemiScheduleService {
     // Must match the functions' America/Chicago date key, not the UTC one.
     return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Chicago' });
   }
+}
+
+/** The regular schedule as a member routine. School start/end double as drop-off/pick-up until a family sets them apart. */
+function routineFromSettings(settings: RemiScheduleSettings) {
+  return {
+    schoolDays: settings.schoolDays,
+    dropOffTime: settings.schoolStartTime,
+    pickUpTime: settings.schoolEndTime,
+    schoolMeals: { lunch: settings.defaultLunchPlan }
+  };
+}
+
+/** Exception fields as day-profile fields. Anything unset comes back `undefined`, which clears it on write. */
+function exceptionToFields(exception: RemiScheduleException, stored: DayProfile | null) {
+  const lunch = exception.lunchPlan ?? (exception.packLunch ? 'pack' : undefined);
+  const { lunch: _old, ...otherMeals } = stored?.schoolMeals ?? {};
+  const meals = lunch ? { ...otherMeals, lunch } : otherMeals;
+  const noSchool = exception.noSchool === true;
+  return {
+    schoolDay: noSchool ? false : undefined,
+    dropOffTime: noSchool ? undefined : exception.startTimeOverride || undefined,
+    pickUpTime: noSchool ? undefined : exception.endTimeOverride || undefined,
+    dayTitle: exception.title?.trim() || undefined,
+    dayNote: exception.note?.trim() || undefined,
+    schoolMeals: Object.keys(meals).length ? meals : undefined
+  } satisfies DayProfileFields;
+}
+
+function profileToException(profile: DayProfile): RemiScheduleException {
+  return {
+    date: profile.date,
+    noSchool: profile.schoolDay === false,
+    title: profile.dayTitle,
+    note: profile.dayNote,
+    startTimeOverride: profile.dropOffTime ?? undefined,
+    endTimeOverride: profile.pickUpTime ?? undefined,
+    lunchPlan: profile.schoolMeals?.lunch
+  };
 }

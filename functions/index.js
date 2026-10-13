@@ -150,6 +150,47 @@ const ITEM_SCHEMA_BLOCK = (
 );
 
 const ORCHESTRATOR_TEMPLATES = {
+  'day-profile-classify': {
+    // Reads calendar events for what they change about a child's school day. Not logged: the client
+    // keeps its own per-event record of what it applied, and an aiSuggestions row per event would be noise.
+    usesMemory: true,
+    logSuggestion: false,
+    maxTokens: 2000,
+    buildPrompt: (payload, context) => {
+      const children = (payload.children || []).map(c => `- ${c.name} (id "${c.id}")`).join('\n');
+      const events = (payload.events || []).map(e => (
+        `- id "${e.id}": "${e.summary}" on ${e.date}` +
+        (e.allDay ? ' (all day)' : ` from ${e.startTime} to ${e.endTime}`) +
+        (e.location ? `, at ${e.location}` : '') +
+        (e.description ? `, notes: ${String(e.description).slice(0, 300)}` : '')
+      )).join('\n');
+      const factsClause = context.facts.length
+        ? `\nHousehold facts that may help: ${context.facts.join('; ')}.\n`
+        : '';
+      return (
+        `You read calendar events and decide which ones change a child's school day. Children:\n${children}\n` +
+        factsClause + `\nEvents:\n${events}\n\n` +
+        `For each event that affects a child's school day, give one entry. Skip events that don't. Each entry:\n` +
+        `{"eventId": "...", "memberId": "<child id, or null if you can't tell which child>", ` +
+        `"kind": "dropoff" | "pickup" | "noSchool", "time": "HH:mm" (24-hour) or null, ` +
+        `"confidence": 0 to 1}\n\n` +
+        `Meanings:\n` +
+        `- "dropoff": the child must be dropped off at this time, which replaces the regular school start ` +
+        `(an early drop-off for a class or program; a late start).\n` +
+        `- "pickup": the child must be picked up at this time, which replaces the regular dismissal ` +
+        `(an early release, or an event that says someone is picking the child up).\n` +
+        `- "noSchool": no school that day (holiday, teacher work day, conference day, snow day). time is null.\n` +
+        `Rules:\n` +
+        `- Use the time the event says the drop-off or pick-up happens, not necessarily its start time or end time.\n` +
+        `- Never guess a time. If it isn't stated or clearly implied, use null for time and a low confidence.\n` +
+        `- Appointments, birthday parties, practices and other things that don't replace the regular school ` +
+        `drop-off, pick-up or school day are not entries.\n` +
+        `- confidence is how sure you are the event means what the entry says AND that it is about that child.\n\n` +
+        `Respond with ONLY a JSON object {"items": [...]} — no other text. Use {"items": []} if none apply.`
+      );
+    },
+    parseResponse: extractJson
+  },
   'grocery-aisle-hint': {
     // Fired once per grocery item on every list load — no accept/reject action exists for
     // it, so it's excluded from the aiSuggestions log to avoid flooding it with permanently-
@@ -768,30 +809,68 @@ async function resolveScheduleForDate(db, dateStr) {
   const defaultEndTime = settings.schoolEndTime || '14:30';
   const defaultLunchPlan = settings.defaultLunchPlan || 'hot';
 
-  const exceptionDoc = await db.collection('remi-schedule-exceptions').doc(dateStr).get();
-  const exception = exceptionDoc.exists ? exceptionDoc.data() : {};
+  // Once the schedule has been migrated, the member's routine plus that day's profile is the source
+  // of truth; before then (or if the member has since been removed) the legacy exceptions apply.
+  let day = null;
+  if (settings.memberId) {
+    const [householdDoc, profileDoc] = await Promise.all([
+      db.collection('household').doc('main').get(),
+      db.collection('dayProfiles').doc(`${settings.memberId}_${dateStr}`).get()
+    ]);
+    const member = ((householdDoc.exists && householdDoc.data().members) || [])
+      .find(m => m.id === settings.memberId && m.kind === 'child');
+    if (member) {
+      const routine = member.routine || {};
+      const stored = profileDoc.exists ? profileDoc.data() : {};
+      day = {
+        schoolDays: routine.schoolDays || schoolDays,
+        startTime: stored.dropOffTime !== undefined ? stored.dropOffTime : routine.dropOffTime,
+        endTime: stored.pickUpTime !== undefined ? stored.pickUpTime : routine.pickUpTime,
+        regularEndTime: routine.pickUpTime || defaultEndTime,
+        noSchool: stored.schoolDay === false,
+        title: stored.dayTitle,
+        note: stored.dayNote,
+        lunchPlan: (stored.schoolMeals && stored.schoolMeals.lunch)
+          || (routine.schoolMeals && routine.schoolMeals.lunch)
+      };
+    }
+  }
+  if (!day) {
+    const exceptionDoc = await db.collection('remi-schedule-exceptions').doc(dateStr).get();
+    const exception = exceptionDoc.exists ? exceptionDoc.data() : {};
+    day = {
+      schoolDays,
+      startTime: exception.startTimeOverride,
+      endTime: exception.endTimeOverride,
+      regularEndTime: defaultEndTime,
+      noSchool: exception.noSchool === true,
+      title: exception.title,
+      note: exception.note,
+      lunchPlan: exception.lunchPlan || (exception.packLunch ? 'pack' : undefined)
+    };
+  }
 
   const weekday = new Date(`${dateStr}T00:00:00`).getDay();
-  const noSchool = exception.noSchool === true || !schoolDays.includes(weekday);
+  const noSchool = day.noSchool || !day.schoolDays.includes(weekday);
 
-  const startTime = exception.startTimeOverride || defaultStartTime;
-  const endTime = exception.endTimeOverride || defaultEndTime;
+  const startTime = day.startTime || defaultStartTime;
+  const endTime = day.endTime || day.regularEndTime;
 
   // 'early-release' means dismissal is earlier than usual — a different start time alone
   // (earlier or later) is still a regular school day, just at another hour.
   let schoolStatus = 'school';
   if (noSchool) {
     schoolStatus = 'no-school';
-  } else if (endTime < defaultEndTime) {
+  } else if (endTime < day.regularEndTime) {
     schoolStatus = 'early-release';
   }
 
   // A short label for display lines ("No school — School pride day"); the longer free-text
   // note is kept separately as dayNote for the AI prompts. Older exceptions only had a
   // short note, so it doubles as the label when there's no title.
-  const rawNote = (exception.note || '').trim();
-  const title = (exception.title || '').trim() || (rawNote && rawNote.length <= 60 ? rawNote : '');
-  const lunchPlan = exception.lunchPlan || (exception.packLunch ? 'pack' : defaultLunchPlan);
+  const rawNote = (day.note || '').trim();
+  const title = (day.title || '').trim() || (rawNote && rawNote.length <= 60 ? rawNote : '');
+  const lunchPlan = day.lunchPlan || defaultLunchPlan;
 
   // calendarIcalUrl is the pre-multi-calendar setting and is still honored.
   const icalUrls = (settings.calendarIcalUrls || [])
