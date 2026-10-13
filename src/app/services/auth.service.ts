@@ -3,11 +3,8 @@ import {
   Auth, 
   User, 
   signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  GoogleAuthProvider,
-  signInWithPopup
 } from 'firebase/auth';
 import { getAuth } from 'firebase/auth';
 import { FirestoreService } from './firestore.service';
@@ -75,33 +72,6 @@ export class AuthService {
   }
 
   /**
-   * Create a new account with email and password
-   */
-  async signUpWithEmail(email: string, password: string): Promise<void> {
-    if (!this.auth) throw new Error('Auth not initialized');
-    
-    try {
-      await createUserWithEmailAndPassword(this.auth, email, password);
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error.code));
-    }
-  }
-
-  /**
-   * Sign in with Google
-   */
-  async signInWithGoogle(): Promise<void> {
-    if (!this.auth) throw new Error('Auth not initialized');
-    
-    try {
-      const provider = new GoogleAuthProvider();
-      await signInWithPopup(this.auth, provider);
-    } catch (error: any) {
-      throw new Error(this.getErrorMessage(error.code));
-    }
-  }
-
-  /**
    * Sign out
    */
   async signOut(): Promise<void> {
@@ -122,12 +92,11 @@ export class AuthService {
         return 'No account found with this email';
       case 'auth/wrong-password':
         return 'Incorrect password';
-      case 'auth/email-already-in-use':
-        return 'An account already exists with this email';
-      case 'auth/weak-password':
-        return 'Password should be at least 6 characters';
-      case 'auth/popup-closed-by-user':
-        return 'Sign-in popup was closed';
+      case 'auth/invalid-credential':
+        return 'Incorrect email or password';
+      // Raised when new accounts are switched off in Firebase and someone without one tries to sign in.
+      case 'auth/admin-restricted-operation':
+        return "This account isn't part of the family yet. Ask a family member to add you.";
       default:
         return 'An error occurred. Please try again.';
     }

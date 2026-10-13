@@ -78,44 +78,6 @@
           transform: translate(-50%, -50%);
         }
       }
-
-      .toggle-mode {
-        text-align: center;
-        margin-top: 8px;
-
-        button {
-          color: #667eea;
-          font-size: 14px;
-        }
-      }
-    }
-
-    mat-divider {
-      margin: 24px 0;
-    }
-
-    .google-signin {
-      .google-button {
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 12px;
-        font-size: 16px;
-        border: 2px solid rgba(255, 255, 255, 0.12);
-        background: var(--color-surface-light);
-        transition: all 0.3s ease;
-
-        &:hover:not(:disabled) {
-          background: var(--color-surface);
-          border-color: #667eea;
-        }
-
-        img {
-          width: 20px;
-          height: 20px;
-        }
-      }
     }
   }
 }
