@@ -150,7 +150,6 @@
           #chatTextarea
           name="chatInput"
           rows="2"
-          placeholder="What can I do ya for?"
           [(ngModel)]="chatInput"
           (input)="autoResizeChatInput()"
           (blur)="resetViewportAfterKeyboard()"
@@ -165,6 +164,8 @@
       </div>
     </div>
   </section>
+
+  <app-pending-day-suggestions></app-pending-day-suggestions>
 
   <!-- Daily Calendar -->
   <section

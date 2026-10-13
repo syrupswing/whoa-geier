@@ -1,0 +1,53 @@
+.pending-day-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.pending-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(142, 107, 201, 0.4);
+  background: rgba(142, 107, 201, 0.08);
+
+  .pending-icon {
+    flex: none;
+    color: var(--color-accent, #8E6BC9);
+  }
+
+  .pending-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+    flex: 1;
+
+    .pending-when,
+    .pending-source {
+      font-size: 0.8rem;
+      opacity: 0.75;
+      overflow-wrap: anywhere;
+    }
+  }
+
+  .pending-actions {
+    display: flex;
+    gap: 8px;
+    flex: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .pending-card {
+    flex-wrap: wrap;
+
+    .pending-actions {
+      width: 100%;
+      justify-content: flex-end;
+    }
+  }
+}

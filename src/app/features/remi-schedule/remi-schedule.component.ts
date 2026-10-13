@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { PendingDaySuggestionsComponent } from '../../shared/pending-day-suggestions/pending-day-suggestions.component';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { MatFormFieldModule } from '@angular/material/form-field';
@@ -45,7 +46,8 @@ interface UpcomingDay {
     MatCheckboxModule,
     MatRadioModule,
     MatTooltipModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    PendingDaySuggestionsComponent
   ],
   templateUrl: './remi-schedule.component.html',
   styleUrl: './remi-schedule.component.scss'

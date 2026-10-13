@@ -1,0 +1,114 @@
+<div class="day-editor" *ngIf="trackedMembers().length; else noTracked">
+  <div class="form-grid">
+    <mat-form-field appearance="outline">
+      <mat-label>Person</mat-label>
+      <mat-select [ngModel]="memberId()" (ngModelChange)="memberId.set($event)">
+        <mat-option *ngFor="let member of trackedMembers()" [value]="member.id">{{ member.name }}</mat-option>
+      </mat-select>
+    </mat-form-field>
+
+    <mat-form-field appearance="outline">
+      <mat-label>Date</mat-label>
+      <input matInput type="date" [ngModel]="date()" (ngModelChange)="date.set($event)">
+    </mat-form-field>
+  </div>
+
+  <ng-container *ngIf="resolved() as day">
+    <ng-container *ngIf="day.kind === 'child'">
+      <div class="checkbox-row">
+        <mat-checkbox [(ngModel)]="form.schoolDay">School day</mat-checkbox>
+        <span class="source">{{ source('schoolDay') }}</span>
+      </div>
+
+      <div class="form-grid" *ngIf="form.schoolDay">
+        <mat-form-field appearance="outline">
+          <mat-label>Drop-off time</mat-label>
+          <input matInput type="time" [(ngModel)]="form.dropOffTime">
+          <mat-hint>{{ source('dropOffTime') }}</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Pick-up time</mat-label>
+          <input matInput type="time" [(ngModel)]="form.pickUpTime">
+          <mat-hint>{{ source('pickUpTime') }}</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>School breakfast</mat-label>
+          <mat-select [(ngModel)]="form.schoolBreakfast">
+            <mat-option value="">None</mat-option><mat-option value="hot">Hot</mat-option><mat-option value="pack">Packed</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>School snack</mat-label>
+          <mat-select [(ngModel)]="form.schoolSnack">
+            <mat-option value="">None</mat-option><mat-option value="hot">Hot</mat-option><mat-option value="pack">Packed</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>School lunch</mat-label>
+          <mat-select [(ngModel)]="form.schoolLunch">
+            <mat-option value="">None</mat-option><mat-option value="hot">Hot</mat-option><mat-option value="pack">Packed</mat-option>
+          </mat-select>
+          <mat-hint>{{ source('schoolMeals') }}</mat-hint>
+        </mat-form-field>
+      </div>
+
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>School activities (comma-separated)</mat-label>
+          <input matInput [(ngModel)]="form.activities" placeholder="field trip, picture day">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Classes (comma-separated)</mat-label>
+          <input matInput [(ngModel)]="form.classes" placeholder="gym, music, library">
+        </mat-form-field>
+      </div>
+    </ng-container>
+
+    <ng-container *ngIf="day.kind === 'adult'">
+      <div class="checkbox-row">
+        <mat-checkbox [(ngModel)]="form.workDay">Work day</mat-checkbox>
+        <span class="source">{{ source('workDay') }}</span>
+        <mat-checkbox [(ngModel)]="form.onCall">On call</mat-checkbox>
+      </div>
+      <div class="form-grid" *ngIf="form.workDay">
+        <mat-form-field appearance="outline">
+          <mat-label>Start time</mat-label>
+          <input matInput type="time" [(ngModel)]="form.startTime">
+          <mat-hint>{{ source('startTime') }}</mat-hint>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Stop time</mat-label>
+          <input matInput type="time" [(ngModel)]="form.stopTime">
+          <mat-hint>{{ source('stopTime') }}</mat-hint>
+        </mat-form-field>
+      </div>
+    </ng-container>
+
+    <div class="form-grid">
+      <mat-form-field appearance="outline">
+        <mat-label>Short label</mat-label>
+        <input matInput [(ngModel)]="form.dayTitle" placeholder="e.g. School pride day">
+      </mat-form-field>
+      <mat-form-field appearance="outline" class="full-width">
+        <mat-label>Note</mat-label>
+        <textarea matInput rows="2" [(ngModel)]="form.dayNote"></textarea>
+      </mat-form-field>
+    </div>
+
+    <span class="section-label">Meals at home</span>
+    <div class="form-grid">
+      <mat-form-field appearance="outline"><mat-label>Breakfast</mat-label><input matInput [(ngModel)]="form.homeBreakfast"></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Lunch</mat-label><input matInput [(ngModel)]="form.homeLunch"></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Snack</mat-label><input matInput [(ngModel)]="form.homeSnack"></mat-form-field>
+      <mat-form-field appearance="outline"><mat-label>Dinner</mat-label><input matInput [(ngModel)]="form.homeDinner"></mat-form-field>
+    </div>
+
+    <div class="actions">
+      <button mat-button type="button" (click)="reset()">Reset to routine</button>
+      <button mat-raised-button color="primary" [disabled]="isSaving()" (click)="save()">Save day</button>
+    </div>
+  </ng-container>
+</div>
+<ng-template #noTracked>
+  <p class="hint-text">Set a person as a child or adult in their routine above, and their days show up here.</p>
+</ng-template>

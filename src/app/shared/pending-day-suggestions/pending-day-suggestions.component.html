@@ -1,0 +1,14 @@
+<div class="pending-day-suggestions" *ngIf="detection.pending().length">
+  <div class="pending-card" *ngFor="let s of detection.pending(); trackBy: trackByKey">
+    <mat-icon class="pending-icon">event_available</mat-icon>
+    <div class="pending-text">
+      <strong>{{ headline(s) }}</strong>
+      <span class="pending-when">{{ when(s) }}</span>
+      <span class="pending-source">From “{{ s.summary }}” — apply to the day?</span>
+    </div>
+    <div class="pending-actions">
+      <button mat-stroked-button type="button" (click)="detection.dismiss(s.key)">Ignore</button>
+      <button mat-flat-button color="primary" type="button" (click)="detection.accept(s.key)">Apply</button>
+    </div>
+  </div>
+</div>

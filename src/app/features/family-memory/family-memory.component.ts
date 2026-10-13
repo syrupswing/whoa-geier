@@ -14,6 +14,9 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MemoryService, ExplicitFact } from '../../services/memory.service';
 import { HouseholdService, FamilyMember } from '../../services/household.service';
 import { ReferenceDocsService, ReferenceDoc } from '../../services/reference-docs.service';
+import { MemberRoutineEditorComponent } from '../../shared/member-routine-editor/member-routine-editor.component';
+import { MemberDayEditorComponent } from '../../shared/member-day-editor/member-day-editor.component';
+import { PendingDaySuggestionsComponent } from '../../shared/pending-day-suggestions/pending-day-suggestions.component';
 
 const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule', 'other'] as const;
 
@@ -32,7 +35,10 @@ const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule
     MatButtonToggleModule,
     MatChipsModule,
     MatTooltipModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    MemberRoutineEditorComponent,
+    MemberDayEditorComponent,
+    PendingDaySuggestionsComponent
   ],
   templateUrl: './family-memory.component.html',
   styleUrl: './family-memory.component.scss'
