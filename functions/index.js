@@ -41,10 +41,11 @@ async function callClaude(token, prompt, maxTokens = 1024, history = [], options
       model,
       max_tokens: maxTokens,
       messages: [...history, { role: 'user', content: prompt }],
-      // Haiku 5.x thinks by default, and thinking tokens count against max_tokens: a structured-JSON job
-      // can spend its whole budget thinking and return no text. Only Haiku is switched off here, since
-      // other models reject or constrain {type: 'disabled'}.
-      ...(options.thinkingOff && /haiku/.test(model) ? { thinking: { type: 'disabled' } } : {})
+      // Haiku 5.x thinks by default, and thinking tokens count against max_tokens: a call can spend its
+      // whole budget thinking and return no text. These calls are short, structured or conversational
+      // answers that don't need it, so it's off for every Haiku. Other models reject or constrain
+      // {type: 'disabled'}, so they are left alone.
+      ...(/haiku/.test(model) && options.thinking !== 'on' ? { thinking: { type: 'disabled' } } : {})
     })
   });
 
@@ -159,7 +160,6 @@ const ORCHESTRATOR_TEMPLATES = {
     // keeps its own per-event record of what it applied, and an aiSuggestions row per event would be noise.
     usesMemory: true,
     logSuggestion: false,
-    thinkingOff: true,
     maxTokens: 3000,
     buildPrompt: (payload, context) => {
       const children = (payload.children || []).map(c => `- ${c.name} (id "${c.id}")`).join('\n');
@@ -684,7 +684,7 @@ exports.orchestratedGenerate = onCall(
 
       const prompt = template.buildPrompt(payload || {}, context);
       const history = sanitizeConversationHistory(payload?.conversationHistory);
-      const raw = await callClaude(token, prompt, template.maxTokens || 1024, history, { thinkingOff: template.thinkingOff });
+      const raw = await callClaude(token, prompt, template.maxTokens || 1024, history);
       const result = template.parseResponse(raw);
 
       let suggestionId = null;
