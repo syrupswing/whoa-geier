@@ -628,6 +628,34 @@
   min-width: 0;
 }
 
+// The title row: the title with the edit and close buttons at its right, so everything below it can
+// use the popover's full width instead of sharing it with a column of buttons.
+.cal-popover-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-bottom: 4px;
+
+  .cal-popover-title {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    padding-top: 6px;
+  }
+}
+
+.cal-popover-actions {
+  display: flex;
+  flex-shrink: 0;
+  // Pull the buttons into the body's top-right padding so they sit level with the title.
+  margin: 0;
+
+  .cal-popover-edit,
+  .cal-popover-close {
+    margin: 0;
+  }
+}
+
 .cal-popover-title {
   font-weight: 700;
   font-size: 0.95rem;

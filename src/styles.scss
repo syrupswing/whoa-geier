@@ -193,6 +193,7 @@ body {
   margin: 0;
   background-color: var(--color-background);
   color: var(--color-text-primary);
+  word-break: break-word;
 }
 
 ol, ul {
@@ -260,18 +261,28 @@ ol, ul {
 
 
 /* Material Design Overrides */
-.mdc-button.mat-mdc-button-base > .mat-icon {
-  margin: 0 0 0 -4px;
+.mdc-button.mat-mdc-button-base {
+  gap: 8px;
+  height: auto;
+  padding-top: 4px;
+  padding-bottom: 4px;
+  text-align: left;
 }
 
-.mdc-button {
-  gap: 8px;
+.mdc-button.mat-mdc-button-base > .mat-icon {
+  margin: 0 4px 0 0;
+  min-width: min-content;
 }
 
 .mdc-button__label {
   display: flex;
   gap: 8px;
   align-items: center;
+  // A button sizes itself to its label but never past the space available, so once a long label wraps the
+  // button stays at that full width with a ragged right edge. Capping the label makes the button no wider
+  // than the cap, and balancing evens the wrapped lines out. Raise or lower the cap to move where it wraps.
+  max-width: min(100%, 32ch);
+  text-wrap: balance;
 
   & .mat-mdc-progress-spinner {
     margin: 0 0 0 -4px;

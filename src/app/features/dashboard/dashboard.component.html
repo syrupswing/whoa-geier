@@ -301,7 +301,31 @@
       (click)="$event.stopPropagation()">
       <div class="cal-popover-swatch" [style.backgroundColor]="getEventColor(sel)"></div>
       <div class="cal-popover-body">
-        <p class="cal-popover-title">{{ sel.summary }}</p>
+        <div class="cal-popover-header">
+          <p class="cal-popover-title">{{ sel.summary }}</p>
+          <div class="cal-popover-actions">
+            <button
+              mat-icon-button
+              *ngIf="sel.source === 'app'"
+              class="cal-popover-edit"
+              (click)="openEditEventDialog(sel)"
+              aria-label="Edit item">
+              <mat-icon>edit</mat-icon>
+            </button>
+            <a
+              mat-icon-button
+              *ngIf="externalEditUrl(sel) as editUrl"
+              class="cal-popover-edit"
+              [href]="editUrl"
+              target="_blank"
+              rel="noopener"
+              [matTooltip]="externalEditLabel(sel)"
+              [attr.aria-label]="externalEditLabel(sel)">
+              <mat-icon>edit</mat-icon>
+            </a>
+            <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
+          </div>
+        </div>
         <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
         <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name">
           <mat-icon>{{ sel.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ sel.isPrivate ? 'Private — only you' : 'For ' + name }}
@@ -339,26 +363,6 @@
           </button>
         </ng-container>
       </div>
-      <button
-        mat-icon-button
-        *ngIf="sel.source === 'app'"
-        class="cal-popover-edit"
-        (click)="openEditEventDialog(sel)"
-        aria-label="Edit item">
-        <mat-icon>edit</mat-icon>
-      </button>
-      <a
-        mat-icon-button
-        *ngIf="externalEditUrl(sel) as editUrl"
-        class="cal-popover-edit"
-        [href]="editUrl"
-        target="_blank"
-        rel="noopener"
-        [matTooltip]="externalEditLabel(sel)"
-        [attr.aria-label]="externalEditLabel(sel)">
-        <mat-icon>edit</mat-icon>
-      </a>
-      <button mat-icon-button class="cal-popover-close" (click)="clearSelectedEvent()" aria-label="Close"><mat-icon>close</mat-icon></button>
     </div>
 
     <!-- "Mark complete?" prompt for a task's checkbox — a popover like the details one, so it
