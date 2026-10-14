@@ -47,7 +47,7 @@ export class DriveTimeService {
     if (!entry) return null;
     const matches = entry.destination === event.location?.trim() &&
       entry.startIso === event.start.dateTime &&
-      entry.origin === this.home.address();
+      entry.origin === this.home.originAddress();
     return matches ? entry : null;
   }
 
@@ -57,9 +57,9 @@ export class DriveTimeService {
 
   /** Looks up and shows the drive time. Resolves with an error message to display, or null on success. */
   async show(event: CalendarEvent): Promise<string | null> {
-    const origin = this.home.address();
+    const origin = this.home.originAddress();
     const destination = event.location?.trim();
-    if (!origin) return 'Add your home address in Settings first.';
+    if (!origin) return 'Add your home address in Settings first (your own tab under People).';
     if (!destination || !event.start.dateTime) return 'This event has no location to drive to.';
 
     const key = this.keyFor(event);

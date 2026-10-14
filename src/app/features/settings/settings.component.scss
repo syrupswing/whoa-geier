@@ -13,6 +13,22 @@
     color: var(--color-text-primary);
   }
 
+  // A section title with a control at its right end, level with the title.
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 4px;
+
+    .section-heading {
+      margin: 0;
+    }
+
+    .section-add {
+      color: var(--color-aura-sage);
+    }
+  }
+
   .setting-list {
     margin: 0;
     padding: 0;

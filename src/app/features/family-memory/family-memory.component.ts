@@ -12,7 +12,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MemoryService, ExplicitFact } from '../../services/memory.service';
-import { HouseholdService, FamilyMember } from '../../services/household.service';
+import { HouseholdService } from '../../services/household.service';
 import { ReferenceDocsService, ReferenceDoc } from '../../services/reference-docs.service';
 
 const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule', 'other'] as const;
@@ -45,11 +45,6 @@ export class FamilyMemoryComponent {
   memberId: string | null = null;
   isSaving = signal(false);
 
-  memberNameInput = '';
-  memberDietaryInput = '';
-  memberKindInput: '' | 'child' | 'adult' = '';
-  memberEmailInput = '';
-  isSavingMember = signal(false);
 
   // Reference library
   docMode: 'paste' | 'link' = 'paste';
@@ -118,51 +113,6 @@ export class FamilyMemoryComponent {
   memberName(memberId: string | undefined): string {
     if (!memberId) return 'Whole household';
     return this.householdService.getMemberById(memberId)?.name ?? 'Whole household';
-  }
-
-  async addMember(): Promise<void> {
-    const name = this.memberNameInput.trim();
-    if (!name) return;
-
-    this.isSavingMember.set(true);
-    try {
-      const dietaryRestrictions = this.memberDietaryInput
-        .split(',')
-        .map(s => s.trim())
-        .filter(Boolean);
-
-      const id = await this.householdService.addMember({
-        name, dietaryRestrictions, preferences: {}, ...(this.memberKindInput && { kind: this.memberKindInput })
-      });
-      if (this.memberEmailInput.trim()) {
-        try {
-          await this.householdService.inviteMember(id, this.memberEmailInput);
-        } catch (err) {
-          // The person is added either way; only the email offer failed.
-          this.snackBar.open(`${name} was added, but the invite failed: ${(err as Error).message}`, 'Close', { duration: 5000 });
-        }
-      }
-      this.memberNameInput = '';
-      this.memberDietaryInput = '';
-      this.memberKindInput = '';
-      this.memberEmailInput = '';
-    } finally {
-      this.isSavingMember.set(false);
-    }
-  }
-
-  async removeMember(member: FamilyMember): Promise<void> {
-    if (!confirm(`Remove ${member.name} from the household?`)) return;
-    await this.householdService.removeMember(member.id);
-  }
-
-  /** Links (or unlinks) this login to a household member — enables private, self-only reminders. */
-  async setMyMember(memberId: string | null): Promise<void> {
-    if (memberId) {
-      await this.householdService.linkCurrentUserToMember(memberId);
-    } else {
-      await this.householdService.unlinkCurrentUser();
-    }
   }
 
   async addFact(): Promise<void> {

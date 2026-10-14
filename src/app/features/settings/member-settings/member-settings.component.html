@@ -32,6 +32,12 @@
       </mat-form-field>
     </app-setting-row>
 
+    <app-setting-row #homeRow label="Home address" [value]="homeAddressLabel()" [saving]="saving()"
+      [hint]="homeAddressInherited() ? 'Using the family\'s saved address. Save one here to give ' + m.name + ' their own.' : ''"
+      (editStart)="beginAddress('homeAddress')" (save)="saveAddress(homeRow, 'homeAddress')">
+      <app-address-field editor label="Home address" [(value)]="addressDraft"></app-address-field>
+    </app-setting-row>
+
     <app-setting-row #dietaryRow label="Dietary restrictions" [value]="dietaryLabel()" emptyText="None" [saving]="saving()"
       (editStart)="beginDietary()" (save)="saveDietary(dietaryRow)">
       <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
@@ -76,6 +82,11 @@
         </mat-form-field>
       </app-setting-row>
 
+      <app-setting-row #schoolAddressRow label="School address" [value]="m.schoolAddress" [saving]="saving()"
+        (editStart)="beginAddress('schoolAddress')" (save)="saveAddress(schoolAddressRow, 'schoolAddress')">
+        <app-address-field editor label="School address" [(value)]="addressDraft"></app-address-field>
+      </app-setting-row>
+
       <app-setting-row *ngIf="isRemi()" #calendarsRow label="School calendars" [value]="calendarsLabel()" emptyText="None linked"
         [saving]="saving()" hint="iCal links (Google Calendar → Settings → Secret address in iCal format). Events appear in the daily briefing."
         (editStart)="beginCalendars()" (save)="saveCalendars(calendarsRow)">
@@ -89,6 +100,11 @@
 
     <!-- Adults -->
     <ng-container *ngIf="m.kind === 'adult'">
+      <app-setting-row #workAddressRow label="Work address" [value]="m.workAddress" [saving]="saving()"
+        (editStart)="beginAddress('workAddress')" (save)="saveAddress(workAddressRow, 'workAddress')">
+        <app-address-field editor label="Work address" [(value)]="addressDraft"></app-address-field>
+      </app-setting-row>
+
       <app-setting-row #workDaysRow label="Work days" [value]="workDaysLabel()" [saving]="saving()"
         (editStart)="beginDays('workDays')" (save)="saveDays(workDaysRow, 'workDays')">
         <div editor class="weekday-picker">
@@ -126,3 +142,10 @@
     <app-remi-schedule [showRecurring]="false"></app-remi-schedule>
   </ng-container>
 </ng-container>
+
+<div class="member-remove" *ngIf="member() as m">
+  <button *ngIf="!isMe" mat-stroked-button color="warn" type="button" class="remove-btn" [disabled]="saving()" (click)="remove()">
+    <mat-icon>person_remove</mat-icon>
+    Remove {{ m.name }} from the family
+  </button>
+</div>

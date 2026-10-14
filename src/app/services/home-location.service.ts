@@ -1,10 +1,12 @@
-import { Injectable, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
+import { HouseholdService } from './household.service';
 
 /**
- * The family's home address — the starting point for drive times to events. Shared by everyone
- * in the household, so it lives in Firestore (the `household` collection) rather than on a device.
+ * The family's saved home address, and the starting point for drive times. Each person can have their own
+ * home address (see FamilyMember.homeAddress); this document is the family-wide default they fall back to,
+ * so it lives in Firestore (the `household` collection) rather than on a device.
  */
 @Injectable({
   providedIn: 'root'
@@ -12,10 +14,17 @@ import { AuthService } from './auth.service';
 export class HomeLocationService {
   private firestoreService = inject(FirestoreService);
   private authService = inject(AuthService);
+  private household = inject(HouseholdService);
   private readonly COLLECTION = 'household';
   private readonly DOC_ID = 'home';
 
+  /** The family-wide default address. */
   address = signal<string>('');
+  /** Where drive times start from: the signed-in person's own home address, else the family default. */
+  originAddress = computed(() => {
+    const me = this.household.getMemberById(this.household.myMemberId() ?? '');
+    return me?.homeAddress?.trim() || this.address();
+  });
   private loadedForUid: string | null = null;
 
   constructor() {

@@ -1,7 +1,9 @@
 import { Component, Input, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -10,11 +12,14 @@ import { MemberKind, SchoolMeals } from '../../../services/day-profile.service';
 import { HouseholdService } from '../../../services/household.service';
 import { MemberChanges, MemberSettingsService } from '../../../services/member-settings.service';
 import { RemiScheduleService } from '../../../services/remi-schedule.service';
+import { HomeLocationService } from '../../../services/home-location.service';
 import { MemberDayEditorComponent } from '../../../shared/member-day-editor/member-day-editor.component';
+import { AddressFieldComponent } from '../../../shared/address-field/address-field.component';
 import { SettingRowComponent } from '../../../shared/setting-row/setting-row.component';
 import { formatTime12h } from '../../../shared/time-format';
 import { RemiScheduleComponent } from '../../remi-schedule/remi-schedule.component';
 
+type AddressKey = 'homeAddress' | 'schoolAddress' | 'workAddress';
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const LUNCH_LABEL: Record<string, string> = { hot: 'Hot lunch', pack: 'Packed lunch' };
 
@@ -23,8 +28,8 @@ const LUNCH_LABEL: Record<string, string> = { hot: 'Hot lunch', pack: 'Packed lu
   selector: 'app-member-settings',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatFormFieldModule, MatInputModule, MatSelectModule, MatSnackBarModule,
-    SettingRowComponent, MemberDayEditorComponent, RemiScheduleComponent
+    CommonModule, FormsModule, MatButtonModule, MatFormFieldModule, MatIconModule, MatInputModule, MatSelectModule, MatSnackBarModule,
+    SettingRowComponent, AddressFieldComponent, MemberDayEditorComponent, RemiScheduleComponent
   ],
   templateUrl: './member-settings.component.html',
   styleUrl: './member-settings.component.scss'
@@ -33,6 +38,7 @@ export class MemberSettingsComponent {
   private readonly household = inject(HouseholdService);
   private readonly settings = inject(MemberSettingsService);
   private readonly remiSchedule = inject(RemiScheduleService);
+  private readonly homeLocation = inject(HomeLocationService);
   private readonly snackBar = inject(MatSnackBar);
   readonly auth = inject(AuthService);
 
@@ -62,6 +68,7 @@ export class MemberSettingsComponent {
   timeBDraft = '';
   lunchDraft: SchoolMeals['lunch'] | '' = '';
   calendarsDraft = '';
+  addressDraft = '';
   emailDraft = '';
 
   // ── Display ──────────────────────────────────────────────────
@@ -80,6 +87,9 @@ export class MemberSettingsComponent {
     if (!invite) return '';
     return invite.claimedByUid ? `${invite.id} · signed in` : `${invite.id} · invited, not signed in yet`;
   });
+  /** Their own home address, or else the family's saved one (which is what drive times use for them until they set theirs). */
+  homeAddressLabel = computed(() => this.member()?.homeAddress?.trim() || this.homeLocation.address());
+  homeAddressInherited = computed(() => !this.member()?.homeAddress?.trim() && !!this.homeLocation.address());
   schoolTimesLabel = computed(() => {
     const r = this.member()?.routine;
     const parts = [r?.dropOffTime && `Drop-off ${this.time(r.dropOffTime)}`, r?.pickUpTime && `Pick-up ${this.time(r.pickUpTime)}`];
@@ -107,6 +117,11 @@ export class MemberSettingsComponent {
 
   beginLogin(): void {
     this.emailDraft = this.household.invites().find(i => i.memberId === this.memberIdSig())?.id ?? '';
+  }
+
+  beginAddress(key: AddressKey): void {
+    const own = this.member()?.[key]?.trim();
+    this.addressDraft = own || (key === 'homeAddress' ? this.homeLocation.address() : '');
   }
 
   beginName(): void { this.nameDraft = this.member()?.name ?? ''; }
@@ -163,6 +178,28 @@ export class MemberSettingsComponent {
       if (email) await this.household.inviteMember(id, email);
       else if (current && !current.claimedByUid) await this.household.cancelInvite(current.id);
     });
+  }
+
+  saveAddress(row: SettingRowComponent, key: AddressKey): Promise<void> {
+    return this.change(row, { [key]: this.addressDraft.trim() });
+  }
+
+  /** Takes someone out of the family: their member, and any invitation for their email. Their own login is unaffected. */
+  async remove(): Promise<void> {
+    const member = this.member();
+    if (!member || this.saving()) return;
+    if (!confirm(`Remove ${member.name} from the family? Their settings and day-by-day details will no longer be shown.`)) return;
+    this.saving.set(true);
+    try {
+      const invite = this.household.invites().find(i => i.memberId === member.id);
+      if (invite && !invite.claimedByUid) await this.household.cancelInvite(invite.id);
+      await this.household.removeMember(member.id);
+    } catch (err) {
+      console.error('Removing member failed:', err);
+      this.snackBar.open('Could not remove them — try again', 'Close', { duration: 3000 });
+    } finally {
+      this.saving.set(false);
+    }
   }
 
   saveRole(row: SettingRowComponent): Promise<void> {

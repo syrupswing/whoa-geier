@@ -14,6 +14,12 @@ export interface FamilyMember {
   kind?: MemberKind;
   /** The member's regular week, which stored day-profile overrides sit on top of. */
   routine?: MemberRoutine;
+  /** Where they live; the starting point for drive times when they're the one signed in. Empty falls back to the family's saved address. */
+  homeAddress?: string;
+  /** Children: where they go to school. */
+  schoolAddress?: string;
+  /** Adults: where they work. */
+  workAddress?: string;
 }
 
 export interface Household {
@@ -151,7 +157,10 @@ export class HouseholdService {
     const uid = this.authService.currentUser()?.uid;
     if (!uid) return;
     const link: MemberLink = { memberId, linkedAt: new Date().toISOString() };
-    await this.firestoreService.setDocument(this.MEMBER_LINKS_COLLECTION, uid, link);
+    // setDocument reports a rejected write by returning false rather than throwing. Carrying on as if the
+    // link existed would leave this login unlinked while the member it was meant for sits in the list.
+    const saved = await this.firestoreService.setDocument(this.MEMBER_LINKS_COLLECTION, uid, link);
+    if (!saved) throw new Error('Could not link this login to the family member');
     this.myMemberId.set(memberId);
   }
 
@@ -226,7 +235,11 @@ export class HouseholdService {
   private async persist(household: Household): Promise<void> {
     this.household.set(household);
     if (this.firestoreService.isInitialized()) {
-      await this.firestoreService.setDocument(this.COLLECTION_NAME, this.DOC_ID, household);
+      // Firestore rejects `undefined` anywhere in a document, including inside the members array, and
+      // setDocument reports any rejection by returning false. Strip undefined, and don't treat a failed save as saved.
+      const clean: Household = JSON.parse(JSON.stringify(household));
+      const saved = await this.firestoreService.setDocument(this.COLLECTION_NAME, this.DOC_ID, clean);
+      if (!saved) throw new Error('Could not save the household');
     } else {
       this.saveToLocalStorage(household);
     }

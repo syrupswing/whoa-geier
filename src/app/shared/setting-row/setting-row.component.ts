@@ -35,6 +35,15 @@ export class SettingRowComponent {
     this.editing.set(true);
   }
 
+  /**
+   * Save from the button or Enter. This is a plain DOM `submit` rather than Angular's `ngSubmit` (which needs
+   * FormsModule on this component); without preventing it the browser would submit the form and reload the page.
+   */
+  submit(event: Event): void {
+    event.preventDefault();
+    if (!this.saving) this.save.emit();
+  }
+
   close(): void {
     this.editing.set(false);
   }

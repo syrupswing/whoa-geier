@@ -1,8 +1,4 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
-import { HomeLocationService } from '../../services/home-location.service';
 import { ActivatedRoute } from '@angular/router';
 import { highlightWhenPresent } from '../../utils/highlight';
 import { CommonModule } from '@angular/common';
@@ -10,39 +6,34 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTabsModule } from '@angular/material/tabs';
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { FamilyMemoryComponent } from '../family-memory/family-memory.component';
 import { AuthService } from '../../services/auth.service';
 import { HouseholdService } from '../../services/household.service';
+import { PersonTab, buildPeopleTabs } from './people-tabs';
+import { AddMemberDialogComponent, AddMemberResult } from '../../components/add-member-dialog/add-member-dialog.component';
+import { MemberSettingsService } from '../../services/member-settings.service';
 import { MemberSettingsComponent } from './member-settings/member-settings.component';
 import { PendingDaySuggestionsComponent } from '../../shared/pending-day-suggestions/pending-day-suggestions.component';
 import { SettingRowComponent } from '../../shared/setting-row/setting-row.component';
 
 const NOTIFICATION_PROMPT_KEY = 'notificationPromptDismissed';
 
-interface PersonTab {
-  /** Stable across the signed-in person naming themselves, so their tab doesn't reset when it gains a member. */
-  key: string;
-  memberId: string | null;
-  isMe: boolean;
-  label: string;
-}
-
 @Component({
   selector: 'app-settings',
   standalone: true,
   imports: [
-    FormsModule,
-    MatFormFieldModule,
-    MatInputModule,
     CommonModule,
     MatCardModule,
     MatIconModule,
     MatButtonModule,
     MatSnackBarModule,
     MatTabsModule,
+    MatTooltipModule,
     GlobalNavMenuComponent,
     FamilyMemoryComponent,
     MemberSettingsComponent,
@@ -55,25 +46,35 @@ interface PersonTab {
 export class SettingsComponent implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly household = inject(HouseholdService);
+  private readonly dialog = inject(MatDialog);
+  private readonly memberSettings = inject(MemberSettingsService);
 
-  /**
-   * The signed-in person first (labelled with their first name, else their email), then everyone else in
-   * the household, so one adult can add or edit things for another adult or a child.
-   */
-  readonly tabs = computed<PersonTab[]>(() => {
-    const members = this.household.members();
-    const meId = this.household.myMemberId();
-    const me = members.find(m => m.id === meId) ?? null;
-    const mine: PersonTab = {
-      key: 'me', memberId: me?.id ?? null, isMe: true,
-      label: me?.name || this.auth.currentUser()?.email || 'Me'
-    };
-    const others = members
-      .filter(m => m.id !== me?.id)
-      .sort((a, b) => a.name.localeCompare(b.name))
-      .map<PersonTab>(m => ({ key: m.id, memberId: m.id, isMe: false, label: m.name }));
-    return [mine, ...others];
-  });
+  /** Which person's tab is showing. */
+  selectedTab = 0;
+
+  readonly tabs = computed<PersonTab[]>(() =>
+    buildPeopleTabs(this.household.members(), this.household.myMemberId(), this.auth.currentUser()?.email));
+
+  /** The + beside People: asks for the basics, adds the person, and opens their tab to fill in the rest. */
+  openAddPerson(): void {
+    this.dialog
+      .open<AddMemberDialogComponent, void, AddMemberResult>(AddMemberDialogComponent, { width: '420px', maxWidth: '95vw' })
+      .afterClosed()
+      .subscribe(async result => {
+        if (!result) return;
+        try {
+          const { id, inviteError } = await this.memberSettings.addMember(result.name, result.kind, result.email);
+          const index = this.tabs().findIndex(t => t.memberId === id);
+          if (index >= 0) this.selectedTab = index;
+          this.snackBar.open(
+            inviteError ? `${result.name} was added, but the invite failed: ${inviteError}` : `${result.name} added`,
+            'Close', { duration: inviteError ? 6000 : 2500 }
+          );
+        } catch {
+          this.snackBar.open('Could not add them — try again', 'Close', { duration: 3000 });
+        }
+      });
+  }
 
   trackTab(_: number, tab: PersonTab): string {
     return tab.key;
@@ -90,29 +91,12 @@ export class SettingsComponent implements OnInit {
   }
 
   isRequestingPermission = signal(false);
-  isSavingHome = signal(false);
-  homeAddressDraft = '';
 
   constructor(
     public pushNotificationService: PushNotificationService,
     private snackBar: MatSnackBar,
-    private route: ActivatedRoute,
-    public homeLocation: HomeLocationService
-  ) {
-  }
-
-  async saveHomeAddress(row: SettingRowComponent): Promise<void> {
-    this.isSavingHome.set(true);
-    try {
-      await this.homeLocation.save(this.homeAddressDraft);
-      row.close();
-      this.snackBar.open('Home address saved', 'Close', { duration: 2500 });
-    } catch {
-      this.snackBar.open('Could not save the address — try again', 'Close', { duration: 3000 });
-    } finally {
-      this.isSavingHome.set(false);
-    }
-  }
+    private route: ActivatedRoute
+  ) {}
 
   ngOnInit(): void {
     // A link such as /settings?section=family-memory (from a chat confirmation) scrolls to that section.

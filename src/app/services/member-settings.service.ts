@@ -9,6 +9,9 @@ export interface MemberChanges {
   kind?: MemberKind | undefined;
   dietaryRestrictions?: string[];
   routine?: Partial<MemberRoutine>;
+  homeAddress?: string;
+  schoolAddress?: string;
+  workAddress?: string;
 }
 
 /** Saves a member's settings, keeping Remi's separate schedule settings in step with his routine. */
@@ -26,6 +29,9 @@ export class MemberSettingsService {
       ...('name' in changes && { name: changes.name }),
       ...('kind' in changes && { kind: changes.kind }),
       ...(changes.dietaryRestrictions && { dietaryRestrictions: changes.dietaryRestrictions }),
+      ...('homeAddress' in changes && { homeAddress: changes.homeAddress }),
+      ...('schoolAddress' in changes && { schoolAddress: changes.schoolAddress }),
+      ...('workAddress' in changes && { workAddress: changes.workAddress }),
       ...(routine && { routine })
     });
 
@@ -40,6 +46,24 @@ export class MemberSettingsService {
         schoolEndTime: routine.pickUpTime || remi.schoolEndTime,
         defaultLunchPlan: routine.schoolMeals?.lunch ?? remi.defaultLunchPlan
       });
+    }
+  }
+
+  /**
+   * Adds someone to the family. With an email, also offers to link whoever signs in with it to them, so it
+   * happens on their first sign-in. The person is added even when the email can't be used (it's reported
+   * back instead of thrown), so a typo in the email never loses the entry.
+   */
+  async addMember(name: string, kind: MemberKind, email?: string): Promise<{ id: string; inviteError?: string }> {
+    const first = name.trim();
+    if (!first) throw new Error('A first name is required');
+    const id = await this.household.addMember({ name: first, dietaryRestrictions: [], preferences: {}, kind });
+    if (!email?.trim()) return { id };
+    try {
+      await this.household.inviteMember(id, email);
+      return { id };
+    } catch (err) {
+      return { id, inviteError: err instanceof Error ? err.message : 'The invite could not be saved' };
     }
   }
 

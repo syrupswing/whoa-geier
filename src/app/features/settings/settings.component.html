@@ -4,7 +4,7 @@
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
-  <!-- General: applies to everyone, or to this device -->
+  <!-- General: applies to this device. Addresses and everything else about a person live in their tab below. -->
   <h2 class="section-heading">General</h2>
   <mat-card class="form-card">
     <mat-card-content>
@@ -17,24 +17,20 @@
             Enable
           </button>
         </app-setting-row>
-
-        <app-setting-row #homeRow label="Home address" [value]="homeLocation.address()" [saving]="isSavingHome()"
-          hint="The starting point for drive times to calendar events that have a location."
-          (editStart)="homeAddressDraft = homeLocation.address()" (save)="saveHomeAddress(homeRow)">
-          <mat-form-field editor appearance="outline" subscriptSizing="dynamic">
-            <mat-label>Address</mat-label>
-            <input matInput name="homeAddress" [(ngModel)]="homeAddressDraft" autocomplete="street-address">
-          </mat-form-field>
-        </app-setting-row>
       </dl>
     </mat-card-content>
   </mat-card>
 
   <!-- People: you first, then everyone else in the household, so anyone can configure anyone -->
-  <h2 class="section-heading">People</h2>
+  <div class="section-header">
+    <h2 class="section-heading">People</h2>
+    <button mat-icon-button type="button" class="section-add" aria-label="Add a person" matTooltip="Add a person" (click)="openAddPerson()">
+      <mat-icon>add</mat-icon>
+    </button>
+  </div>
   <app-pending-day-suggestions></app-pending-day-suggestions>
   <mat-card class="form-card people-card">
-    <mat-tab-group class="people-tabs" animationDuration="0ms" mat-align-tabs="start" dynamicHeight>
+    <mat-tab-group class="people-tabs" animationDuration="0ms" mat-align-tabs="start" dynamicHeight [(selectedIndex)]="selectedTab">
       <mat-tab *ngFor="let tab of tabs(); trackBy: trackTab">
         <ng-template mat-tab-label>
           <span class="tab-label" [class.tab-label--me]="tab.isMe">{{ tab.label }}</span>
