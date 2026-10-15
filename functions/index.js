@@ -420,6 +420,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `${context.todayWeekday}, ${context.today} — use this as the reference date for "today", ` +
         `"tomorrow", and any other relative dates. Right now it is ${context.nowLabel}. Always look ahead from ` +
         `this moment: never mention anything that has already finished today, and don't summarize the whole day. ` +
+        `Something dated today with no time (a field trip, a class day) is over once it's evening, so don't bring it up. ` +
         `For "what's happening", "what's next" or similar, give each person only what comes next for them: their ` +
         `next event or commitment, and when relevant the start of their next school or work day if nothing else is ` +
         `coming up before it (late in the evening that usually means tomorrow morning). Skip people with nothing ` +
@@ -528,6 +529,12 @@ async function buildFamilyChatContext(db, payload) {
   const members = (householdDoc.exists && householdDoc.data().members) || [];
   const memberNames = new Map(members.map(m => [m.id, m.name]));
 
+  const nowMin = nowMinutesInTz(now);
+  // Once it's late in the evening, whatever was only about today (an all-day field trip, the day's
+  // note) is history, not news; the rest of the context should be about what's still ahead.
+  const DAY_OVER_MIN = 21 * 60;
+  const dayIsOver = nowMin >= DAY_OVER_MIN;
+
   const cachedEvents = calendarCacheDoc.exists ? (calendarCacheDoc.data().events || []) : [];
   // In-app events too (they know who they're for). Private ones belong to one person and this
   // context is shared with anyone chatting, so they're left out, as are tasks and repeating items.
@@ -559,6 +566,8 @@ async function buildFamilyChatContext(db, payload) {
     })
     // A timed event is gone once it ends; an all-day one lasts through its last day (its end date is exclusive).
     .filter(e => e && (e.allDay ? e.allDayEndStr > today : e.end >= now) && e.start <= horizon)
+    // A one-day all-day event dated today (a field trip, a class day) is over by late evening.
+    .filter(e => !(dayIsOver && e.allDay && e.allDayDateStr === today && e.allDayEndStr <= toDateStr(new Date(now.getTime() + 24 * 60 * 60 * 1000))))
     .sort((a, b) => sortKey(a) - sortKey(b))
     .slice(0, 25)
     .map(e => {
@@ -569,7 +578,6 @@ async function buildFamilyChatContext(db, payload) {
       return `${e.title}${e.who ? ` [${e.who}]` : ''} on ${dateLabel}${timeLabel}`;
     });
 
-  const nowMin = nowMinutesInTz(now);
   // Fixed cutoffs since meal plans carry no specific time of their own — once the
   // day has moved past when a meal would happen, it's no longer actionable info.
   const MEAL_CUTOFF_MIN = { breakfast: 10 * 60, lunch: 14 * 60, dinner: 21 * 60 };
@@ -604,10 +612,10 @@ async function buildFamilyChatContext(db, payload) {
 
     const parts = [];
     if (schoolStatus === 'no-school') {
-      parts.push(`No school today${scheduleNote ? ` (${scheduleNote})` : ''}`);
+      parts.push(`No school today${scheduleNote && !dayIsOver ? ` (${scheduleNote})` : ''}`);
     } else if (schoolStatus === 'early-release') {
       parts.push(schoolEnded
-        ? `Early release today — school has already let out${scheduleNote ? ` (${scheduleNote})` : ''}`
+        ? 'Early release today — school has already let out'
         : `Early release today, out at ${formatTime12h(endTime)}${scheduleNote ? ` (${scheduleNote})` : ''}`);
     } else {
       parts.push(schoolEnded
@@ -619,7 +627,7 @@ async function buildFamilyChatContext(db, payload) {
     // is no longer upcoming info, same as a fully past calendar event.
     const upcomingActivities = (activities || []).filter(a => {
       const activityMin = parseClockLabelToMinutes(a.time);
-      return activityMin === null || activityMin >= nowMin;
+      return activityMin === null ? !dayIsOver : activityMin >= nowMin;
     });
     if (upcomingActivities.length) {
       parts.push(`Activities: ${upcomingActivities.map(a => (a.time ? `${a.title} at ${a.time}` : a.title)).join(', ')}`);
@@ -636,7 +644,9 @@ async function buildFamilyChatContext(db, payload) {
     if (nowMin < MEAL_CUTOFF_MIN.dinner && dinnerIdea) {
       parts.push(`Dinner: ${dinnerIdea}`);
     }
-    if (dayNote) {
+    // The day's note describes today's events (a field trip, picture day), so it's dropped once
+    // school has let out or the evening is here.
+    if (dayNote && !schoolEnded && !dayIsOver) {
       parts.push(`Note for today: ${dayNote}`);
     }
 
