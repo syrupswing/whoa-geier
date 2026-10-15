@@ -246,6 +246,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   chatMessages = signal<ChatMessage[]>([]);
   chatInput = '';;
   isChatLoading = signal(false);
+  /** The playful phrase shown, typed out, beside the small logo while a reply is pending; it cycles until the reply lands. */
+  chatLoadingPhrase = signal(pickRandomHeroPhrase());
+  private chatPhraseTimer?: number;
   /** Which panel the calendar header's kebab menu shows: its actions, or the calendar checkboxes. */
   calendarMenuView = signal<'actions' | 'calendars'>('actions');
 
@@ -1676,6 +1679,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       timestamp: new Date()
     }]);
 
+    this.chatLoadingPhrase.set(this.nextLoadingPhrase());
     this.isChatLoading.set(true);
     this.scrollChatToBottom();
 
@@ -1705,6 +1709,20 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.isChatLoading.set(false);
       setTimeout(() => this.scrollChatToBottom(), 100);
     }
+  }
+
+  /** A loading phrase different from the one showing. */
+  private nextLoadingPhrase(): string {
+    const others = HERO_LOADING_PHRASES.filter(p => p !== this.chatLoadingPhrase());
+    return others[Math.floor(Math.random() * others.length)];
+  }
+
+  /** Lets a typed phrase sit a beat, then moves on to the next one for as long as the reply is pending. */
+  onChatPhraseTyped(): void {
+    clearTimeout(this.chatPhraseTimer);
+    this.chatPhraseTimer = window.setTimeout(() => {
+      if (this.isChatLoading()) this.chatLoadingPhrase.set(this.nextLoadingPhrase());
+    }, 1500);
   }
 
   startCorrection(message: ChatMessage): void {
@@ -1833,6 +1851,30 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${Math.min(el.scrollHeight, this.CHAT_INPUT_MAX_HEIGHT)}px`;
+  }
+
+  /** Starter prompts shown under the chat input; picking one fills the input rather than sending it. */
+  readonly chatIdeas: { icon: string; label: string; prompt: string }[] = [
+    { icon: 'today', label: 'What\'s on today?', prompt: 'What\'s on the family calendar today, and is there anything I need to prepare or leave early for?' },
+    { icon: 'date_range', label: 'Plan the week', prompt: 'Look at the week ahead and point out busy days, clashes between family members, and tasks that are due.' },
+    { icon: 'event_available', label: 'Find a free time', prompt: 'When is the next time everyone in the family is free for two hours? Suggest a few options this week.' },
+    { icon: 'add_task', label: 'Add a task', prompt: 'Add a task to remind me to ' },
+    { icon: 'inventory', label: 'Review the task backlog', prompt: 'What\'s in the task backlog? Suggest which few to schedule this week and when.' },
+    { icon: 'shopping_cart', label: 'Add to groceries', prompt: 'Add the following to the grocery list: ' },
+    { icon: 'restaurant', label: 'Dinner ideas', prompt: 'Suggest three dinner ideas for this week using our saved recipes, and note anything I\'d need to buy.' },
+    { icon: 'directions_car', label: 'Vehicle maintenance', prompt: 'Is any vehicle maintenance due or coming up soon?' }
+  ];
+
+  /** Puts an idea's prompt in the chat input, focused with the cursor at the end so it can be finished or edited. */
+  useChatIdea(prompt: string): void {
+    this.chatInput = prompt;
+    this.chatHistoryIndex = -1;
+    setTimeout(() => {
+      this.autoResizeChatInput();
+      const el = this.chatTextarea?.nativeElement;
+      el?.focus();
+      el?.setSelectionRange(prompt.length, prompt.length);
+    }, 0);
   }
 
   /** Enter sends the message; Shift+Enter inserts a newline in the textarea. */

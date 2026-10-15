@@ -382,7 +382,10 @@ const ORCHESTRATOR_TEMPLATES = {
         ? `\nCurrent weather: ${context.weatherSummary}.`
         : '';
       const calendarClause = context.calendarEvents.length
-        ? `\nUpcoming calendar events: ${context.calendarEvents.join('; ')}.`
+        ? `\nUpcoming calendar events (already-finished ones are removed; the soonest come first): ${context.calendarEvents.join('; ')}.`
+        : '';
+      const peopleNowClause = (context.peopleNextUp || []).length
+        ? `\nWhere each person is in their regular day right now: ${context.peopleNextUp.join('; ')}.`
         : '';
       const todosClause = context.todos.length
         ? `\nBacklog tasks (no day set): ${context.todos.join('; ')}.`
@@ -415,9 +418,17 @@ const ORCHESTRATOR_TEMPLATES = {
       return (
         `You are a helpful family assistant for a family command center app. Today is ` +
         `${context.todayWeekday}, ${context.today} — use this as the reference date for "today", ` +
-        `"tomorrow", and any other relative dates. Be friendly, concise, and ` +
-        `helpful. Use the household information below when it's relevant to the question — don't recite ` +
-        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${weatherClause}${calendarClause}` +
+        `"tomorrow", and any other relative dates. Right now it is ${context.nowLabel}. Always look ahead from ` +
+        `this moment: never mention anything that has already finished today, and don't summarize the whole day. ` +
+        `For "what's happening", "what's next" or similar, give each person only what comes next for them: their ` +
+        `next event or commitment, and when relevant the start of their next school or work day if nothing else is ` +
+        `coming up before it (late in the evening that usually means tomorrow morning). Skip people with nothing ` +
+        `upcoming rather than listing empty days. Be friendly and helpful. Keep replies short: lead with ` +
+        `the answer in one or two sentences, add detail only when it's needed, and never restate the question or ` +
+        `add a closing offer to help. When there are several things to list (events, tasks, times, options), use ` +
+        `a short markdown bullet list with the time or name in bold first, one line per item, instead of a ` +
+        `paragraph. Use a short bold label rather than a heading to separate parts. Use the household information below when it's relevant to the question — don't recite ` +
+        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${peopleNowClause}${weatherClause}${calendarClause}` +
         `${todosClause}${groceryClause}${alertsClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
@@ -505,16 +516,27 @@ async function buildFamilyChatContext(db, payload) {
   const today = toDateStr(now);
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap] = await Promise.all([
+  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap] = await Promise.all([
     db.collection('app-cache').doc('calendar-events').get(),
     db.collection('remi-daily-briefing').doc(today).get(),
     db.collection('backlog').where('completed', '==', false).get(),
     db.collection('groceryItems').get(),
-    db.collection('smartAlerts').where('status', '==', 'pending').get()
+    db.collection('smartAlerts').where('status', '==', 'pending').get(),
+    db.collection('household').doc('main').get(),
+    db.collection('calendarEvents').get()
   ]);
+  const members = (householdDoc.exists && householdDoc.data().members) || [];
+  const memberNames = new Map(members.map(m => [m.id, m.name]));
 
   const cachedEvents = calendarCacheDoc.exists ? (calendarCacheDoc.data().events || []) : [];
-  const calendarEvents = cachedEvents
+  // In-app events too (they know who they're for). Private ones belong to one person and this
+  // context is shared with anyone chatting, so they're left out, as are tasks and repeating items.
+  const appEvents = appEventsSnap.docs
+    .map(d => d.data())
+    .filter(e => !e.isPrivate && !e.repeat && e.kind !== 'task')
+    .map(e => ({ ...e, who: e.memberId ? memberNames.get(e.memberId) : null }));
+  const sortKey = e => (e.allDay ? new Date(`${e.allDayDateStr}T00:00:00`) : e.start);
+  const calendarEvents = [...cachedEvents, ...appEvents]
     .map(e => {
       const isAllDay = !e.start?.dateTime;
       const startStr = e.start?.dateTime || e.start?.date;
@@ -522,6 +544,7 @@ async function buildFamilyChatContext(db, payload) {
       if (!startStr) return null;
       return {
         title: e.summary || 'Event',
+        who: e.who || null,
         start: new Date(startStr),
         end: new Date(endStr),
         allDay: isAllDay,
@@ -530,16 +553,20 @@ async function buildFamilyChatContext(db, payload) {
         // America/Chicago for display would land on the previous day — so for all-day
         // events, keep the original calendar-day string instead of round-tripping it
         // through a Date object.
-        allDayDateStr: isAllDay ? e.start.date : null
+        allDayDateStr: isAllDay ? e.start.date : null,
+        allDayEndStr: isAllDay ? (e.end?.date || e.start.date) : null
       };
     })
-    .filter(e => e && e.end >= now && e.start <= horizon)
-    .sort((a, b) => a.start - b.start)
-    .slice(0, 20)
+    // A timed event is gone once it ends; an all-day one lasts through its last day (its end date is exclusive).
+    .filter(e => e && (e.allDay ? e.allDayEndStr > today : e.end >= now) && e.start <= horizon)
+    .sort((a, b) => sortKey(a) - sortKey(b))
+    .slice(0, 25)
     .map(e => {
       const dateLabel = e.allDay ? e.allDayDateStr : toDateStr(e.start);
-      const timeLabel = e.allDay ? '' : ` at ${e.start.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE })}`;
-      return `${e.title} on ${dateLabel}${timeLabel}`;
+      const timeOf = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE });
+      const inProgress = !e.allDay && e.start <= now;
+      const timeLabel = e.allDay ? '' : inProgress ? ` (happening now, until ${timeOf(e.end)})` : ` at ${timeOf(e.start)}`;
+      return `${e.title}${e.who ? ` [${e.who}]` : ''} on ${dateLabel}${timeLabel}`;
     });
 
   const nowMin = nowMinutesInTz(now);
@@ -618,6 +645,55 @@ async function buildFamilyChatContext(db, payload) {
     console.error('buildFamilyChatContext schedule error:', err);
   }
 
+  // Where each person stands in their own regular day right now: a school or work day that's
+  // already over is just "done", so the answer can lead with what's actually next for them.
+  const weekday = new Date(`${today}T00:00:00`).getDay();
+  const profileDocs = await Promise.all(
+    members.map(m => db.collection('dayProfiles').doc(`${m.id}_${today}`).get())
+  );
+  // Once a person's day is over, what's next is usually tomorrow's start (their regular routine; a
+  // calendar-derived change for tomorrow isn't known here, so it's worded as "usually").
+  const tomorrowWeekday = (weekday + 1) % 7;
+  const tomorrowStart = m => {
+    const r = m.routine || {};
+    if (m.kind === 'child') {
+      return (r.schoolDays || [1, 2, 3, 4, 5]).includes(tomorrowWeekday) && r.dropOffTime
+        ? `, tomorrow school usually starts with drop-off at ${formatTime12h(r.dropOffTime)}` : '';
+    }
+    return (r.workDays || []).includes(tomorrowWeekday) && r.workStartTime
+      ? `, tomorrow work usually starts at ${formatTime12h(r.workStartTime)}` : '';
+  };
+  const pick = (stored, key, fallback) => (stored[key] !== undefined ? stored[key] : fallback);
+  const peopleNextUp = members.map((m, i) => {
+    const routine = m.routine || {};
+    const stored = profileDocs[i].exists ? profileDocs[i].data() : {};
+    if (m.kind === 'child') {
+      const drop = pick(stored, 'dropOffTime', routine.dropOffTime);
+      const pickUp = pick(stored, 'pickUpTime', routine.pickUpTime);
+      const schoolDay = pick(stored, 'schoolDay', (routine.schoolDays || [1, 2, 3, 4, 5]).includes(weekday));
+      if (!schoolDay) return `${m.name}: no school today${tomorrowStart(m)}`;
+      if (!drop && !pickUp) return null;
+      if (drop && nowMin < parseHHmmToMinutes(drop)) return `${m.name}: school drop-off at ${formatTime12h(drop)}${pickUp ? `, pick-up ${formatTime12h(pickUp)}` : ''}`;
+      if (pickUp && nowMin < parseHHmmToMinutes(pickUp)) return `${m.name}: at school until pick-up at ${formatTime12h(pickUp)}`;
+      return `${m.name}: school is done for today${tomorrowStart(m)}`;
+    }
+    if (m.kind === 'adult') {
+      const start = pick(stored, 'startTime', routine.workStartTime);
+      const stop = pick(stored, 'stopTime', routine.workStopTime);
+      const workDay = pick(stored, 'workDay', (routine.workDays || []).includes(weekday));
+      if (!workDay) return `${m.name}: not working today${tomorrowStart(m)}`;
+      if (!start && !stop) return null;
+      if (start && nowMin < parseHHmmToMinutes(start)) return `${m.name}: work starts at ${formatTime12h(start)}`;
+      if (stop && nowMin < parseHHmmToMinutes(stop)) return `${m.name}: working until ${formatTime12h(stop)}`;
+      return `${m.name}: work is done for today${tomorrowStart(m)}`;
+    }
+    return null;
+  }).filter(Boolean);
+
+  const nowLabel = now.toLocaleString('en-US', {
+    weekday: 'long', hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE
+  });
+
   // The backlog's undated tasks. A private one belongs to one person and this context is shared
   // with anyone chatting, so it can't reveal them without knowing who's asking.
   const todos = todosSnap.docs
@@ -650,7 +726,7 @@ async function buildFamilyChatContext(db, payload) {
 
   const referenceDocs = await selectReferenceDocs(db, payload?.message);
 
-  return { today, todayWeekday, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, referenceDocs };
+  return { today, todayWeekday, nowLabel, peopleNextUp, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(

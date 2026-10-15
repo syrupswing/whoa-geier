@@ -113,7 +113,14 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             required>
         </mat-form-field>
 
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="formData.itemKind === 'event'">
+        <div class="chip-row" *ngIf="!locationShown()">
+          <button mat-stroked-button type="button" (click)="showLocation = true">
+            <mat-icon>location_on</mat-icon>
+            Add location
+          </button>
+        </div>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="locationShown()">
           <mat-label>Location</mat-label>
           <mat-icon matPrefix>location_on</mat-icon>
           <input
@@ -965,9 +972,16 @@ export class CalendarEventDialogComponent {
     return { allDay: false, start, end };
   }
 
-  /** The trimmed location, or '' — tasks have none. */
+  /** The trimmed location, or ''. */
   private eventLocation(): string {
-    return this.formData.itemKind === 'event' ? this.formData.location.trim() : '';
+    return this.formData.location.trim();
+  }
+
+  /** Set once a task's "Add location" button is pressed; an event always shows the field. */
+  showLocation = false;
+
+  locationShown(): boolean {
+    return this.formData.itemKind === 'event' || this.showLocation || !!this.formData.location;
   }
 
   /** Opens Google Calendar's new-event form, prefilled with this form's title and date/time. */

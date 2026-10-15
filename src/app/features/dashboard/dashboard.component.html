@@ -8,7 +8,7 @@
     <!-- Agent chat -->
     <div class="home-chat" #homeChat>
       <div class="home-chat-messages" #chatContainer *ngIf="chatMessages().length">
-        <div class="chat-message" *ngFor="let message of chatMessages(); trackBy: trackByIndex" [class.user]="message.isUser">
+        <div class="chat-message" *ngFor="let message of chatMessages(); trackBy: trackByIndex; let last = last" [class.user]="message.isUser" [class.latest]="last">
           <p *ngIf="message.isUser">{{ message.text }}</p>
           <ng-container *ngIf="!message.isUser">
             <div class="chat-message-updated" *ngIf="message.briefingDate">
@@ -41,8 +41,10 @@
                 type="button"
                 class="correct-btn"
                 *ngIf="correctingMessage() !== message"
-                (click)="startCorrection(message)">
-                <mat-icon>edit_note</mat-icon>Correct this
+                (click)="startCorrection(message)"
+                matTooltip="Correct this reply"
+                aria-label="Correct this reply">
+                <mat-icon>edit_note</mat-icon>
               </button>
               <form class="correct-form" *ngIf="correctingMessage() === message" (ngSubmit)="submitCorrection(message)">
                 <div class="correct-heading">
@@ -92,8 +94,17 @@
             </div>
           </ng-container>
         </div>
-        <div class="chat-message" *ngIf="isChatLoading()">
-          <app-loading-animation [size]="14"></app-loading-animation>
+        <div class="chat-message chat-pending" *ngIf="isChatLoading()" role="status" aria-label="Working on it">
+          <app-loading-animation [size]="20"></app-loading-animation>
+          <span
+            class="chat-pending-phrase"
+            [appTypewriter]="chatLoadingPhrase()"
+            [typewriterSpeed]="30"
+            [typewriterSpacePause]="120"
+            [typewriterEraseSpeed]="20"
+            [typewriterCursor]="true"
+            [typewriterErase]="true"
+            (typewriterDone)="onChatPhraseTyped()"></span>
         </div>
       </div>
 
@@ -104,7 +115,7 @@
           class="clear-chat-btn"
           (click)="requestClearChat()"
           matTooltip="Clear chat">
-          <mat-icon>delete</mat-icon>
+          <mat-icon>block</mat-icon>
         </button>
         <div class="clear-chat-confirm" *ngIf="isConfirmingClearChat()">
           <span>Clear all messages?</span>
@@ -161,6 +172,19 @@
           <mat-icon>send</mat-icon>
         </button>
       </form>
+      </div>
+
+      <!-- Prompt ideas: each fills the input with a well-formed question, ready to edit and send. -->
+      <div class="chat-ideas" *ngIf="chatMessages().length === 0 && !isChatLoading()">
+        <h2 class="chat-ideas-title">Ideas</h2>
+        <ul class="chat-ideas-list">
+          <li *ngFor="let idea of chatIdeas">
+            <button type="button" class="chat-idea-btn" (click)="useChatIdea(idea.prompt)">
+              <mat-icon>{{ idea.icon }}</mat-icon>
+              <span>{{ idea.label }}</span>
+            </button>
+          </li>
+        </ul>
       </div>
     </div>
   </section>

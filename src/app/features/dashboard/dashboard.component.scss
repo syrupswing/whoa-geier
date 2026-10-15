@@ -327,15 +327,15 @@
   .home-chat-messages {
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     padding: 0 4px;
 
     .chat-message {
       // Leaves room for the sticky input dock when a message is scrolled into view
       // (scrollIntoView block:'end'), so the newest text doesn't land underneath it.
       scroll-margin-bottom: var(--chat-dock-clearance);
-      font-size: 0.85rem;
-      line-height: 1.45;
+      font-size: 1rem;
+      line-height: 1.55;
       text-align: left;
       color: var(--color-text-primary);
       // A long link or unbroken string wraps instead of pushing a narrow viewport sideways.
@@ -375,11 +375,60 @@
         font-size: 0.82em;
       }
 
-      &.user {
-        text-align: right;
+      strong {
         font-weight: 600;
-        color: var(--color-text-secondary);
       }
+
+      // Replies are lists more often than paragraphs: tight rows, easy to scan.
+      li {
+        margin-bottom: 4px;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+
+      h1, h2, h3, h4 {
+        margin: 12px 0 4px;
+        font-size: 1rem;
+        font-weight: 600;
+        line-height: 1.3;
+
+        &:first-child {
+          margin-top: 0;
+        }
+      }
+
+      hr {
+        border: none;
+        border-top: 1px solid rgba(61, 53, 80, 0.12);
+        margin: 12px 0;
+      }
+
+      // The family's own message: a compact bubble on the right, so it reads as the prompt
+      // and the reply below it as the answer.
+      &.user {
+        align-self: flex-end;
+        max-width: 85%;
+        padding: 8px 14px;
+        border-radius: 18px 18px 4px 18px;
+        background: color-mix(in srgb, var(--color-primary) 16%, transparent);
+        text-align: left;
+        font-weight: 500;
+        color: var(--color-text-primary);
+      }
+    }
+
+    // The wait for a reply: the small logo, then a lighter italic loading phrase typing itself out.
+    .chat-pending {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.9rem;
+      font-weight: 300;
+      font-style: italic;
+      color: var(--color-text-secondary);
+      min-height: 24px;
     }
 
     // Refresh controls under the daily blurb: one chip per refreshable line.
@@ -472,13 +521,12 @@
         border: none;
         border-radius: 999px;
         background: transparent;
-        padding: 3px 10px 3px 6px;
-        font: inherit;
-        font-size: 0.72rem;
-        font-weight: 500;
+        padding: 3px;
         color: var(--color-text-secondary);
         cursor: pointer;
-        transition: background-color 0.15s ease, color 0.15s ease;
+        // Out of the way until the reply is hovered or focused (see below for touch screens).
+        opacity: 0;
+        transition: opacity 0.15s ease, background-color 0.15s ease, color 0.15s ease;
 
         mat-icon {
           font-size: 16px;
@@ -489,6 +537,21 @@
         &:hover {
           background: rgba(61, 53, 80, 0.07);
           color: var(--color-text-primary);
+        }
+      }
+
+      @at-root {
+        .home-chat .home-chat-messages .chat-message:hover .correct-btn,
+        .home-chat .home-chat-messages .chat-message:focus-within .correct-btn,
+        .home-chat .home-chat-messages .correct-btn:focus-visible {
+          opacity: 1;
+        }
+
+        // No hover on touch screens: keep it faintly visible, but only on the latest reply.
+        @media (hover: none) {
+          .home-chat .home-chat-messages .chat-message.latest .correct-btn {
+            opacity: 0.55;
+          }
         }
       }
 
@@ -658,7 +721,7 @@
 
   .home-chat-clear {
     display: flex;
-    justify-content: center;
+    justify-content: flex-end;
   }
 
   .clear-chat-confirm {
@@ -771,6 +834,58 @@
       border-width: 0;
       opacity: 0;
       pointer-events: none;
+    }
+  }
+
+  // Starter prompts under the input.
+  .chat-ideas {
+    align-self: center;
+    width: 92%;
+    max-width: 560px;
+    margin-top: 6px;
+
+    .chat-ideas-title {
+      margin: 0 0 8px 4px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--color-text-secondary);
+    }
+
+    .chat-ideas-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .chat-idea-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px 6px 8px;
+      border: 1px solid rgba(61, 53, 80, 0.14);
+      border-radius: 999px;
+      background: var(--color-surface);
+      color: var(--color-text-primary);
+      font: inherit;
+      font-size: 0.85rem;
+      cursor: pointer;
+      transition: background 0.15s ease, border-color 0.15s ease;
+
+      mat-icon {
+        font-size: 18px;
+        width: 18px;
+        height: 18px;
+        color: var(--color-text-secondary);
+      }
+
+      &:hover {
+        border-color: var(--color-primary);
+      }
     }
   }
 
