@@ -103,8 +103,9 @@ export class BacklogComponent {
         maxWidth: '95vw',
         data: {
           mode: 'add',
+          scheduling: true,
           defaultDate: new Date(),
-          prefill: { title: item.title, itemKind: 'task', memberId: item.memberId ?? null, scope: item.scope }
+          prefill: { title: item.title, description: item.notes, itemKind: 'task', memberId: item.memberId ?? null, scope: item.scope }
         }
       }
     );
@@ -123,7 +124,7 @@ export class BacklogComponent {
   async remove(item: BacklogItem): Promise<void> {
     const ok = await this.confirmService.confirm({
       title: 'Delete task?',
-      message: `"${item.title}" will be removed from the backlog.`,
+      message: `"${item.title}" will be removed from the task backlog.`,
       confirmLabel: 'Delete',
       destructive: true
     });

@@ -36,7 +36,7 @@ export interface BacklogItemDialogResult {
   template: `
     <h2 mat-dialog-title>
       <mat-icon>inbox</mat-icon>
-      {{ data.item ? 'Edit backlog task' : 'Add to backlog' }}
+      {{ data.item ? 'Edit backlog task' : 'Add to task backlog' }}
     </h2>
 
     <mat-dialog-content>

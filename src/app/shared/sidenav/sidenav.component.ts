@@ -28,7 +28,7 @@ export class SidenavComponent {
   readonly items: NavItem[] = [
     { path: '/', icon: 'home', label: 'Home' },
     { path: '/grocery-list', icon: 'shopping_cart', label: 'Shopping list' },
-    { path: '/backlog', icon: 'inbox', label: 'Backlog' },
+    { path: '/backlog', icon: 'inventory', label: 'Task backlog' },
     { path: '/quick-links', icon: 'link', label: 'Quick links' },
     { path: '/food', icon: 'restaurant', label: 'Food' },
     { path: '/calendar', icon: 'calendar_month', label: 'Calendar' },

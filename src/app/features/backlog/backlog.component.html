@@ -1,6 +1,6 @@
 <div class="backlog-container">
   <div class="header">
-    <h1>Backlog</h1>
+    <h1>Task backlog</h1>
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
@@ -23,7 +23,7 @@
       </button>
     </div>
 
-    <p class="empty" *ngIf="backlog.open().length === 0">Nothing in the backlog. Add a task above.</p>
+    <p class="empty" *ngIf="backlog.open().length === 0">Nothing in the task backlog. Add a task above.</p>
 
     <ul class="task-list" *ngIf="backlog.open().length">
       <li *ngFor="let item of backlog.open()" class="task" [attr.data-highlight-id]="item.id">

@@ -80,9 +80,9 @@ export class QuickLinkService {
     },
     {
       id: 'backlog',
-      title: 'Backlog',
+      title: 'Task backlog',
       subtitle: 'Tasks for someday',
-      icon: 'inbox',
+      icon: 'inventory',
       url: '/backlog',
       isExternal: false,
       isEditable: false,

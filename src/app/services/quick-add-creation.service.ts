@@ -95,7 +95,7 @@ export class QuickAddCreationService {
         if (item.date) {
           return { path: '/calendar', queryParams: { date: item.date, ...highlight }, label: 'View on the calendar' };
         }
-        return { path: '/backlog', queryParams: highlight, label: 'View in the backlog' };
+        return { path: '/backlog', queryParams: highlight, label: 'View in the task backlog' };
       case 'shopping_item':
         return { path: '/grocery-list', queryParams: highlight, label: 'View in the shopping list' };
       case 'fact':
@@ -226,7 +226,7 @@ export class QuickAddCreationService {
       case 'todo':
       case 'reminder': {
         const match = this.backlogService.open().find(t => this.isSimilar(t.title, title));
-        return match ? `Looks similar to a task already in the backlog: "${match.title}".` : null;
+        return match ? `Looks similar to a task already in the task backlog: "${match.title}".` : null;
       }
       case 'fact': {
         const match = this.memoryService.explicitFacts().find(f => this.isSimilar(f.factText, title));

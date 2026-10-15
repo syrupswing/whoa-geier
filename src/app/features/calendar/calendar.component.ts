@@ -16,6 +16,7 @@ import { GRAPH_EXPLORER_URL, OutlookTokenDialogComponent } from '../../component
 import { OutlookCalendarService } from '../../services/outlook-calendar.service';
 import { GoogleCalendarService, CalendarEvent, CalendarInfo } from '../../services/google-calendar.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
+import { BacklogService } from '../../services/backlog.service';
 import { highlightWhenPresent } from '../../utils/highlight';
 import { TASK_COLOR, toIsoDate, buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
@@ -530,6 +531,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   }
 
   driveTimeService = inject(DriveTimeService);
+  private backlogService = inject(BacklogService);
 
   /** Shows (looking it up first) or hides the drive time from home for an event with a location. */
   async toggleDriveTime(event: CalendarEvent, domEvent: Event): Promise<void> {
@@ -574,6 +576,25 @@ export class CalendarComponent implements OnInit, OnDestroy {
     } catch (error) {
       console.error('Error snoozing task:', error);
       this.snackBar.open('Could not snooze the task — try again', 'Close', { duration: 3000 });
+    }
+  }
+
+  /** Takes a task off the calendar and puts it in the Task backlog (day, time and repeat are dropped). */
+  async moveToBacklog(event: CalendarEvent): Promise<void> {
+    this.clearSelectedEvent();
+    try {
+      const id = await this.backlogService.addItem({
+        title: event.summary,
+        notes: event.description,
+        memberId: event.memberId,
+        scope: event.isPrivate ? 'private' : 'family'
+      });
+      if (!id) throw new Error('Could not add to the backlog');
+      await this.appCalendarEventService.deleteEvent(event.id);
+      this.snackBar.open('Moved to the Task backlog', 'Close', { duration: 3000 });
+    } catch (error) {
+      console.error('Error moving task to the backlog:', error);
+      this.snackBar.open('Could not move the task to the backlog — try again', 'Close', { duration: 3000 });
     }
   }
 

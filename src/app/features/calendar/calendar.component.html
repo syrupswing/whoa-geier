@@ -323,6 +323,14 @@
               <mat-icon>alarm</mat-icon>{{ option.label }}
             </button>
           </mat-menu>
+          <button
+            mat-stroked-button
+            type="button"
+            class="cal-popover-snooze-btn"
+            (click)="moveToBacklog(sel); $event.stopPropagation()">
+            <mat-icon>inventory</mat-icon>
+            Move to backlog
+          </button>
         </ng-container>
         <ng-container *ngIf="driveTimeService.canShow(sel)">
           <p class="cal-popover-person" *ngIf="driveTimeService.get(sel) as drive"><mat-icon>directions_car</mat-icon>{{ drive.minutes }} min drive · leave by {{ formatLeave(drive) }}</p>

@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
@@ -33,8 +34,10 @@ export interface CalendarEventDialogData {
   event?: CalendarEvent;
   /** Pre-fills the date on add — typically whatever day the calendar widget is currently showing. */
   defaultDate?: Date;
+  /** An existing backlog task being put on the schedule: changes the heading and the confirm button's wording. */
+  scheduling?: boolean;
   /** Pre-fills an add from something that already exists, such as a backlog task being scheduled. */
-  prefill?: { title: string; itemKind?: CalendarItemKind; memberId?: string | null; scope?: 'private' | 'family' };
+  prefill?: { title: string; description?: string; itemKind?: CalendarItemKind; memberId?: string | null; scope?: 'private' | 'family' };
 }
 
 type Scope = 'private' | 'family';
@@ -58,6 +61,7 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
     MatDialogModule,
     MatFormFieldModule,
     MatInputModule,
+    TextFieldModule,
     MatButtonModule,
     MatButtonToggleModule,
     MatIconModule,
@@ -72,7 +76,7 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
   template: `
     <h2 mat-dialog-title>
       <mat-icon>{{ formData.itemKind === 'task' ? 'task_alt' : 'event' }}</mat-icon>
-      {{ data.mode === 'add' ? 'Add item' : 'Edit item' }}
+      {{ data.scheduling ? 'Add item to schedule' : data.mode === 'add' ? 'Add item' : 'Edit item' }}
     </h2>
 
     <mat-dialog-content>
@@ -127,6 +131,19 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             </mat-option>
           </mat-autocomplete>
           <mat-hint class="place-unavailable" *ngIf="locationLookupFailed">Address suggestions unavailable — you can still type the location.</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+          <mat-label>Notes</mat-label>
+          <textarea
+            matInput
+            name="description"
+            rows="3"
+            cdkTextareaAutosize
+            cdkAutosizeMinRows="3"
+            cdkAutosizeMaxRows="10"
+            placeholder="Details, links, things to remember"
+            [(ngModel)]="formData.description"></textarea>
         </mat-form-field>
         </div>
 
@@ -319,8 +336,8 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
         color="primary"
         (click)="onSave()"
         [disabled]="!isValid()">
-        <mat-icon>{{ data.mode === 'add' ? 'add' : 'save' }}</mat-icon>
-        {{ data.mode === 'add' ? 'Add item' : 'Save Changes' }}
+        <mat-icon>{{ data.scheduling ? 'check' : data.mode === 'add' ? 'add' : 'save' }}</mat-icon>
+        {{ data.scheduling ? 'Confirm' : data.mode === 'add' ? 'Add item' : 'Save Changes' }}
       </button>
     </mat-dialog-actions>
   `,
@@ -575,6 +592,8 @@ export class CalendarEventDialogComponent {
     title: string;
     /** Free text; the autocomplete just fills it with a full address. */
     location: string;
+    /** Free-text notes; line breaks are kept. */
+    description: string;
     /** Off = all day. On without a duration = a point in time. */
     hasTime: boolean;
     hasDuration: boolean;
@@ -625,6 +644,7 @@ export class CalendarEventDialogComponent {
         itemKind: event.kind ?? 'event',
         title: event.summary,
         location: event.location ?? '',
+        description: event.description ?? '',
         hasTime: !isAllDay,
         hasDuration: !isAllDay && !event.isPointInTime,
         multiDay: this.dateOnly(endDate) > this.dateOnly(startDate),
@@ -650,6 +670,7 @@ export class CalendarEventDialogComponent {
         itemKind: 'event',
         title: '',
         location: '',
+        description: '',
         // All day on the day being viewed, private to the creator, unless the user says otherwise.
         hasTime: false,
         hasDuration: false,
@@ -673,6 +694,7 @@ export class CalendarEventDialogComponent {
       const prefill = data.prefill;
       if (prefill) {
         this.formData.title = prefill.title;
+        if (prefill.description) this.formData.description = prefill.description;
         if (prefill.itemKind) this.formData.itemKind = prefill.itemKind;
         if (prefill.memberId !== undefined) this.formData.memberId = prefill.memberId;
         if (prefill.scope) this.formData.scope = prefill.scope;
@@ -1020,6 +1042,8 @@ export class CalendarEventDialogComponent {
     // Adding has nothing to clear yet, and Firestore's create path rejects literal
     // `undefined` values outright, so a falsy field is simply left off the new document.
     const location = this.eventLocation();
+    const description = f.description.trim();
+    this.setOptionalField(result, 'description', description, !!description, isEdit);
     this.setOptionalField(result, 'location', location, !!location, isEdit);
     this.setOptionalField(result, 'isPointInTime', true, f.hasTime && !f.hasDuration, isEdit);
     this.setOptionalField(result, 'startApproximate', true, f.hasTime && f.hasDuration && f.startApproximate, isEdit);
