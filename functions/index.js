@@ -975,6 +975,10 @@ async function resolveScheduleForDate(db, dateStr) {
     dayNote: rawNote || null,
     startTime: noSchool ? null : startTime,
     endTime: noSchool ? null : endTime,
+    // True only when a drop-off time was actually entered (not the built-in 8:00 fallback), and when
+    // the schedule settings exist at all — the push alert leaves out what it would only be guessing.
+    startTimeKnown: Boolean(day.startTime || settings.schoolStartTime),
+    scheduleKnown: settingsDoc.exists,
     lunchPlan,
     icalUrls: Array.from(new Set(icalUrls))
   };
@@ -1030,6 +1034,7 @@ async function fetchDayForecast(apiKey) {
       hour: Number(new Date(entry.dt * 1000).toLocaleString('en-US', { hour: 'numeric', hourCycle: 'h23', timeZone: TIME_ZONE })),
       tempF: Math.round(entry.main.temp),
       pop: Math.round((entry.pop || 0) * 100),
+      clouds: entry.clouds?.all,
       description: entry.weather?.[0]?.description || ''
     }))
     .filter(slot => slot.date === today);
@@ -1048,7 +1053,14 @@ async function fetchDayForecast(apiKey) {
     }
   }
 
+  // Cloud cover over the waking day (6am-8pm), so a clear night doesn't make a gray day look sunny.
+  const daytime = slots.filter(slot => slot.hour >= 6 && slot.hour <= 20 && typeof slot.clouds === 'number');
+  const cloudCoverPct = daytime.length
+    ? Math.round(daytime.reduce((sum, slot) => sum + slot.clouds, 0) / daytime.length)
+    : undefined;
+
   return {
+    ...(cloudCoverPct !== undefined && { cloudCoverPct }),
     highF: Math.max(...slots.map(s => s.tempF)),
     lowF: Math.min(...slots.map(s => s.tempF)),
     maxPrecipChance: Math.max(...slots.map(s => s.pop)),
@@ -1343,6 +1355,8 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
     dayNote: schedule.dayNote,
     startTime: schedule.startTime,
     endTime: schedule.endTime,
+    startTimeKnown: schedule.startTimeKnown,
+    scheduleKnown: schedule.scheduleKnown,
     weather,
     clothingIdea,
     clothingSuggestionId,
@@ -1371,39 +1385,117 @@ function formatTime12h(hhmm) {
   return `${hour12}:${String(minutes).padStart(2, '0')} ${period}`;
 }
 
-/** "8:45 AM" → "8:45a" — shorter, so a schedule line fits on one line of a notification. */
-function compactTime(label) {
-  return String(label || '').replace(/:00(?=\s*[AP]M)/i, '').replace(/\s*([AP])M/i, (_, p) => p.toLowerCase());
+/** "08:00" -> "8:00am" — lowercase and unspaced, the way the push alert writes times. */
+function pushTime(hhmmOrLabel) {
+  const label = /^\d{1,2}:\d{2}$/.test(hhmmOrLabel || '') ? formatTime12h(hhmmOrLabel) : String(hhmmOrLabel || '');
+  return label.replace(/\s*([AP])M/i, (_, p) => `${p.toLowerCase()}m`);
 }
 
-/** Trims an AI idea to its first clause and a short length, cutting at a word boundary. */
-function clipIdea(text, max = 40) {
-  const firstClause = String(text || '').split(/\s+[—–-]\s+|[.;]\s/)[0].trim();
-  if (firstClause.length <= max) return firstClause;
-  return firstClause.slice(0, max).replace(/\s+\S*$/, '').replace(/[,:;]+$/, '') + '…';
-}
-
-/** Up to three short lines: the day's schedule, then (when relevant) an outfit and breakfast. */
-function summarizeBriefingForPush(briefing) {
-  const activities = briefing.activities || [];
-  const isGoingOut = briefing.schoolStatus !== 'no-school' || activities.length > 0;
-
-  const schedule = [];
-  if (briefing.schoolStatus === 'no-school') {
-    schedule.push(briefing.scheduleNote ? `No school (${clipIdea(briefing.scheduleNote, 24)})` : 'No school');
-  } else if (briefing.schoolStatus === 'early-release') {
-    schedule.push(`Early release ${compactTime(formatTime12h(briefing.endTime))}`);
-  } else {
-    schedule.push(`School ${compactTime(formatTime12h(briefing.startTime))}`);
+/** ☀️ sunny (under 20% cloud cover), 🌤️ partly cloudy/sunny (20-60%), ☁️ cloudy or overcast (over 60%). */
+function weatherEmoji(weather) {
+  const cover = weather.cloudCoverPct;
+  if (cover === undefined) {
+    if (weather.conditions === 'Clear') return '☀️';
+    if (weather.conditions === 'Clouds' && /few|scattered/i.test(weather.description || '')) return '🌤️';
+    return '☁️';
   }
-  activities.slice(0, 2).forEach(a => schedule.push(a.time ? `${clipIdea(a.title, 22)} ${compactTime(a.time)}` : clipIdea(a.title, 22)));
+  if (cover < 20) return '☀️';
+  if (cover <= 60) return '🌤️';
+  return '☁️';
+}
 
-  const lines = [schedule.join(' · ')];
-  // No point suggesting an outfit on a day off with nothing on the calendar.
-  if (isGoingOut && briefing.clothingIdea) lines.push(`Wear: ${clipIdea(briefing.clothingIdea)}`);
-  if (briefing.breakfastIdea) lines.push(`Breakfast: ${clipIdea(briefing.breakfastIdea)}`);
+/** "☁️ 48°→65°  ☔️ 40%" — the day's low-to-high and rain chance (shown even at 0%); null when the forecast is missing. */
+function pushWeatherLine(weather) {
+  if (!weather || weather.lowF === undefined || weather.highF === undefined || weather.maxPrecipChance === undefined) return null;
+  return `${weatherEmoji(weather)} ${weather.lowF}°→${weather.highF}°  ☔️ ${weather.maxPrecipChance}%`;
+}
 
-  return lines.join('\n');
+/** A synced Outlook calendar older than this can't vouch for "no meetings" — events may have been added since. */
+const OUTLOOK_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The earliest timed (non-task, non-point) event on a date from a person's synced Outlook calendar,
+ * as "HH:mm". Returns undefined when there's no recent synced copy to look at (so the caller can
+ * tell "can't see the calendar" apart from null, "looked and found nothing").
+ */
+async function firstTimedEventTime(db, uid, dateStr) {
+  const snap = await db.collection('outlookCalendarCache').doc(uid).get();
+  if (!snap.exists) return undefined;
+  const cache = snap.data();
+  const syncedAt = new Date(cache.syncedAt || 0).getTime();
+  if (!(Date.now() - syncedAt <= OUTLOOK_CACHE_MAX_AGE_MS)) return undefined;
+  const times = (cache.events || [])
+    .filter(e => e.start?.dateTime && !e.isPointInTime && e.kind !== 'task' && toDateStr(new Date(e.start.dateTime)) === dateStr)
+    .map(e => new Date(e.start.dateTime).toLocaleTimeString('en-GB', { timeZone: TIME_ZONE, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }))
+    .sort();
+  return times[0] || null;
+}
+
+/**
+ * "You: ..." for the person who owns the device: their first meeting on a work day, or their first
+ * calendar appointment on a day off. Null when the account isn't linked to an adult member or their
+ * calendar can't be read — better no line than a false "no meetings".
+ */
+async function buildYouLine(db, uid, members, dateStr) {
+  if (!uid) return null;
+  const link = await db.collection('memberLinks').doc(uid).get();
+  const member = link.exists ? members.find(m => m.id === link.data().memberId) : null;
+  if (!member || member.kind !== 'adult') return null;
+
+  const first = await firstTimedEventTime(db, uid, dateStr);
+  if (first === undefined) return null;
+
+  const profile = await db.collection('dayProfiles').doc(`${member.id}_${dateStr}`).get();
+  const stored = profile.exists ? profile.data() : {};
+  const weekday = new Date(`${dateStr}T00:00:00`).getDay();
+  const workDay = stored.workDay !== undefined ? stored.workDay : (member.routine?.workDays || []).includes(weekday);
+
+  if (workDay) return first ? `You: first meeting at ${pushTime(first)}` : 'You: no meetings on your calendar';
+  return first ? `You: first calendar app't at ${pushTime(first)}` : 'You: nothing on your calendar today';
+}
+
+/**
+ * "Remi: normal dropoff by 9:00am", "earlier dropoff by 8:15am", or "no school today!". Null when
+ * the schedule isn't known well enough to say — better no line than a wrong one. Without a known
+ * regular drop-off time to compare against, it says just "dropoff by 9:00am".
+ */
+function buildChildLine(briefing, childName, normalDropOff) {
+  if (!briefing.scheduleKnown) return null;
+  if (briefing.schoolStatus === 'no-school') return `${childName}: no school today!`;
+  if (!briefing.startTimeKnown || !briefing.startTime) return null;
+  const time = pushTime(briefing.startTime);
+  let kind = '';
+  if (normalDropOff) {
+    kind = briefing.startTime < normalDropOff ? 'earlier ' : briefing.startTime > normalDropOff ? 'later ' : 'normal ';
+  }
+  const early = briefing.schoolStatus === 'early-release' ? ` · early release ${pushTime(briefing.endTime)}` : '';
+  return `${childName}: ${kind}dropoff by ${time}${early}`;
+}
+
+/** The child's regular drop-off time ("HH:mm") and name, from the household member the schedule belongs to. */
+async function loadChildForPush(db) {
+  const [settingsDoc, householdDoc] = await Promise.all([
+    db.collection('remi-schedule').doc('settings').get(),
+    db.collection('household').doc('main').get()
+  ]);
+  const settings = settingsDoc.exists ? settingsDoc.data() : {};
+  const members = (householdDoc.exists && householdDoc.data().members) || [];
+  const child = members.find(m => m.id === settings.memberId && m.kind === 'child');
+  return {
+    members,
+    name: child?.name || 'Remi',
+    // Unset means unknown — no guessing at a "normal" time to compare today's against.
+    normalDropOff: child?.routine?.dropOffTime || settings.schoolStartTime || null
+  };
+}
+
+/** The alert body: the owner's day, Remi's drop-off, the weather, and a packed-lunch reminder when needed. */
+function composePushBody({ youLine, childLine, briefing, childName }) {
+  const lines = [youLine, childLine, pushWeatherLine(briefing.weather)];
+  if (briefing.schoolStatus !== 'no-school' && briefing.lunchPlan === 'pack') {
+    lines.push(`🥪 ${childName} needs a packed lunch today!`);
+  }
+  return lines.filter(Boolean).join('\n');
 }
 
 /**
@@ -1423,32 +1515,33 @@ exports.dailyRemiBriefing = onSchedule(
       console.log('dailyRemiBriefing: no FCM tokens registered — skipping push.');
       return;
     }
-    const tokens = tokensSnap.docs.map(doc => doc.data().token).filter(Boolean);
-    const messaging = admin.messaging();
 
-    const title = "Remi's Day";
-    const body = summarizeBriefingForPush(briefing);
-
-    const results = await Promise.allSettled(
-      tokens.map(token => messaging.send({ token, data: { title, body } }))
-    );
-
-    const staleTokens = [];
-    results.forEach((result, i) => {
-      if (result.status === 'rejected') {
-        const code = result.reason?.errorInfo?.code ?? '';
-        if (code.includes('registration-token-not-registered') || code.includes('invalid-argument')) {
-          staleTokens.push(tokens[i]);
-        }
-      }
+    // Each person's alert opens with their own "You:" line, so devices are grouped by account.
+    const tokensByUid = new Map();
+    tokensSnap.docs.forEach(doc => {
+      const { token, uid } = doc.data();
+      if (!token) return;
+      const key = uid || '';
+      tokensByUid.set(key, (tokensByUid.get(key) || []).concat(token));
     });
-    if (staleTokens.length > 0) {
-      console.log(`dailyRemiBriefing: removing ${staleTokens.length} stale token(s).`);
-      await Promise.all(staleTokens.map(token => db.collection('fcm-tokens').doc(token).delete()));
-    }
 
-    const sent = results.filter(r => r.status === 'fulfilled').length;
-    console.log(`dailyRemiBriefing: sent ${sent}/${tokens.length} notifications.`);
+    const child = await loadChildForPush(db);
+    const childLine = buildChildLine(briefing, child.name, child.normalDropOff);
+
+    let sent = 0;
+    let total = 0;
+    for (const [uid, tokens] of tokensByUid) {
+      let youLine = null;
+      try {
+        youLine = await buildYouLine(db, uid, child.members, dateStr);
+      } catch (err) {
+        console.error('dailyRemiBriefing: could not build the You line:', err);
+      }
+      const body = composePushBody({ youLine, childLine, briefing, childName: child.name });
+      sent += await sendPushToTokens(db, tokens, { title: `${child.name}'s Day`, body });
+      total += tokens.length;
+    }
+    console.log(`dailyRemiBriefing: sent ${sent}/${total} notifications.`);
   }
 );
 
