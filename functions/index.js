@@ -1538,7 +1538,7 @@ exports.dailyRemiBriefing = onSchedule(
         console.error('dailyRemiBriefing: could not build the You line:', err);
       }
       const body = composePushBody({ youLine, childLine, briefing, childName: child.name });
-      sent += await sendPushToTokens(db, tokens, { title: `${child.name}'s Day`, body });
+      sent += await sendPushToTokens(db, tokens, { title: '', body });
       total += tokens.length;
     }
     console.log(`dailyRemiBriefing: sent ${sent}/${total} notifications.`);
