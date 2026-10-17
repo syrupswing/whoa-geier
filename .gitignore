@@ -60,3 +60,6 @@ src/environments/environment.local.ts
 
 # Firebase CLI cache
 .firebase/
+
+# Pulled user bug reports (may contain family chat content)
+functions/bug-reports.json

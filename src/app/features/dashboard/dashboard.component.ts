@@ -29,6 +29,7 @@ import { GroceryService } from '../../services/grocery.service';
 import { AiOrchestratorService } from '../../services/ai-orchestrator.service';
 import { HourlyForecast, WeatherService } from '../../services/weather.service';
 import { FirestoreService } from '../../services/firestore.service';
+import { AuthService } from '../../services/auth.service';
 import { PushNotificationService } from '../../services/push-notification.service';
 import { RemiScheduleService, RemiDailyBriefing } from '../../services/remi-schedule.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
@@ -281,6 +282,8 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   private chatResizeObserver?: ResizeObserver;
   /** The assistant reply currently being corrected (its inline correction form is open). */
   correctingMessage = signal<ChatMessage | null>(null);
+  /** Which kind of correction the open form is for; null until the user picks one. */
+  correctionMode = signal<'fact' | 'bug' | null>(null);
   correctionText = '';
   isCorrecting = signal(false);
   isConfirmingClearChat = signal(false);
@@ -1407,6 +1410,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   driveTimeService = inject(DriveTimeService);
+  private authService = inject(AuthService);
 
   /** Shows (looking it up first) or hides the drive time from home for an event with a location. */
   async toggleDriveTime(event: CalendarEvent, domEvent: Event): Promise<void> {
@@ -1727,11 +1731,17 @@ export class DashboardComponent implements OnInit, AfterViewInit {
 
   startCorrection(message: ChatMessage): void {
     this.correctingMessage.set(message);
+    this.correctionMode.set(null);
     this.correctionText = '';
+  }
+
+  chooseCorrectionMode(mode: 'fact' | 'bug'): void {
+    this.correctionMode.set(mode);
   }
 
   cancelCorrection(): void {
     this.correctingMessage.set(null);
+    this.correctionMode.set(null);
     this.correctionText = '';
   }
 
@@ -1749,6 +1759,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     const messages = this.chatMessages();
     const index = messages.indexOf(message);
     const question = messages.slice(0, index).reverse().find(m => m.isUser)?.text ?? '';
+
+    if (this.correctionMode() === 'bug') {
+      await this.submitBugReport(messages, index, question, message.text, correction);
+      return;
+    }
 
     this.isCorrecting.set(true);
     try {
@@ -1775,6 +1790,42 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       this.cancelCorrection();
     } catch (error: any) {
       this.snackBar.open(error?.message || 'Could not save that correction — try again', 'Close', { duration: 3000 });
+    } finally {
+      this.isCorrecting.set(false);
+    }
+  }
+
+  /**
+   * Stores a "logic bug" report about an assistant reply in Firestore (replyBugReports) with the
+   * question, the reply and the few messages before it, so it can be pulled locally
+   * (functions/pull-bug-reports.js) and reproduced from a real event.
+   */
+  private async submitBugReport(
+    messages: ChatMessage[], index: number, question: string, reply: string, note: string
+  ): Promise<void> {
+    this.isCorrecting.set(true);
+    try {
+      const user = this.authService.currentUser();
+      const id = await this.firestoreService.addDocument('replyBugReports', {
+        note,
+        question,
+        reply,
+        recentMessages: messages.slice(Math.max(0, index - 5), index + 1).map(m => ({
+          role: m.isUser ? 'user' : 'assistant',
+          text: m.text,
+          at: m.timestamp instanceof Date ? m.timestamp.toISOString() : String(m.timestamp)
+        })),
+        reporterUid: user?.uid ?? null,
+        reporterName: user?.displayName ?? null,
+        status: 'new'
+      });
+      if (!id) {
+        throw new Error('Could not send that report — try again');
+      }
+      this.cancelCorrection();
+      this.snackBar.open('Thanks — bug report sent', 'Close', { duration: 3000 });
+    } catch (error: any) {
+      this.snackBar.open(error?.message || 'Could not send that report — try again', 'Close', { duration: 3000 });
     } finally {
       this.isCorrecting.set(false);
     }

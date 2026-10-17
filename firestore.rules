@@ -124,6 +124,13 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // "Report a logic bug" submissions from the chat's Correct-this-reply dialog. Anyone signed in can file
+    // one; they're read only by the developer through the Admin SDK (functions/pull-bug-reports.js).
+    match /replyBugReports/{reportId} {
+      allow create: if isAuthenticated() && request.resource.data.get('reporterUid', null) == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+
     // Patterns inferred from the AI suggestion feedback log — written only by the
     // smart-alerts Cloud Function via the Admin SDK, read-only from the client
     match /learnedPatterns/{patternId} {

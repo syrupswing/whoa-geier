@@ -611,6 +611,40 @@
         color: var(--color-text-secondary);
       }
 
+      .correct-choices {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .correct-choice {
+        flex: 1 1 140px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        border: 1px solid rgba(61, 53, 80, 0.18);
+        border-radius: 999px;
+        background: var(--color-surface, #fff);
+        padding: 8px 12px;
+        font: inherit;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+        cursor: pointer;
+
+        mat-icon {
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
+          color: var(--color-iris-bloom, var(--color-text-secondary));
+        }
+
+        &:hover {
+          background: rgba(61, 53, 80, 0.07);
+        }
+      }
+
       .correct-actions {
         display: flex;
         align-items: center;

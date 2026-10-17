@@ -47,27 +47,51 @@
                 <mat-icon>edit_note</mat-icon>
               </button>
               <form class="correct-form" *ngIf="correctingMessage() === message" (ngSubmit)="submitCorrection(message)">
-                <div class="correct-heading">
-                  <mat-icon>psychology</mat-icon>
-                  <div>
-                    <p class="correct-title">What should I have said?</p>
-                    <p class="correct-help">I'll turn this into a fact to remember. You'll get to review it before it's saved.</p>
+                <ng-container *ngIf="!correctionMode()">
+                  <div class="correct-heading">
+                    <mat-icon>edit_note</mat-icon>
+                    <div>
+                      <p class="correct-title">What's wrong with this reply?</p>
+                    </div>
                   </div>
-                </div>
-                <textarea
-                  name="correctionInput"
-                  rows="3"
-                  aria-label="What the reply should have said"
-                  placeholder="e.g., Field trip days aren't Mpls Kids days. Those are on…"
-                  [(ngModel)]="correctionText"
-                  (blur)="resetViewportAfterKeyboard()"></textarea>
-                <div class="correct-actions">
-                  <button type="button" class="correct-cancel" (click)="cancelCorrection()">Cancel</button>
-                  <button type="submit" class="correct-submit" [disabled]="!correctionText.trim() || isCorrecting()">
-                    <mat-icon>{{ isCorrecting() ? 'hourglass_top' : 'check' }}</mat-icon>
-                    {{ isCorrecting() ? 'Working on it…' : 'Save correction' }}
-                  </button>
-                </div>
+                  <div class="correct-choices">
+                    <button type="button" class="correct-choice" (click)="chooseCorrectionMode('fact')">
+                      <mat-icon>psychology</mat-icon>
+                      <span>Add fact to clarify</span>
+                    </button>
+                    <button type="button" class="correct-choice" (click)="chooseCorrectionMode('bug')">
+                      <mat-icon>bug_report</mat-icon>
+                      <span>Report a logic bug</span>
+                    </button>
+                  </div>
+                  <div class="correct-actions">
+                    <button type="button" class="correct-cancel" (click)="cancelCorrection()">Cancel</button>
+                  </div>
+                </ng-container>
+                <ng-container *ngIf="correctionMode()">
+                  <div class="correct-heading">
+                    <mat-icon>{{ correctionMode() === 'bug' ? 'bug_report' : 'psychology' }}</mat-icon>
+                    <div>
+                      <p class="correct-title">{{ correctionMode() === 'bug' ? 'What went wrong?' : 'What should I have said?' }}</p>
+                      <p class="correct-help" *ngIf="correctionMode() === 'fact'">I'll turn this into a fact to remember. You'll get to review it before it's saved.</p>
+                      <p class="correct-help" *ngIf="correctionMode() === 'bug'">This sends the reply to the developer so the logic can be fixed. It won't change what I remember.</p>
+                    </div>
+                  </div>
+                  <textarea
+                    name="correctionInput"
+                    rows="3"
+                    [attr.aria-label]="correctionMode() === 'bug' ? 'What went wrong with the reply' : 'What the reply should have said'"
+                    [placeholder]="correctionMode() === 'bug' ? 'e.g., It said Remi has school but it\'s a teacher workday…' : 'e.g., Field trip days aren\'t Mpls Kids days. Those are on…'"
+                    [(ngModel)]="correctionText"
+                    (blur)="resetViewportAfterKeyboard()"></textarea>
+                  <div class="correct-actions">
+                    <button type="button" class="correct-cancel" (click)="cancelCorrection()">Cancel</button>
+                    <button type="submit" class="correct-submit" [disabled]="!correctionText.trim() || isCorrecting()">
+                      <mat-icon>{{ isCorrecting() ? 'hourglass_top' : 'check' }}</mat-icon>
+                      {{ isCorrecting() ? (correctionMode() === 'bug' ? 'Sending…' : 'Working on it…') : (correctionMode() === 'bug' ? 'Send report' : 'Save correction') }}
+                    </button>
+                  </div>
+                </ng-container>
               </form>
             </div>
             <div class="chat-message-cards" *ngIf="message.cards?.length">
