@@ -17,6 +17,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { VehicleService, Vehicle, MaintenanceRecord } from '../../services/vehicle.service';
+import { SERVICE_CATALOG, ServiceType } from '../../services/vehicle-maintenance';
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
@@ -72,7 +73,7 @@ export class VehiclesComponent {
   // Maintenance form
   maintenanceForm = {
     vehicleId: '',
-    type: 'oil_change' as 'oil_change' | 'tire_rotation' | 'registration' | 'other',
+    type: 'oil_change' as ServiceType,
     date: new Date(),
     mileage: 0,
     description: '',
@@ -92,23 +93,11 @@ export class VehiclesComponent {
   }
 
   getMaintenanceIcon(type: string): string {
-    switch (type) {
-      case 'oil_change': return 'oil_barrel';
-      case 'tire_rotation': return 'settings';
-      case 'registration': return 'description';
-      case 'other': return 'build';
-      default: return 'build';
-    }
+    return SERVICE_CATALOG[type as ServiceType]?.icon ?? 'build';
   }
 
   getMaintenanceLabel(type: string): string {
-    switch (type) {
-      case 'oil_change': return 'Oil Change';
-      case 'tire_rotation': return 'Tire Rotation';
-      case 'registration': return 'Registration';
-      case 'other': return 'Other';
-      default: return type;
-    }
+    return SERVICE_CATALOG[type as ServiceType]?.label ?? type;
   }
 
   constructor(public vehicleService: VehicleService) {
