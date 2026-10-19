@@ -563,6 +563,12 @@ export class CalendarComponent implements OnInit, OnDestroy {
   /** Snooze choices for the popover's menu, worked out fresh so "Tonight" and "Tomorrow" are right when opened. */
   snoozeOptions = () => getSnoozeOptions();
 
+  /** Keeps the menu's buttons the same elements across change detection — rebuilding them mid-click
+   *  (snoozeOptions() returns a fresh array each time) makes a mouse click miss, though a tap works. */
+  trackBySnoozeLabel(_index: number, option: { label: string }): string {
+    return option.label;
+  }
+
   /** Hides a task occurrence from the calendar until then, with an undo. */
   async snoozeTask(event: CalendarEvent, until: Date): Promise<void> {
     const key = occurrenceKey(event);

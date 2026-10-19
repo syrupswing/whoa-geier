@@ -393,7 +393,7 @@
             Snooze
           </button>
           <mat-menu #snoozeMenu="matMenu">
-            <button mat-menu-item *ngFor="let option of snoozeOptions()" (click)="snoozeTask(sel, option.until)">
+            <button mat-menu-item *ngFor="let option of snoozeOptions(); trackBy: trackBySnoozeLabel" (click)="snoozeTask(sel, option.until)">
               <mat-icon>alarm</mat-icon>{{ option.label }}
             </button>
           </mat-menu>
