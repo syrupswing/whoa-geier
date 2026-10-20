@@ -1,5 +1,6 @@
 import {
-  computeRegistrationStatus, computeServiceStatus, defaultSchedule, drivingRate, estimateOdometer, StatusRecord
+  computeRegistrationStatus, computeServiceStatus, defaultSchedule, describeStatus, drivingRate, estimateOdometer,
+  StatusRecord, suggestedTaskTitle
 } from './vehicle-maintenance';
 
 const d = (iso: string) => new Date(iso + 'T12:00:00');
@@ -104,5 +105,22 @@ describe('registration status', () => {
     expect(computeRegistrationStatus(d('2026-10-01'), NOW)!.status).toBe('overdue');
     expect(computeRegistrationStatus(d('2026-11-05'), NOW)!.status).toBe('soon');
     expect(computeRegistrationStatus(d('2027-03-01'), NOW)!.status).toBe('ok');
+  });
+});
+
+describe('status wording', () => {
+  const oil = defaultSchedule('car').find(i => i.type === 'oil_change')!;
+  const describe_ = (miles: number) => describeStatus(computeServiceStatus(
+    oil, [{ type: 'oil_change', date: d('2026-09-01'), mileage: 40000 }],
+    { miles, lastReading: null, milesPerDay: 30, isEstimated: true }, NOW));
+
+  it('matches the server wording', () => {
+    expect(describe_(45200)).toBe('200 mi overdue');
+    expect(describe_(44400)).toBe('Due in 20 days · 600 mi');
+  });
+
+  it('titles suggested tasks', () => {
+    expect(suggestedTaskTitle('Subaru', 'oil_change')).toBe('Oil change – Subaru');
+    expect(suggestedTaskTitle('Subaru', 'registration')).toBe('Renew registration – Subaru');
   });
 });

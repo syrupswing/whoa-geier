@@ -238,3 +238,38 @@ export function compareStatuses(a: ServiceStatus, b: ServiceStatus): number {
   if (a.status !== b.status) return STATUS_ORDER[a.status] - STATUS_ORDER[b.status];
   return (a.effectiveDueDate?.getTime() ?? Infinity) - (b.effectiveDueDate?.getTime() ?? Infinity);
 }
+
+// --- Wording ------------------------------------------------------------------------------
+
+function roundMiles(miles: number): string {
+  // Whole tens/hundreds read better than a falsely precise estimate.
+  return (miles >= 1000 ? Math.round(miles / 100) * 100 : Math.round(miles / 10) * 10).toLocaleString('en-US');
+}
+
+function shortDate(date: Date): string {
+  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+}
+
+/** One short phrase for how far off (or past due) an item is, e.g. "Due in 12 days · 480 mi". */
+export function describeStatus(s: ServiceStatus): string {
+  if (s.status === 'untracked') return 'Not logged yet';
+  const miles = s.milesRemaining;
+  if (s.status === 'overdue') {
+    if (miles != null && miles <= 0) return `${roundMiles(-miles)} mi overdue`;
+    const days = Math.abs(s.daysRemaining ?? 0);
+    return days === 0 ? 'Due today' : `${days} ${days === 1 ? 'day' : 'days'} overdue`;
+  }
+  const parts: string[] = [];
+  if (s.effectiveDueDate) {
+    const days = s.daysRemaining ?? 0;
+    parts.push(days <= 0 ? 'today' : days <= 60 ? `in ${days} ${days === 1 ? 'day' : 'days'}` : shortDate(s.effectiveDueDate));
+  }
+  if (miles != null && miles > 0) parts.push(`${roundMiles(miles)} mi`);
+  return 'Due ' + parts.join(' · ');
+}
+
+/** "Oil change – Subaru": the title of the task suggested for an item, and how an existing one is spotted. */
+export function suggestedTaskTitle(vehicleName: string, type: ServiceType): string {
+  const what = type === 'registration' ? 'Renew registration' : SERVICE_CATALOG[type].label;
+  return `${what} – ${vehicleName}`;
+}

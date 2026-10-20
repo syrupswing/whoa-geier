@@ -18,7 +18,11 @@
   <div class="notification-banner" *ngIf="notifications.active().length" [attr.inert]="drawer.contentInert() ? '' : null">
     <div class="notification-item" *ngFor="let n of notifications.active()">
       <mat-icon class="notification-icon">notifications_active</mat-icon>
-      <button type="button" class="notification-text" (click)="notifications.open(n)">{{ n.title }}</button>
+      <button type="button" class="notification-text" (click)="notifications.open(n)">
+        {{ n.title }}
+        <span class="notification-body" *ngIf="n.body">{{ n.body }}</span>
+      </button>
+      <button mat-button type="button" class="notification-action" *ngIf="n.suggestedTask" (click)="notifications.addSuggestedTask(n)">Add task</button>
       <button mat-icon-button type="button" (click)="notifications.dismiss(n)" aria-label="Dismiss notification">
         <mat-icon>close</mat-icon>
       </button>

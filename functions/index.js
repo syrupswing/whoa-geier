@@ -7,6 +7,7 @@ const {PDFParse} = require('pdf-parse');
 const ical = require('node-ical');
 const dns = require('dns').promises;
 const net = require('net');
+const vehicleMaintenance = require('./vehicle-maintenance');
 
 admin.initializeApp();
 
@@ -1841,8 +1842,6 @@ exports.regenerateBriefingFacet = onCall(
 // Smart alerts
 // ---------------------------------------------------------------------------
 
-const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-
 /**
  * Creates a smart alert unless a pending one from the same triggering rule already
  * exists — keeps an ongoing issue (e.g. registration that's been expired for weeks)
@@ -1863,56 +1862,6 @@ async function upsertSmartAlert(db, { alertType, message, triggeringRule }) {
     status: 'pending',
     createdAt: new Date().toISOString()
   });
-}
-
-/** Vehicle registration expiring/expired, or maintenance due/overdue by date or mileage. */
-async function evaluateVehicleAlerts(db) {
-  const [vehiclesSnap, recordsSnap] = await Promise.all([
-    db.collection('vehicles').get(),
-    db.collection('maintenanceRecords').get()
-  ]);
-
-  const vehicles = vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const records = recordsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-  const now = new Date();
-  const thirtyDaysOut = new Date(now.getTime() + THIRTY_DAYS_MS);
-
-  for (const vehicle of vehicles) {
-    if (!vehicle.registrationExpiry) continue;
-    const expiry = new Date(vehicle.registrationExpiry);
-    if (expiry < now) {
-      await upsertSmartAlert(db, {
-        alertType: 'vehicle-registration-expired',
-        message: `${vehicle.name}'s registration expired ${expiry.toLocaleDateString()}`,
-        triggeringRule: `vehicle-registration:${vehicle.id}`
-      });
-    } else if (expiry <= thirtyDaysOut) {
-      await upsertSmartAlert(db, {
-        alertType: 'vehicle-registration-due-soon',
-        message: `${vehicle.name}'s registration expires ${expiry.toLocaleDateString()}`,
-        triggeringRule: `vehicle-registration:${vehicle.id}`
-      });
-    }
-  }
-
-  for (const record of records) {
-    const vehicle = vehicles.find(v => v.id === record.vehicleId);
-    if (!vehicle) continue;
-
-    const dueByDate = record.nextDueDate ? new Date(record.nextDueDate) : null;
-    const dueByMileage = record.nextDueMileage != null && vehicle.currentMileage >= record.nextDueMileage;
-    if (!((dueByDate && dueByDate <= thirtyDaysOut) || dueByMileage)) continue;
-
-    const overdue = (dueByDate && dueByDate < now) || dueByMileage;
-    const label = (record.type || 'maintenance').replace('_', ' ');
-    await upsertSmartAlert(db, {
-      alertType: overdue ? 'vehicle-maintenance-overdue' : 'vehicle-maintenance-due-soon',
-      message: overdue
-        ? `${vehicle.name} is overdue for ${label}`
-        : `${vehicle.name} will be due for ${label} soon`,
-      triggeringRule: `vehicle-maintenance:${record.id}`
-    });
-  }
 }
 
 /** A field trip on tomorrow's calendar, when tomorrow is otherwise a hot-lunch school day. */
@@ -1937,11 +1886,10 @@ async function evaluateFieldTripLunchAlert(db) {
 
 async function evaluateSmartAlerts() {
   const db = admin.firestore();
-  await evaluateVehicleAlerts(db);
   await evaluateFieldTripLunchAlert(db);
 }
 
-/** Runs every evening so alerts about tomorrow (and ongoing vehicle upkeep) are ready by morning. */
+/** Runs every evening so alerts about tomorrow are ready by morning. */
 exports.nightlySmartAlerts = onSchedule(
   { schedule: '0 20 * * *', timeZone: 'America/Chicago' },
   async () => {
@@ -1962,6 +1910,88 @@ exports.runSmartAlertsNow = onCall(
     } catch (err) {
       console.error('runSmartAlertsNow error:', err);
       throw new HttpsError('internal', err.message || 'Failed to evaluate smart alerts');
+    }
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Vehicle maintenance alerts
+// ---------------------------------------------------------------------------
+
+/**
+ * Finds vehicle services (and registrations) that have newly come due, writes one in-app
+ * notification per item — each carrying a suggested task the banner can add on confirmation —
+ * and sends a single push summarising them to every device. What was already alerted is kept in
+ * vehicleAlertState (Admin SDK only), so an ongoing issue isn't re-announced every morning.
+ */
+async function evaluateVehicleMaintenanceAlerts(db, now = new Date()) {
+  const [vehiclesSnap, recordsSnap, readingsSnap, stateSnap] = await Promise.all([
+    db.collection('vehicles').get(),
+    db.collection('maintenanceRecords').get(),
+    db.collection('odometerReadings').get(),
+    db.collection('vehicleAlertState').get()
+  ]);
+  const state = {};
+  stateSnap.docs.forEach(d => { state[d.data().stateId] = d.data(); });
+
+  const planned = vehicleMaintenance.planVehicleAlerts({
+    vehicles: vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    records: recordsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    readings: readingsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    state,
+    now
+  });
+  if (!planned.length) return { alerted: 0 };
+
+  const today = toDateStr(now);
+  for (const p of planned) {
+    // Marked first, so a retry after a partial failure can't announce the same item twice.
+    await db.collection('vehicleAlertState').doc(p.stateId.replace(/:/g, '_')).set({
+      stateId: p.stateId, cycleKey: p.cycleKey, level: p.level, alertedAt: now.toISOString()
+    });
+    await db.collection('notifications').add({
+      title: p.title,
+      body: p.body,
+      itemId: p.vehicleId,
+      itemKind: 'vehicle',
+      suggestedTask: p.suggestedTask,
+      date: today,
+      targetUid: 'family',
+      dismissedBy: [],
+      createdAt: now.toISOString()
+    });
+  }
+
+  const tokens = await fcmTokensFor(db, null);
+  if (tokens.length) {
+    const sent = await sendPushToTokens(db, tokens, vehicleMaintenance.summarizePush(planned));
+    console.log(`vehicleMaintenanceAlerts: ${planned.length} item(s), pushed to ${sent}/${tokens.length} device(s).`);
+  } else {
+    console.log(`vehicleMaintenanceAlerts: ${planned.length} item(s), no devices registered.`);
+  }
+  return { alerted: planned.length };
+}
+
+/** Every morning, so a push about the car lands when someone can act on it. */
+exports.vehicleMaintenanceAlerts = onSchedule(
+  { schedule: '0 8 * * *', timeZone: TIME_ZONE },
+  async () => {
+    await evaluateVehicleMaintenanceAlerts(admin.firestore());
+  }
+);
+
+/** Manual trigger for the same rules, to test without waiting for 8am. */
+exports.runVehicleAlertsNow = onCall(
+  { invoker: 'public' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    try {
+      return { success: true, ...(await evaluateVehicleMaintenanceAlerts(admin.firestore())) };
+    } catch (err) {
+      console.error('runVehicleAlertsNow error:', err);
+      throw new HttpsError('internal', err.message || 'Failed to evaluate vehicle alerts');
     }
   }
 );

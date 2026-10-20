@@ -435,6 +435,19 @@
   white-space: nowrap;
 }
 
+.notification-body {
+  display: block;
+  font-size: 13px;
+  font-weight: 400;
+  opacity: 0.75;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.notification-action {
+  flex: none;
+}
+
 .content {
   position: relative;
   z-index: 1;

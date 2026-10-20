@@ -20,7 +20,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { VehicleService, Vehicle, MaintenanceRecord } from '../../services/vehicle.service';
 import { BacklogService } from '../../services/backlog.service';
 import {
-  SERVICE_CATALOG, ServiceInterval, ServiceStatus, ServiceType, defaultSchedule
+  SERVICE_CATALOG, ServiceInterval, ServiceStatus, ServiceType, defaultSchedule, describeStatus, suggestedTaskTitle
 } from '../../services/vehicle-maintenance';
 
 /** Services you can log; registration lives on the vehicle's expiry date instead. */
@@ -367,50 +367,21 @@ export class VehiclesComponent {
 
   // --- Attention rows and cards -------------------------------------------------------------
 
-  /** "Oil change – Subaru": the title an Add-task for this item gets, and how we spot it again. */
-  taskTitle(vehicle: Vehicle, status: ServiceStatus): string {
-    const what = status.type === 'registration' ? 'Renew registration' : SERVICE_CATALOG[status.type].label;
-    return `${what} – ${vehicle.name}`;
-  }
-
   hasOpenTask(vehicle: Vehicle, status: ServiceStatus): boolean {
-    const title = this.taskTitle(vehicle, status);
+    const title = suggestedTaskTitle(vehicle.name, status.type);
     return this.backlog.open().some(i => i.title === title);
   }
 
   async addTask(vehicle: Vehicle, status: ServiceStatus): Promise<void> {
     if (this.hasOpenTask(vehicle, status)) return;
     await this.backlog.addItem({
-      title: this.taskTitle(vehicle, status),
-      notes: this.statusLabel(status)
+      title: suggestedTaskTitle(vehicle.name, status.type),
+      notes: describeStatus(status)
     });
   }
 
-  /** One short phrase for how far off (or past due) an item is. */
   statusLabel(s: ServiceStatus): string {
-    if (s.status === 'untracked') return 'Not logged yet';
-    const miles = s.milesRemaining;
-    if (s.status === 'overdue') {
-      if (miles != null && miles <= 0) return `${this.roundMiles(-miles)} mi overdue`;
-      const days = Math.abs(s.daysRemaining ?? 0);
-      return days === 0 ? 'Due today' : `${days} ${days === 1 ? 'day' : 'days'} overdue`;
-    }
-    const parts: string[] = [];
-    if (s.effectiveDueDate) {
-      const days = s.daysRemaining ?? 0;
-      parts.push(days <= 0 ? 'today' : days <= 60 ? `in ${days} ${days === 1 ? 'day' : 'days'}` : this.shortDate(s.effectiveDueDate));
-    }
-    if (miles != null && miles > 0) parts.push(`${this.roundMiles(miles)} mi`);
-    return 'Due ' + parts.join(' · ');
-  }
-
-  private roundMiles(miles: number): string {
-    // Whole hundreds read better than a falsely precise estimate.
-    return (miles >= 1000 ? Math.round(miles / 100) * 100 : Math.round(miles / 10) * 10).toLocaleString();
-  }
-
-  private shortDate(date: Date): string {
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    return describeStatus(s);
   }
 
   isRegistrationExpiringSoon(vehicle: Vehicle): boolean {
