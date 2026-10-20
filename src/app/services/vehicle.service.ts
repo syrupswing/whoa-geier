@@ -202,6 +202,11 @@ export class VehicleService {
     if (updates.currentMileage != null && previous && updates.currentMileage !== previous.currentMileage) {
       await this.addOdometerReading(id, updates.currentMileage);
     }
+    await this.writeVehicle(id, updates);
+  }
+
+  /** The raw vehicle write, with none of updateVehicle's odometer-reading side effect. */
+  private async writeVehicle(id: string, updates: Partial<Vehicle>): Promise<void> {
     if (this.firestoreService.isInitialized()) {
       await this.firestoreService.updateDocument(this.VEHICLES_COLLECTION, id, this.serializeVehicle(updates));
     } else {
@@ -241,6 +246,10 @@ export class VehicleService {
     // A service visit is also an odometer reading; the history estimate then needs no extra entry.
     if (newRecord.mileage > 0) {
       await this.addOdometerReading(newRecord.vehicleId, newRecord.mileage, newRecord.date);
+      const vehicle = this.getVehicleById(newRecord.vehicleId);
+      if (vehicle && newRecord.mileage > vehicle.currentMileage) {
+        await this.writeVehicle(vehicle.id, { currentMileage: newRecord.mileage });
+      }
     }
   }
 
@@ -264,7 +273,7 @@ export class VehicleService {
     }
   }
 
-  /** Records a real odometer reading and keeps the vehicle's displayed mileage in step with it. */
+  /** Records a dated odometer reading; callers that also change the vehicle's mileage write it themselves. */
   async addOdometerReading(vehicleId: string, miles: number, date: Date = new Date()): Promise<void> {
     const reading: OdometerReading = { id: crypto.randomUUID(), vehicleId, date, miles };
     if (this.firestoreService.isInitialized()) {
