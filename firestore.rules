@@ -77,6 +77,15 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // What the app decided about each calendar event that might change a child's day (applied,
+    // waiting for a parent, or dismissed), shared so every device sees the same decision
+    match /dayDetection/{entryId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
     // Remi's per-date schedule exceptions (no school, early release, pack lunch, etc.)
     match /remi-schedule-exceptions/{dateId} {
       allow read: if isAuthenticated();

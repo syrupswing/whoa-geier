@@ -7,7 +7,7 @@
 
 .pending-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 12px;
   padding: 12px;
   border-radius: 12px;
@@ -19,35 +19,22 @@
     color: var(--color-accent, #8E6BC9);
   }
 
-  .pending-text {
+  .pending-body {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 8px;
     min-width: 0;
     flex: 1;
+  }
 
-    .pending-when,
-    .pending-source {
-      font-size: 0.8rem;
-      opacity: 0.75;
-      overflow-wrap: anywhere;
-    }
+  .pending-heading {
+    overflow-wrap: anywhere;
   }
 
   .pending-actions {
     display: flex;
-    gap: 8px;
-    flex: none;
-  }
-}
-
-@media (max-width: 520px) {
-  .pending-card {
     flex-wrap: wrap;
-
-    .pending-actions {
-      width: 100%;
-      justify-content: flex-end;
-    }
+    justify-content: flex-start;
+    gap: 8px;
   }
 }

@@ -1,5 +1,7 @@
 import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { AiOrchestratorService } from './ai-orchestrator.service';
+import { AuthService } from './auth.service';
+import { FirestoreService } from './firestore.service';
 import { AppCalendarEventService, nextDayIso } from './app-calendar-event.service';
 import { DayProfileFields, DayProfileService } from './day-profile.service';
 import { weekday } from './day-resolver.service';
@@ -10,6 +12,7 @@ import { OutlookCalendarService } from './outlook-calendar.service';
 
 const TIME_ZONE = 'America/Chicago';
 const CACHE_KEY = 'day-detection-cache-v1';
+const COLLECTION = 'dayDetection';
 const WINDOW_DAYS = 14;
 /** Wait for the calendar sources to settle (cache, then live sync) before looking. */
 const DEBOUNCE_MS = 2500;
@@ -47,6 +50,8 @@ interface CacheEntry {
   kind?: Kind;
   time?: string | null;
   confidence?: number;
+  /** Who classified it. Another person's Outlook events can't be seen from a different login, so only this user may drop one. */
+  ownerUid?: string;
 }
 
 /** An event the model thinks changes a child's day but that isn't clear enough to apply on its own. */
@@ -75,6 +80,10 @@ interface WindowedEvent {
  *  - a less certain one becomes a pending suggestion to confirm (see `pending`);
  *  - an adult's own work calendar sets their start time when a meeting falls before the usual start.
  * Every value it writes carries the event it came from, so it is removed again if that event moves or goes.
+ *
+ * What was decided about each event is stored in Firestore (`dayDetection`), shared by the whole family:
+ * one device classifies an event, and every other device sees the same applied/pending/dismissed state
+ * instead of asking again. Without Firestore it falls back to this device's own storage.
  */
 @Injectable({ providedIn: 'root' })
 export class DayDetectionService {
@@ -85,8 +94,12 @@ export class DayDetectionService {
   private readonly profiles = inject(DayProfileService);
   private readonly ai = inject(AiOrchestratorService);
   private readonly storage = inject(LocalStorageService);
+  private readonly firestore = inject(FirestoreService);
+  private readonly auth = inject(AuthService);
 
-  private readonly cache = signal<Record<string, CacheEntry>>(this.storage.getItem(CACHE_KEY) ?? {});
+  private readonly cache = signal<Record<string, CacheEntry>>({});
+  /** False until the shared decisions have arrived; classifying before then would ask again about events already decided. */
+  private loaded = false;
   private timer?: ReturnType<typeof setTimeout>;
   private running = false;
   private rerun = false;
@@ -104,6 +117,26 @@ export class DayDetectionService {
   });
 
   constructor() {
+    effect(onCleanup => {
+      const uid = this.auth.currentUser()?.uid;
+      if (!this.firestore.isInitialized()) {
+        this.cache.set(this.storage.getItem(CACHE_KEY) ?? {});
+        this.loaded = true;
+        return;
+      }
+      this.loaded = false;
+      if (!uid) return;
+      const unsubscribe = this.firestore.subscribeToCollection<CacheEntry & { id: string; key: string }>(COLLECTION, items => {
+        const next: Record<string, CacheEntry> = {};
+        for (const { id: _id, key, ...entry } of items) next[key] = entry;
+        this.cache.set(next);
+        const first = !this.loaded;
+        this.loaded = true;
+        if (first) this.schedule();
+      });
+      onCleanup(() => unsubscribe?.());
+    }, { allowSignalWrites: true });
+
     effect(() => {
       // Re-run whenever the events or the people they're matched against change.
       this.google.events();
@@ -133,6 +166,7 @@ export class DayDetectionService {
   }
 
   private async run(): Promise<void> {
+    if (!this.loaded) return;
     if (this.running) { this.rerun = true; return; }
     this.running = true;
     try {
@@ -181,20 +215,22 @@ export class DayDetectionService {
   /** Forgets decisions about events that changed or disappeared, taking back what they wrote. */
   private async dropStale(windowed: WindowedEvent[]): Promise<void> {
     const current = new Map(windowed.map(w => [w.key, w.sig]));
-    const next = { ...this.cache() };
-    let changed = false;
+    const uid = this.auth.currentUser()?.uid;
+    const drop: string[] = [];
     for (const [key, entry] of Object.entries(this.cache())) {
       const sig = current.get(key);
       if (sig === entry.sig) continue;
+      const source = key.split(':')[0];
       // Gone, rather than just not loaded yet.
-      if (sig === undefined && !this.sourceSettled(key.split(':')[0])) continue;
+      if (sig === undefined && !this.sourceSettled(source)) continue;
+      // Someone else's work calendar isn't visible here, so its absence proves nothing.
+      if (sig === undefined && source === 'outlook' && entry.ownerUid && entry.ownerUid !== uid) continue;
       if (entry.status === 'applied' && entry.memberId) {
         for (const date of entry.dates) await this.profiles.clearFromEvent(entry.memberId, date, entry.eventId);
       }
-      delete next[key];
-      changed = true;
+      drop.push(key);
     }
-    if (changed) this.setCache(next);
+    this.removeEntries(drop);
   }
 
   // ── Children: model classification ─────────────────────────────
@@ -223,7 +259,10 @@ export class DayDetectionService {
   }
 
   private async record(w: WindowedEvent, item: Classified | undefined, children: FamilyMember[]): Promise<void> {
-    const base: CacheEntry = { sig: w.sig, status: 'none', dates: w.dates, summary: w.event.summary, eventId: w.event.id };
+    const base: CacheEntry = {
+      sig: w.sig, status: 'none', dates: w.dates, summary: w.event.summary, eventId: w.event.id,
+      ownerUid: this.auth.currentUser()?.uid
+    };
     const member = item ? resolveChild(item, children) : undefined;
     const hasTime = !!item?.time && /^\d{2}:\d{2}$/.test(item.time);
     const usable = !!item && !!member && KINDS.includes(item.kind) && (item.kind === 'noSchool' || hasTime);
@@ -305,23 +344,38 @@ export class DayDetectionService {
   // ── Cache ──────────────────────────────────────────────────────
 
   private setEntry(key: string, entry: CacheEntry): void {
-    this.setCache({ ...this.cache(), [key]: entry });
+    // Optimistic: the snapshot listener would otherwise leave the old state showing until the write round-trips.
+    this.cache.update(c => ({ ...c, [key]: entry }));
+    if (this.firestore.isInitialized()) {
+      void this.firestore.setDocument(COLLECTION, docId(key), { ...entry, key });
+    } else {
+      this.storage.setItem(CACHE_KEY, this.cache());
+    }
   }
 
-  private setCache(next: Record<string, CacheEntry>): void {
-    this.cache.set(next);
-    this.storage.setItem(CACHE_KEY, next);
+  private removeEntries(keys: string[]): void {
+    if (!keys.length) return;
+    this.cache.update(c => Object.fromEntries(Object.entries(c).filter(([k]) => !keys.includes(k))));
+    if (this.firestore.isInitialized()) {
+      keys.forEach(key => void this.firestore.deleteDocument(COLLECTION, docId(key)));
+    } else {
+      this.storage.setItem(CACHE_KEY, this.cache());
+    }
   }
 
   /** Drops entries for events that are entirely in the past. */
   private prune(): void {
     const today = dateOf(new Date());
-    const next = Object.fromEntries(Object.entries(this.cache()).filter(([, e]) => e.dates.some(d => d >= today)));
-    if (Object.keys(next).length !== Object.keys(this.cache()).length) this.setCache(next);
+    this.removeEntries(Object.entries(this.cache()).filter(([, e]) => !e.dates.some(d => d >= today)).map(([k]) => k));
   }
 }
 
 // ── Helpers ──────────────────────────────────────────────────────
+
+/** Event ids can hold characters (a "/" in an Outlook id) that a Firestore document id can't. */
+function docId(key: string): string {
+  return encodeURIComponent(key);
+}
 
 function dateOf(d: Date): string {
   return d.toLocaleDateString('en-CA', { timeZone: TIME_ZONE });
