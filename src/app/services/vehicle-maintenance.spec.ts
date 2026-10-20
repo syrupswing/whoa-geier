@@ -41,6 +41,12 @@ describe('odometer estimate', () => {
     expect(est.miles).toBe(20000 + Math.round((12000 / 365) * 30));
   });
 
+  it('never undershoots a mileage typed onto the vehicle before readings existed', () => {
+    const est = estimateOdometer({ readings: [{ date: d('2026-04-01'), miles: 38000 }], currentMileage: 40000 }, NOW);
+    expect(est.miles).toBe(40000);
+    expect(est.isEstimated).toBeFalse();
+  });
+
   it('falls back to current mileage with no readings', () => {
     const est = estimateOdometer({ readings: [], currentMileage: 5000 }, NOW);
     expect(est.miles).toBe(5000);

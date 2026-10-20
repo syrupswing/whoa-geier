@@ -52,7 +52,8 @@ const vehicle = { id: 'v1', name: 'Subaru', type: 'car', currentMileage: 40000 }
 const plan = (over = {}) => vm.planVehicleAlerts({
   vehicles: [vehicle],
   records: [{ id: 'r1', vehicleId: 'v1', type: 'oil_change', date: '2026-04-01T12:00:00.000Z', mileage: 38000 }],
-  readings: [], state: {}, now: NOW, ...over
+  readings: [{ id: 'o0', vehicleId: 'v1', date: '2026-10-10T12:00:00.000Z', miles: 40000 }],
+  state: {}, now: NOW, ...over
 });
 
 test('planVehicleAlerts: a due item alerts once, with a suggested task', () => {
@@ -92,4 +93,55 @@ test('summarizePush caps at three lines', () => {
   const out = vm.summarizePush(items);
   assert.equal(out.body.split('\n').length, 4);
   assert.ok(out.body.endsWith('+2 more'));
+});
+
+test('odometer nudge: stale reading nudges once, then monthly, and a fresh reading clears it', () => {
+  const quiet = { id: 'r0', vehicleId: 'v1', type: 'oil_change', date: '2026-10-01T12:00:00.000Z', mileage: 40000 };
+  const stale = [{ id: 'o1', vehicleId: 'v1', date: '2026-07-01T12:00:00.000Z', miles: 39000 }];
+  const only = plan => plan.filter(p => p.level === 'nudge');
+
+  assert.equal(only(plan({ records: [], readings: stale })).length, 1);
+  const [n] = only(plan({ records: [], readings: stale }));
+  assert.equal(n.action, 'odometer');
+  assert.equal(n.title, 'Update odometer · Subaru');
+  assert.match(n.body, /^Last read 110 days ago/);
+
+  const alerted = daysAgo => ({ [n.stateId]: { cycleKey: n.cycleKey, level: 'nudge', alertedAt: new Date(NOW - daysAgo * 86400000).toISOString() } });
+  assert.equal(only(plan({ records: [], readings: stale, state: alerted(10) })).length, 0);
+  assert.equal(only(plan({ records: [], readings: stale, state: alerted(31) })).length, 1);
+
+  // A service record counts as a reading, so a recent visit means no nudge.
+  assert.equal(only(plan({ records: [quiet], readings: stale })).length, 0);
+});
+
+test('odometer nudge: trailers never, and a vehicle with no readings falls back to when it was added', () => {
+  assert.equal(plan({ vehicles: [{ ...vehicle, type: 'trailer', createdAt: '2026-01-01T00:00:00.000Z' }], records: [], readings: [] }).length, 0);
+  const added = plan({ vehicles: [{ ...vehicle, createdAt: '2026-01-01T00:00:00.000Z' }], records: [], readings: [] });
+  assert.equal(added.length, 1);
+  assert.equal(added[0].level, 'nudge');
+});
+
+test('nudges sort after due items', () => {
+  const out = plan({ readings: [{ id: 'o1', vehicleId: 'v1', date: '2026-07-01T12:00:00.000Z', miles: 39000 }] });
+  assert.deepEqual(out.map(p => p.level), ['overdue', 'nudge']);
+});
+
+test('chat summary lists odometer and what is due', () => {
+  const [line] = vm.summarizeVehiclesForChat({
+    vehicles: [{ ...vehicle, year: 2019, make: 'Subaru', model: 'Outback' }],
+    records: [{ id: 'r1', vehicleId: 'v1', type: 'oil_change', date: '2026-04-01T12:00:00.000Z', mileage: 38000 }],
+    readings: [], now: NOW
+  });
+  assert.match(line, /^Subaru \(2019 Subaru Outback\), odometer (about )?40,/);
+  assert.match(line, /Oil change: /);
+  const [quiet] = vm.summarizeVehiclesForChat({ vehicles: [vehicle], records: [], readings: [], now: NOW });
+  assert.match(quiet, /nothing due soon$/);
+});
+
+test('estimate never undershoots a mileage typed onto the vehicle before readings existed', () => {
+  const est = vm.estimateOdometer({
+    readings: [{ date: d('2026-04-01'), miles: 38000 }], currentMileage: 40000
+  }, NOW);
+  assert.equal(est.miles, 40000);
+  assert.equal(est.isEstimated, false);
 });

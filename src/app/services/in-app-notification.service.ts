@@ -16,6 +16,8 @@ export interface InAppNotification {
   itemKind: 'task' | 'event' | 'vehicle';
   /** A task the alert proposes; the banner offers to add it and nothing is created until that's confirmed. */
   suggestedTask?: { title: string; notes?: string };
+  /** What tapping the alert should do on the vehicles page: 'odometer' opens the update-odometer dialog. */
+  action?: 'odometer';
   /** Set once someone adds the suggested task, which retires the alert for everyone. */
   taskAddedBy?: string;
   /** "YYYY-MM-DD" of the occurrence that alerted. */
@@ -98,7 +100,9 @@ export class InAppNotificationService {
   async open(notification: InAppNotification): Promise<void> {
     void this.dismiss(notification);
     if (notification.itemKind === 'vehicle') {
-      await this.router.navigate(['/vehicles']);
+      await this.router.navigate(['/vehicles'], {
+        queryParams: notification.action === 'odometer' ? { odometer: notification.itemId } : {}
+      });
       return;
     }
     await this.router.navigate(['/calendar'], {

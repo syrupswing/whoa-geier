@@ -407,6 +407,10 @@ const ORCHESTRATOR_TEMPLATES = {
       const alertsClause = context.alerts.length
         ? `\nActive alerts: ${context.alerts.join('; ')}.`
         : '';
+      const vehiclesClause = (context.vehicles || []).length
+        ? `\nVehicles (odometers marked "about" are estimated from past usage, not read off the car): ` +
+          `${context.vehicles.join(' | ')}.`
+        : '';
       const referenceClause = (context.referenceDocs || []).length
         ? `\n\nReference documents the family saved (flyers, guides, notes). For questions they cover, answer ` +
           `from them, mention which document you used, and don't invent details they don't contain:\n` +
@@ -431,7 +435,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `a short markdown bullet list with the time or name in bold first, one line per item, instead of a ` +
         `paragraph. Use a short bold label rather than a heading to separate parts. Use the household information below when it's relevant to the question — don't recite ` +
         `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${peopleNowClause}${weatherClause}${calendarClause}` +
-        `${todosClause}${groceryClause}${alertsClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
+        `${todosClause}${groceryClause}${alertsClause}${vehiclesClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
         `the user is clearly asking you to add/save/remember/schedule something (e.g. "remind me to...", ` +
@@ -518,14 +522,17 @@ async function buildFamilyChatContext(db, payload) {
   const today = toDateStr(now);
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap] = await Promise.all([
+  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap, vehiclesSnap, vehicleRecordsSnap, odometerSnap] = await Promise.all([
     db.collection('app-cache').doc('calendar-events').get(),
     db.collection('remi-daily-briefing').doc(today).get(),
     db.collection('backlog').where('completed', '==', false).get(),
     db.collection('groceryItems').get(),
     db.collection('smartAlerts').where('status', '==', 'pending').get(),
     db.collection('household').doc('main').get(),
-    db.collection('calendarEvents').get()
+    db.collection('calendarEvents').get(),
+    db.collection('vehicles').get(),
+    db.collection('maintenanceRecords').get(),
+    db.collection('odometerReadings').get()
   ]);
   const members = (householdDoc.exists && householdDoc.data().members) || [];
   const memberNames = new Map(members.map(m => [m.id, m.name]));
@@ -732,12 +739,18 @@ async function buildFamilyChatContext(db, payload) {
     });
 
   const alerts = alertsSnap.docs.map(d => d.data().message).filter(Boolean).slice(0, 10);
+  const vehicles = vehicleMaintenance.summarizeVehiclesForChat({
+    vehicles: vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    records: vehicleRecordsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    readings: odometerSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+    now
+  });
 
   const todayWeekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
 
   const referenceDocs = await selectReferenceDocs(db, payload?.message);
 
-  return { today, todayWeekday, nowLabel, peopleNextUp, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, referenceDocs };
+  return { today, todayWeekday, nowLabel, peopleNextUp, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, vehicles, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(
@@ -1954,7 +1967,8 @@ async function evaluateVehicleMaintenanceAlerts(db, now = new Date()) {
       body: p.body,
       itemId: p.vehicleId,
       itemKind: 'vehicle',
-      suggestedTask: p.suggestedTask,
+      ...(p.suggestedTask ? { suggestedTask: p.suggestedTask } : {}),
+      ...(p.action ? { action: p.action } : {}),
       date: today,
       targetUid: 'family',
       dismissedBy: [],

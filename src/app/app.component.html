@@ -23,6 +23,7 @@
         <span class="notification-body" *ngIf="n.body">{{ n.body }}</span>
       </button>
       <button mat-button type="button" class="notification-action" *ngIf="n.suggestedTask" (click)="notifications.addSuggestedTask(n)">Add task</button>
+      <button mat-button type="button" class="notification-action" *ngIf="n.action === 'odometer'" (click)="notifications.open(n)">Update</button>
       <button mat-icon-button type="button" (click)="notifications.dismiss(n)" aria-label="Dismiss notification">
         <mat-icon>close</mat-icon>
       </button>

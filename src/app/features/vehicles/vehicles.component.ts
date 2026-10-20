@@ -1,9 +1,12 @@
 import { Component, TemplateRef, ViewChild, computed, effect, inject, signal, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatTabsModule } from '@angular/material/tabs';
@@ -62,6 +65,8 @@ export class VehiclesComponent {
   @ViewChild('maintenanceDialog') private maintenanceDialog?: TemplateRef<unknown>;
 
   private backlog = inject(BacklogService);
+  private route = inject(ActivatedRoute);
+  private router = inject(Router);
   @ViewChild('odometerDialog') private odometerDialog?: TemplateRef<unknown>;
   @ViewChild('scheduleDialog') private scheduleDialog?: TemplateRef<unknown>;
 
@@ -149,6 +154,18 @@ export class VehiclesComponent {
       this.resetMaintenanceForm();
     });
     this.openFormInDialog(this.showOdometer, () => this.odometerDialog, () => this.showOdometer.set(false));
+    // An odometer nudge links here with ?odometer=<vehicleId>. The vehicles load asynchronously, so
+    // this waits for that one to appear, opens the dialog once, then clears the parameter.
+    const odometerParam = toSignal(this.route.queryParamMap.pipe(map(p => p.get('odometer'))), { initialValue: null });
+    effect(() => {
+      const id = odometerParam();
+      if (id && this.vehicleService.getVehicleById(id) && !this.showOdometer()) {
+        untracked(() => {
+          this.openOdometer(id);
+          void this.router.navigate([], { queryParams: { odometer: null }, queryParamsHandling: 'merge', replaceUrl: true });
+        });
+      }
+    });
     this.openFormInDialog(this.showSchedule, () => this.scheduleDialog, () => this.showSchedule.set(false));
   }
 

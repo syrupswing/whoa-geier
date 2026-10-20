@@ -10,6 +10,9 @@ const SOON_DAYS = 30;
 const SOON_MILES = 500;
 /** An overdue item that's still overdue gets re-pushed this often, so it isn't forgotten. */
 const OVERDUE_REMINDER_DAYS = 14;
+/** An odometer reading older than this prompts a "please update" nudge, which repeats this often. */
+const STALE_ODOMETER_DAYS = 60;
+const ODOMETER_NUDGE_REPEAT_DAYS = 30;
 
 const SERVICE_LABELS = {
   oil_change: 'Oil change',
@@ -74,11 +77,14 @@ function estimateOdometer({ readings, currentMileage, milesPerYear }, now) {
   const rate = drivingRate(sorted, now) ?? (milesPerYear ? milesPerYear / 365 : null);
   const daysSince = Math.max(0, (now - last.date) / DAY_MS);
   const projected = rate ? Math.round(last.miles + rate * daysSince) : last.miles;
+  // A mileage typed onto the vehicle before readings existed has no date, so it can't be a reading,
+  // but it's still a floor: the car has been at least that far.
+  const floor = Math.max(last.miles, currentMileage || 0);
   return {
-    miles: Math.max(projected, last.miles),
+    miles: Math.max(projected, floor),
     lastReading: { miles: last.miles, date: last.date },
     milesPerDay: rate,
-    isEstimated: projected > last.miles
+    isEstimated: projected > floor
   };
 }
 
@@ -178,30 +184,37 @@ function hydrateRecord(r) {
   };
 }
 
+/** Odometer estimate and every item's status for one vehicle, from the raw Firestore documents. */
+function vehicleSnapshot(vehicle, records, readings, now) {
+  const vehicleRecords = records.filter(r => r.vehicleId === vehicle.id).map(hydrateRecord);
+  const vehicleReadings = [
+    ...readings.filter(r => r.vehicleId === vehicle.id).map(r => ({ date: new Date(r.date), miles: r.miles })),
+    ...vehicleRecords.filter(r => r.mileage > 0).map(r => ({ date: r.date, miles: r.mileage }))
+  ];
+  const estimate = estimateOdometer({
+    readings: vehicleReadings,
+    currentMileage: vehicle.currentMileage || 0,
+    milesPerYear: vehicle.milesPerYear
+  }, now);
+
+  const statuses = (vehicle.schedule || defaultSchedule(vehicle.type))
+    .map(i => computeServiceStatus(i, vehicleRecords, estimate, now));
+  const registration = computeRegistrationStatus(vehicle.registrationExpiry, now);
+  if (registration) statuses.push(registration);
+  return { estimate, statuses };
+}
+
 /**
  * Decides which due items to alert about. `state` maps "vehicleId:type" to what was last alerted
  * ({ cycleKey, level, alertedAt }). An item alerts when it first turns due-soon/overdue in a
  * service cycle, when it worsens from soon to overdue, and every OVERDUE_REMINDER_DAYS while
- * it stays overdue. Logging the service starts a new cycle, which resets it.
+ * it stays overdue. Logging the service starts a new cycle, which resets it. A stale odometer
+ * (no reading for STALE_ODOMETER_DAYS) gets a nudge to update it, repeated monthly.
  */
 function planVehicleAlerts({ vehicles, records, readings, state, now }) {
   const planned = [];
   for (const vehicle of vehicles) {
-    const vehicleRecords = records.filter(r => r.vehicleId === vehicle.id).map(hydrateRecord);
-    const vehicleReadings = [
-      ...readings.filter(r => r.vehicleId === vehicle.id).map(r => ({ date: new Date(r.date), miles: r.miles })),
-      ...vehicleRecords.filter(r => r.mileage > 0).map(r => ({ date: r.date, miles: r.mileage }))
-    ];
-    const estimate = estimateOdometer({
-      readings: vehicleReadings,
-      currentMileage: vehicle.currentMileage || 0,
-      milesPerYear: vehicle.milesPerYear
-    }, now);
-
-    const statuses = (vehicle.schedule || defaultSchedule(vehicle.type))
-      .map(i => computeServiceStatus(i, vehicleRecords, estimate, now));
-    const registration = computeRegistrationStatus(vehicle.registrationExpiry, now);
-    if (registration) statuses.push(registration);
+    const { estimate, statuses } = vehicleSnapshot(vehicle, records, readings, now);
 
     for (const s of statuses) {
       if (s.status !== 'soon' && s.status !== 'overdue') continue;
@@ -227,9 +240,49 @@ function planVehicleAlerts({ vehicles, records, readings, state, now }) {
         suggestedTask: { title: suggestedTaskTitle(vehicle.name, s.type), notes: describeStatus(s) }
       });
     }
+
+    // Trailers have no odometer to keep current. Without any reading, the day it was added stands in.
+    const lastReadAt = estimate.lastReading?.date ?? (vehicle.createdAt ? new Date(vehicle.createdAt) : null);
+    if (vehicle.type !== 'trailer' && lastReadAt) {
+      const daysSince = Math.floor((now - lastReadAt) / DAY_MS);
+      if (daysSince >= STALE_ODOMETER_DAYS) {
+        const stateId = `${vehicle.id}:odometer`;
+        const cycleKey = lastReadAt.toISOString();
+        const prev = state[stateId];
+        if (!prev || prev.cycleKey !== cycleKey || (now - new Date(prev.alertedAt)) >= ODOMETER_NUDGE_REPEAT_DAYS * DAY_MS) {
+          planned.push({
+            stateId,
+            cycleKey,
+            level: 'nudge',
+            vehicleId: vehicle.id,
+            vehicleName: vehicle.name,
+            serviceType: 'odometer',
+            action: 'odometer',
+            title: `Update odometer · ${vehicle.name}`,
+            body: `Last read ${daysSince} days ago · now about ${estimate.miles.toLocaleString('en-US')} mi`
+          });
+        }
+      }
+    }
   }
   // Most urgent first so the push summary leads with what matters.
-  return planned.sort((a, b) => (a.level === b.level ? 0 : a.level === 'overdue' ? -1 : 1));
+  const rank = { overdue: 0, soon: 1, nudge: 2 };
+  return planned.sort((a, b) => rank[a.level] - rank[b.level]);
+}
+
+/** Plain-language status lines for the chat assistant: odometer plus whatever is due or coming due. */
+function summarizeVehiclesForChat({ vehicles, records, readings, now }) {
+  return vehicles.map(vehicle => {
+    const { estimate, statuses } = vehicleSnapshot(vehicle, records, readings, now);
+    const odometer = vehicle.type === 'trailer'
+      ? ''
+      : `, odometer ${estimate.isEstimated ? 'about ' : ''}${estimate.miles.toLocaleString('en-US')} mi${estimate.isEstimated ? ' (estimated)' : ''}`;
+    const due = statuses
+      .filter(s => s.status === 'overdue' || s.status === 'soon')
+      .map(s => `${SERVICE_LABELS[s.type] || 'Service'}: ${describeStatus(s).toLowerCase()}`);
+    return `${vehicle.name} (${[vehicle.year, vehicle.make, vehicle.model].filter(Boolean).join(' ')})${odometer}` +
+      (due.length ? ` — ${due.join('; ')}` : ' — nothing due soon');
+  });
 }
 
 /** One push for a whole run, so a handful of due items isn't a handful of buzzes. */
@@ -244,5 +297,5 @@ function summarizePush(planned) {
 
 module.exports = {
   defaultSchedule, drivingRate, estimateOdometer, computeServiceStatus, computeRegistrationStatus,
-  describeStatus, suggestedTaskTitle, planVehicleAlerts, summarizePush
+  describeStatus, suggestedTaskTitle, planVehicleAlerts, summarizePush, summarizeVehiclesForChat
 };

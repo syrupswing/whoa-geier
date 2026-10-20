@@ -125,11 +125,14 @@ export function estimateOdometer(input: OdometerInputs, now: Date = new Date()):
   const rate = drivingRate(sorted, now) ?? (input.milesPerYear ? input.milesPerYear / 365 : null);
   const daysSince = Math.max(0, (now.getTime() - last.date.getTime()) / DAY_MS);
   const projected = rate ? Math.round(last.miles + rate * daysSince) : last.miles;
+  // A mileage typed onto the vehicle before readings existed has no date, so it can't be a reading,
+  // but it's still a floor: the car has been at least that far.
+  const floor = Math.max(last.miles, input.currentMileage || 0);
   return {
-    miles: Math.max(projected, last.miles),
+    miles: Math.max(projected, floor),
     lastReading: { miles: last.miles, date: last.date },
     milesPerDay: rate,
-    isEstimated: projected > last.miles
+    isEstimated: projected > floor
   };
 }
 
