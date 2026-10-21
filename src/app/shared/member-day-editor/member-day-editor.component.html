@@ -84,6 +84,19 @@
       </div>
     </ng-container>
 
+    <span class="section-label">Special facts</span>
+    <div class="fact-chips" *ngIf="calendarFacts().length">
+      <span class="fact-chip" *ngFor="let fact of calendarFacts()">
+        {{ fact.text }} <small>from calendar</small>
+        <button type="button" class="fact-remove" (click)="removeFact(fact)" aria-label="Remove this fact">×</button>
+      </span>
+    </div>
+    <mat-form-field appearance="outline" class="full-width">
+      <mat-label>Things to remember today (one per line)</mat-label>
+      <textarea matInput rows="2" [(ngModel)]="form.specialFacts" placeholder="Wear orange for Unity Day"></textarea>
+      <mat-hint>Included in the morning push and shown at the top of the dashboard.</mat-hint>
+    </mat-form-field>
+
     <div class="form-grid">
       <mat-form-field appearance="outline">
         <mat-label>Short label</mat-label>

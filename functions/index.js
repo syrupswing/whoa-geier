@@ -176,16 +176,22 @@ const ORCHESTRATOR_TEMPLATES = {
       return (
         `You read calendar events and decide which ones change a child's school day. Children:\n${children}\n` +
         factsClause + `\nEvents:\n${events}\n\n` +
-        `For each event that affects a child's school day, give one entry. Skip events that don't. Each entry:\n` +
+        `For each event that affects a child's school day, or that carries a special instruction for it, give one ` +
+        `entry (an event can have one schedule entry and one "fact" entry). Skip events that are neither. Each entry:\n` +
         `{"eventId": "...", "memberId": "<child id, or null if you can't tell which child>", ` +
-        `"kind": "dropoff" | "pickup" | "noSchool", "time": "HH:mm" (24-hour) or null, ` +
-        `"confidence": 0 to 1}\n\n` +
+        `"kind": "dropoff" | "pickup" | "noSchool" | "fact", "time": "HH:mm" (24-hour) or null, ` +
+        `"text": "the note, only for kind fact", "confidence": 0 to 1}\n\n` +
         `Meanings:\n` +
         `- "dropoff": the child must be dropped off at this time, which replaces the regular school start ` +
         `(an early drop-off for a class or program; a late start).\n` +
         `- "pickup": the child must be picked up at this time, which replaces the regular dismissal ` +
         `(an early release, or an event that says someone is picking the child up).\n` +
         `- "noSchool": no school that day (holiday, teacher work day, conference day, snow day). time is null.\n` +
+        `- "fact": something the family must know or do for the child that day: what to wear or bring (spirit ` +
+        `day, color day, pajama day, picture day, field trip, show and tell), a permission slip or item due. ` +
+        `time is null. "text" is one short imperative line that includes the detail and the occasion, e.g. ` +
+        `"Wear orange for Unity Day" or "Bring a sack lunch for the field trip". Ordinary classes and ` +
+        `appointments are not facts, and a fact must be stated or clearly implied by the event, never invented.\n` +
         `Rules:\n` +
         `- Use the time the event says the drop-off or pick-up happens, not necessarily its start time or end time.\n` +
         `- Never guess a time. If it isn't stated or clearly implied, use null for time and a low confidence.\n` +
@@ -388,6 +394,9 @@ const ORCHESTRATOR_TEMPLATES = {
       const peopleNowClause = (context.peopleNextUp || []).length
         ? `\nWhere each person is in their regular day right now: ${context.peopleNextUp.join('; ')}.`
         : '';
+      const specialFactsClause = (context.specialFacts || []).length
+        ? `\nSpecial things to remember today (mention these when they're relevant, e.g. what to wear or bring): ${context.specialFacts.join('; ')}.`
+        : '';
       const todosClause = context.todos.length
         ? `\nBacklog tasks (no day set): ${context.todos.join('; ')}.`
         : '';
@@ -434,7 +443,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `add a closing offer to help. When there are several things to list (events, tasks, times, options), use ` +
         `a short markdown bullet list with the time or name in bold first, one line per item, instead of a ` +
         `paragraph. Use a short bold label rather than a heading to separate parts. Use the household information below when it's relevant to the question — don't recite ` +
-        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${peopleNowClause}${weatherClause}${calendarClause}` +
+        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${peopleNowClause}${specialFactsClause}${weatherClause}${calendarClause}` +
         `${todosClause}${groceryClause}${alertsClause}${vehiclesClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
@@ -708,6 +717,12 @@ async function buildFamilyChatContext(db, payload) {
     return null;
   }).filter(Boolean);
 
+  // Read from the profiles already fetched above, so the answer always reflects facts added since this morning's briefing.
+  const specialFacts = members.flatMap((m, i) => {
+    const facts = profileDocs[i].exists ? profileDocs[i].data().specialFacts : null;
+    return (Array.isArray(facts) ? facts : []).filter(f => f && f.text).map(f => `${m.name}: ${f.text}`);
+  });
+
   const nowLabel = now.toLocaleString('en-US', {
     weekday: 'long', hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE
   });
@@ -750,7 +765,7 @@ async function buildFamilyChatContext(db, payload) {
 
   const referenceDocs = await selectReferenceDocs(db, payload?.message);
 
-  return { today, todayWeekday, nowLabel, peopleNextUp, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, vehicles, referenceDocs };
+  return { today, todayWeekday, nowLabel, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, vehicles, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(
@@ -903,6 +918,27 @@ function toDateStr(date) {
 }
 
 /**
+ * The special facts stored for the day, per member: [{ memberId, name, texts }] for members that have
+ * any. These are the things a person typed or the calendar surfaced ("Wear orange for Unity Day") that
+ * every alert and summary for the day should carry.
+ */
+async function loadSpecialFactsForDate(db, members, dateStr) {
+  const docs = await Promise.all(members.map(m => db.collection('dayProfiles').doc(`${m.id}_${dateStr}`).get()));
+  const out = [];
+  members.forEach((m, i) => {
+    const facts = docs[i].exists ? docs[i].data().specialFacts : null;
+    const texts = (Array.isArray(facts) ? facts : []).map(f => String(f && f.text || '').trim()).filter(Boolean);
+    if (texts.length) out.push({ memberId: m.id, name: m.name, texts });
+  });
+  return out;
+}
+
+/** An AI-prompt note: the parent's note plus any special facts, so ideas for the day follow them. */
+function noteWithFacts(dayNote, facts) {
+  return [dayNote, ...(facts || [])].filter(Boolean).join('. ') || null;
+}
+
+/**
  * Resolves the effective schedule for a given date from the recurring
  * settings doc plus any per-date exception.
  */
@@ -917,6 +953,7 @@ async function resolveScheduleForDate(db, dateStr) {
   // Once the schedule has been migrated, the member's routine plus that day's profile is the source
   // of truth; before then (or if the member has since been removed) the legacy exceptions apply.
   let day = null;
+  let specialFacts = [];
   if (settings.memberId && settings.exceptionsMigrated) {
     const [householdDoc, profileDoc] = await Promise.all([
       db.collection('household').doc('main').get(),
@@ -927,6 +964,8 @@ async function resolveScheduleForDate(db, dateStr) {
     if (member) {
       const routine = member.routine || {};
       const stored = profileDoc.exists ? profileDoc.data() : {};
+      specialFacts = (Array.isArray(stored.specialFacts) ? stored.specialFacts : [])
+        .map(f => String(f && f.text || '').trim()).filter(Boolean);
       day = {
         schoolDays: routine.schoolDays || schoolDays,
         startTime: stored.dropOffTime !== undefined ? stored.dropOffTime : routine.dropOffTime,
@@ -987,6 +1026,7 @@ async function resolveScheduleForDate(db, dateStr) {
     schoolStatus,
     scheduleNote: title || null,
     dayNote: rawNote || null,
+    specialFacts,
     startTime: noSchool ? null : startTime,
     endTime: noSchool ? null : endTime,
     // True only when a drop-off time was actually entered (not the built-in 8:00 fallback), and when
@@ -1303,7 +1343,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
         startTime: schedule.startTime,
         endTime: schedule.endTime,
         activities,
-        dayNote: schedule.dayNote
+        dayNote: noteWithFacts(schedule.dayNote, schedule.specialFacts)
       });
       clothingIdea = idea.reasoning;
       await rejectAiSuggestion(db, existing?.clothingSuggestionId);
@@ -1319,7 +1359,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken && schedule.lunchPlan === 'pack') {
     try {
-      const idea = await generatePackedLunchIdea(claudeToken, existing?.packedLunchIdea, schedule.dayNote);
+      const idea = await generatePackedLunchIdea(claudeToken, existing?.packedLunchIdea, noteWithFacts(schedule.dayNote, schedule.specialFacts));
       packedLunchIdea = idea.dish;
       await rejectAiSuggestion(db, existing?.packedLunchSuggestionId);
       packedLunchSuggestionId = await logAiSuggestion(db, {
@@ -1334,7 +1374,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken) {
     try {
-      const idea = await generateBreakfastIdea(claudeToken, existing?.breakfastIdea, schedule.dayNote);
+      const idea = await generateBreakfastIdea(claudeToken, existing?.breakfastIdea, noteWithFacts(schedule.dayNote, schedule.specialFacts));
       breakfastIdea = idea.dish;
       await rejectAiSuggestion(db, existing?.breakfastSuggestionId);
       breakfastSuggestionId = await logAiSuggestion(db, {
@@ -1349,7 +1389,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
 
   if (claudeToken) {
     try {
-      const idea = await generateDinnerIdea(claudeToken, existing?.dinnerIdea, schedule.dayNote);
+      const idea = await generateDinnerIdea(claudeToken, existing?.dinnerIdea, noteWithFacts(schedule.dayNote, schedule.specialFacts));
       dinnerIdea = idea.dish;
       await rejectAiSuggestion(db, existing?.dinnerSuggestionId);
       dinnerSuggestionId = await logAiSuggestion(db, {
@@ -1367,6 +1407,7 @@ async function buildBriefing(dateStr, claudeToken, weatherKey) {
     schoolStatus: schedule.schoolStatus,
     scheduleNote: schedule.scheduleNote,
     dayNote: schedule.dayNote,
+    specialFacts: schedule.specialFacts,
     startTime: schedule.startTime,
     endTime: schedule.endTime,
     startTimeKnown: schedule.startTimeKnown,
@@ -1503,9 +1544,15 @@ async function loadChildForPush(db) {
   };
 }
 
-/** The alert body: the owner's day, Remi's drop-off, the weather, and a packed-lunch reminder when needed. */
-function composePushBody({ youLine, childLine, briefing, childName }) {
-  const lines = [youLine, childLine, pushWeatherLine(briefing.weather)];
+/** "📌 Remi: Wear orange for Unity Day" — one line per special fact for the day, across the household. */
+function specialFactLines(factsByMember) {
+  return factsByMember.flatMap(m => m.texts.map(text => `📌 ${m.name}: ${text}`));
+}
+
+/** The alert body: the day's special facts, the owner's day, Remi's drop-off, the weather, and a packed-lunch reminder when needed. */
+function composePushBody({ youLine, childLine, briefing, childName, factLines = [] }) {
+  // Special facts lead: they're the things most likely to be missed (a spirit-day color, a permission slip).
+  const lines = [...factLines, youLine, childLine, pushWeatherLine(briefing.weather)];
   if (briefing.schoolStatus !== 'no-school' && briefing.lunchPlan === 'pack') {
     lines.push(`🥪 ${childName} needs a packed lunch today!`);
   }
@@ -1541,6 +1588,12 @@ exports.dailyRemiBriefing = onSchedule(
 
     const child = await loadChildForPush(db);
     const childLine = buildChildLine(briefing, child.name, child.normalDropOff);
+    let factLines = [];
+    try {
+      factLines = specialFactLines(await loadSpecialFactsForDate(db, child.members.filter(m => m.kind), dateStr));
+    } catch (err) {
+      console.error('dailyRemiBriefing: could not load special facts:', err);
+    }
 
     let sent = 0;
     let total = 0;
@@ -1551,11 +1604,45 @@ exports.dailyRemiBriefing = onSchedule(
       } catch (err) {
         console.error('dailyRemiBriefing: could not build the You line:', err);
       }
-      const body = composePushBody({ youLine, childLine, briefing, childName: child.name });
+      const body = composePushBody({ youLine, childLine, briefing, childName: child.name, factLines });
       sent += await sendPushToTokens(db, tokens, { title: 'Today', body });
       total += tokens.length;
     }
     console.log(`dailyRemiBriefing: sent ${sent}/${total} notifications.`);
+  }
+);
+
+/**
+ * Pushes tomorrow's special facts the night before, and leaves a matching in-app banner, so "wear
+ * orange" is known while there's still time to find the shirt. Nothing is sent for a day with no facts.
+ * The banner has a fixed id per date, so a retried run neither duplicates it nor pushes twice.
+ */
+async function sendEveningSpecialFacts(db, now = new Date()) {
+  const tomorrow = toDateStr(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const householdDoc = await db.collection('household').doc('main').get();
+  const members = ((householdDoc.exists && householdDoc.data().members) || []).filter(m => m.kind);
+  const lines = specialFactLines(await loadSpecialFactsForDate(db, members, tomorrow));
+  if (!lines.length) return { sent: 0 };
+
+  const ref = db.collection('notifications').doc(`dayFacts_${tomorrow}`);
+  if ((await ref.get()).exists) return { sent: 0, alreadySent: true };
+  const title = 'Tomorrow';
+  const body = lines.join('\n');
+  await ref.set({
+    title, body, itemId: tomorrow, itemKind: 'facts', date: tomorrow,
+    targetUid: 'family', dismissedBy: [], createdAt: now.toISOString()
+  });
+  const tokens = await fcmTokensFor(db, null);
+  const sent = tokens.length ? await sendPushToTokens(db, tokens, { title, body }) : 0;
+  console.log(`eveningSpecialFacts: ${lines.length} fact(s) for ${tomorrow}, pushed to ${sent}/${tokens.length} device(s).`);
+  return { sent };
+}
+
+/** 10:00 PM Central every night. */
+exports.eveningSpecialFacts = onSchedule(
+  { schedule: '0 22 * * *', timeZone: TIME_ZONE },
+  async () => {
+    await sendEveningSpecialFacts(admin.firestore());
   }
 );
 
@@ -1789,7 +1876,7 @@ exports.regenerateBriefingFacet = onCall(
             startTime: briefing.startTime,
             endTime: briefing.endTime,
             activities: briefing.activities,
-            dayNote: briefing.dayNote
+            dayNote: noteWithFacts(briefing.dayNote, briefing.specialFacts)
           });
           await rejectAiSuggestion(db, briefing.clothingSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
@@ -1801,7 +1888,7 @@ exports.regenerateBriefingFacet = onCall(
           break;
         }
         case 'breakfast': {
-          const idea = await generateBreakfastIdea(token, briefing.breakfastIdea, briefing.dayNote);
+          const idea = await generateBreakfastIdea(token, briefing.breakfastIdea, noteWithFacts(briefing.dayNote, briefing.specialFacts));
           await rejectAiSuggestion(db, briefing.breakfastSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
             featureType: 'remi-breakfast',
@@ -1815,7 +1902,7 @@ exports.regenerateBriefingFacet = onCall(
           if (briefing.lunchPlan !== 'pack') {
             throw new HttpsError('failed-precondition', 'Today is a hot-lunch day, not a packed lunch');
           }
-          const idea = await generatePackedLunchIdea(token, briefing.packedLunchIdea, briefing.dayNote);
+          const idea = await generatePackedLunchIdea(token, briefing.packedLunchIdea, noteWithFacts(briefing.dayNote, briefing.specialFacts));
           await rejectAiSuggestion(db, briefing.packedLunchSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
             featureType: 'remi-packed-lunch',
@@ -1826,7 +1913,7 @@ exports.regenerateBriefingFacet = onCall(
           break;
         }
         case 'dinner': {
-          const idea = await generateDinnerIdea(token, briefing.dinnerIdea, briefing.dayNote);
+          const idea = await generateDinnerIdea(token, briefing.dinnerIdea, noteWithFacts(briefing.dayNote, briefing.specialFacts));
           await rejectAiSuggestion(db, briefing.dinnerSuggestionId);
           const suggestionId = await logAiSuggestion(db, {
             featureType: 'remi-dinner',

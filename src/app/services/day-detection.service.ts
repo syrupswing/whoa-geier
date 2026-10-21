@@ -24,18 +24,22 @@ const AUTO_APPLY_CONFIDENCE = 0.85;
 /** Below this the model is guessing; the event is ignored rather than put in front of a parent. */
 const SUGGEST_CONFIDENCE = 0.5;
 /** Cheap pre-filter: only events that look school-related are sent to the model at all. */
-const SCHOOL_HINT = /drop[\s-]?off|pick[\s-]?up|dismiss|early (release|out)|late start|no school|school|class|teacher|conference|holiday|break\b|snow day/i;
+const SCHOOL_HINT = /drop[\s-]?off|pick[\s-]?up|dismiss|early (release|out)|late start|no school|school|class|teacher|conference|holiday|break\b|snow day|\bwear\b|dress|\bbring\b|spirit|theme|picture day|field trip|pajama|costume|permission slip|show and tell|supplies/i;
 /** Meetings earlier than this aren't taken as the start of a work day. */
 const EARLIEST_WORK_START = '05:00';
 
-type Kind = 'dropoff' | 'pickup' | 'noSchool';
-const KINDS: readonly string[] = ['dropoff', 'pickup', 'noSchool'];
+type Kind = 'dropoff' | 'pickup' | 'noSchool' | 'fact';
+const KINDS: readonly string[] = ['dropoff', 'pickup', 'noSchool', 'fact'];
+/** A fact is kept under its own key, so one event can change the schedule and also leave a note. */
+const FACT_SUFFIX = '#fact';
 
 interface Classified {
   eventId: string;
   memberId: string | null;
   kind: Kind;
   time: string | null;
+  /** For kind 'fact': the short note to show ("Wear orange for Unity Day"). */
+  text?: string | null;
   confidence: number;
 }
 
@@ -49,7 +53,11 @@ interface CacheEntry {
   memberId?: string;
   kind?: Kind;
   time?: string | null;
+  /** For kind 'fact': the note this event adds to the day. */
+  text?: string;
   confidence?: number;
+  /** Set once the event has been checked for special facts, so entries from before facts existed are looked at once more. */
+  factsChecked?: boolean;
   /** Who classified it. Another person's Outlook events can't be seen from a different login, so only this user may drop one. */
   ownerUid?: string;
 }
@@ -61,6 +69,8 @@ export interface PendingSuggestion {
   memberName: string;
   kind: Kind;
   time: string | null;
+  /** For a fact: the note to add. */
+  text: string | null;
   dates: string[];
   summary: string;
 }
@@ -78,6 +88,8 @@ interface WindowedEvent {
  *  - a school-related event that clearly concerns a child (it names them, and the model is sure) sets
  *    that day's drop-off, pick-up or no-school without asking;
  *  - a less certain one becomes a pending suggestion to confirm (see `pending`);
+ *  - an event that carries an instruction or reminder for a child ("wear orange for Unity Day") adds a
+ *    special fact to that day, on the same apply-or-ask terms;
  *  - an adult's own work calendar sets their start time when a meeting falls before the usual start.
  * Every value it writes carries the event it came from, so it is removed again if that event moves or goes.
  *
@@ -111,7 +123,7 @@ export class DayDetectionService {
       if (e.status !== 'pending' || !e.memberId || !e.kind) continue;
       const member = this.household.getMemberById(e.memberId);
       if (!member) continue;
-      out.push({ key, memberId: e.memberId, memberName: member.name, kind: e.kind, time: e.time ?? null, dates: e.dates, summary: e.summary });
+      out.push({ key, memberId: e.memberId, memberName: member.name, kind: e.kind, time: e.time ?? null, text: e.text ?? null, dates: e.dates, summary: e.summary });
     }
     return out.sort((a, b) => a.dates[0].localeCompare(b.dates[0]));
   });
@@ -218,15 +230,19 @@ export class DayDetectionService {
     const uid = this.auth.currentUser()?.uid;
     const drop: string[] = [];
     for (const [key, entry] of Object.entries(this.cache())) {
-      const sig = current.get(key);
+      const eventKey = key.endsWith(FACT_SUFFIX) ? key.slice(0, -FACT_SUFFIX.length) : key;
+      const sig = current.get(eventKey);
       if (sig === entry.sig) continue;
-      const source = key.split(':')[0];
+      const source = eventKey.split(':')[0];
       // Gone, rather than just not loaded yet.
       if (sig === undefined && !this.sourceSettled(source)) continue;
       // Someone else's work calendar isn't visible here, so its absence proves nothing.
       if (sig === undefined && source === 'outlook' && entry.ownerUid && entry.ownerUid !== uid) continue;
       if (entry.status === 'applied' && entry.memberId) {
-        for (const date of entry.dates) await this.profiles.clearFromEvent(entry.memberId, date, entry.eventId);
+        for (const date of entry.dates) {
+          if (entry.kind === 'fact') await this.profiles.clearFactsFromEvent(entry.memberId, date, entry.eventId);
+          else await this.profiles.clearFromEvent(entry.memberId, date, entry.eventId);
+        }
       }
       drop.push(key);
     }
@@ -239,7 +255,7 @@ export class DayDetectionService {
     const children = this.household.members().filter(m => m.kind === 'child');
     if (!children.length || Date.now() < this.retryAt) return;
     const known = this.cache();
-    const candidates = windowed.filter(w => !known[w.key] && looksSchoolRelated(w.event, children));
+    const candidates = windowed.filter(w => !known[w.key]?.factsChecked && looksSchoolRelated(w.event, children));
     for (let i = 0; i < candidates.length; i += BATCH_SIZE) {
       const batch = candidates.slice(i, i + BATCH_SIZE);
       let items: Classified[];
@@ -254,14 +270,21 @@ export class DayDetectionService {
         this.retryAt = Date.now() + RETRY_AFTER_FAILURE_MS;
         return;
       }
-      for (const w of batch) await this.record(w, items.find(it => it.eventId === w.event.id), children);
+      for (const w of batch) {
+        const mine = items.filter(it => it.eventId === w.event.id);
+        const existing = this.cache()[w.key];
+        // An event decided before facts existed keeps its decision; it is only being checked for a fact now.
+        if (existing) this.setEntry(w.key, { ...existing, factsChecked: true });
+        else await this.record(w, mine.find(it => it.kind !== 'fact'), children);
+        await this.recordFact(w, mine.find(it => it.kind === 'fact'), children);
+      }
     }
   }
 
   private async record(w: WindowedEvent, item: Classified | undefined, children: FamilyMember[]): Promise<void> {
     const base: CacheEntry = {
       sig: w.sig, status: 'none', dates: w.dates, summary: w.event.summary, eventId: w.event.id,
-      ownerUid: this.auth.currentUser()?.uid
+      ownerUid: this.auth.currentUser()?.uid, factsChecked: true
     };
     const member = item ? resolveChild(item, children) : undefined;
     const hasTime = !!item?.time && /^\d{2}:\d{2}$/.test(item.time);
@@ -281,11 +304,41 @@ export class DayDetectionService {
     }
   }
 
+  /**
+   * A note for the day is low-stakes (it adds a line to the alerts, it doesn't move a pick-up), so with a
+   * single child it applies on the model's confidence alone; with several it needs the event to name one.
+   */
+  private async recordFact(w: WindowedEvent, item: Classified | undefined, children: FamilyMember[]): Promise<void> {
+    const text = item?.text?.trim();
+    const member = item ? resolveChild(item, children) : undefined;
+    if (!item || !text || !member || item.confidence < SUGGEST_CONFIDENCE) return;
+    const entry: CacheEntry = {
+      sig: w.sig, status: 'pending', dates: w.dates, summary: w.event.summary, eventId: w.event.id,
+      ownerUid: this.auth.currentUser()?.uid, factsChecked: true,
+      memberId: member.id, kind: 'fact', time: null, text, confidence: item.confidence
+    };
+    const key = w.key + FACT_SUFFIX;
+    if (item.confidence >= AUTO_APPLY_CONFIDENCE && (children.length === 1 || namesChild(w.event, member))) {
+      await this.apply(entry, item.confidence);
+      this.setEntry(key, { ...entry, status: 'applied' });
+    } else {
+      this.setEntry(key, entry);
+    }
+  }
+
   /** Writes an entry's change into the child's day profiles, skipping days where it wouldn't differ from the routine. */
   private async apply(entry: CacheEntry, confidence: number): Promise<void> {
     const member = entry.memberId ? this.household.getMemberById(entry.memberId) : undefined;
     if (!member || !entry.kind) return;
     const routine = member.routine ?? {};
+    if (entry.kind === 'fact') {
+      for (const date of entry.dates) {
+        // A note from an event spanning several days (spirit week) is for the school days among them.
+        if (entry.dates.length > 1 && !(routine.schoolDays ?? []).includes(weekday(date))) continue;
+        await this.profiles.addSpecialFacts(member.id, date, [entry.text ?? ''], 'calendar', entry.eventId);
+      }
+      return;
+    }
     for (const date of entry.dates) {
       // Not a school day anyway: a drop-off or "no school" there says nothing about school.
       if (!(routine.schoolDays ?? []).includes(weekday(date))) continue;

@@ -42,6 +42,7 @@ export class DayResolverService {
     out.homeMeals = stored?.homeMeals;
     out.dayTitle = stored?.dayTitle;
     out.dayNote = stored?.dayNote;
+    out.specialFacts = stored?.specialFacts ?? [];
 
     if (member.kind === 'child') {
       out.schoolDay = pick('schoolDay', (routine.schoolDays ?? []).includes(dow));

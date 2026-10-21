@@ -41,6 +41,19 @@ export interface MemberRoutine {
   workStopTime?: string | null;
 }
 
+/**
+ * Something about the day that must not be missed and belongs in every alert and summary ("Wear orange for
+ * Unity Day", "Bring a signed permission slip"). Each fact carries its own provenance because several
+ * calendar events can each contribute one to the same day.
+ */
+export interface SpecialFact {
+  id: string;
+  text: string;
+  by: 'calendar' | 'manual';
+  /** The calendar event this fact was read from, so it goes away if that event does. */
+  eventId?: string;
+}
+
 /** The stored fields of one member's day. Everything is optional: an absent field means "use the member's regular routine". */
 export interface DayProfileFields {
   /** Short label for display lines ("School pride day"). */
@@ -48,6 +61,8 @@ export interface DayProfileFields {
   /** The parent's free-text description of the day; also fed to the AI suggestion prompts. */
   dayNote?: string;
   homeMeals?: HomeMeals;
+  /** Special instructions, memos and reminders for the day; included in the daily push and the in-app alert. */
+  specialFacts?: SpecialFact[];
 
   // Children
   schoolDay?: boolean;
@@ -166,12 +181,76 @@ export class DayProfileService implements OnDestroy {
     const sources = { ...existing.sources };
     const merged: DayProfileFields = { ...stripMeta(existing) };
     for (const key of Object.keys(sources) as DayProfileField[]) {
+      // Facts carry their own provenance and are managed through the special-fact methods below.
+      if (key === 'specialFacts') continue;
       if (match(sources[key]!)) {
         delete sources[key];
         delete merged[key];
       }
     }
     return this.save(memberId, date, merged, sources);
+  }
+
+  /**
+   * Adds facts read from a calendar event to a day. A fact with the same text already there (typed by
+   * hand or from another event) isn't added twice. Returns whether anything was added.
+   */
+  async addSpecialFacts(memberId: string, date: string, texts: string[], by: SpecialFact['by'], eventId?: string): Promise<boolean> {
+    return this.changeFacts(memberId, date, facts => {
+      const next = [...facts];
+      for (const raw of texts) {
+        const text = raw.trim();
+        if (!text || next.some(f => sameText(f.text, text))) continue;
+        next.push({ id: newFactId(), text, by, ...(eventId && { eventId }) });
+      }
+      return next;
+    });
+  }
+
+  /** Replaces the hand-typed facts of a day with `texts`; calendar-derived facts are left alone. */
+  async setManualFacts(memberId: string, date: string, texts: string[]): Promise<boolean> {
+    return this.changeFacts(memberId, date, facts => {
+      const kept = facts.filter(f => f.by === 'calendar');
+      const manual = facts.filter(f => f.by === 'manual');
+      const next = [...kept];
+      for (const raw of texts) {
+        const text = raw.trim();
+        if (!text || next.some(f => sameText(f.text, text))) continue;
+        // Keep the id of an unchanged fact so its identity is stable across edits.
+        next.push(manual.find(f => sameText(f.text, text)) ?? { id: newFactId(), text, by: 'manual' });
+      }
+      return next;
+    });
+  }
+
+  async removeSpecialFact(memberId: string, date: string, factId: string): Promise<boolean> {
+    return this.changeFacts(memberId, date, facts => facts.filter(f => f.id !== factId));
+  }
+
+  /** Drops the facts a calendar event contributed, once that event moves or goes away. */
+  async clearFactsFromEvent(memberId: string, date: string, eventId: string): Promise<boolean> {
+    return this.changeFacts(memberId, date, facts => facts.filter(f => f.eventId !== eventId));
+  }
+
+  /** Reads the day from the server, lets `change` produce its new fact list, and writes it if it differs. */
+  private async changeFacts(memberId: string, date: string, change: (facts: SpecialFact[]) => SpecialFact[]): Promise<boolean> {
+    const existing = await this.fetch(memberId, date);
+    const before = existing?.specialFacts ?? [];
+    const after = change(before);
+    if (JSON.stringify(before) === JSON.stringify(after)) return false;
+    const sources = { ...(existing?.sources ?? {}) };
+    const merged: DayProfileFields = { ...stripMeta(existing) };
+    if (after.length) {
+      merged.specialFacts = after;
+      sources.specialFacts = { by: after.some(f => f.by === 'manual') ? 'manual' : 'calendar' };
+    } else {
+      delete merged.specialFacts;
+      delete sources.specialFacts;
+    }
+    if (!(await this.save(memberId, date, merged, sources))) {
+      throw new Error(`Could not save the day profile for ${date}`);
+    }
+    return true;
   }
 
   /** Stored profiles of one member, read directly (for callers that can't wait on the subscription). */
@@ -204,6 +283,12 @@ export class DayProfileService implements OnDestroy {
   async deleteDay(memberId: string, date: string): Promise<boolean> {
     return this.firestoreService.deleteDocument(COLLECTION, dayProfileId(memberId, date));
   }
+}
+
+const sameText = (a: string, b: string): boolean => a.trim().toLowerCase() === b.trim().toLowerCase();
+
+function newFactId(): string {
+  return Math.random().toString(36).slice(2, 10);
 }
 
 function stripMeta(profile: DayProfile | null): DayProfileFields {

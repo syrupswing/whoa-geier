@@ -5,7 +5,7 @@
       <strong class="pending-heading">Calendar event “{{ s.summary }}” on {{ when(s) }}</strong>
       <div class="pending-actions">
         <button mat-flat-button color="primary" type="button" (click)="detection.accept(s.key)">{{ confirmLabel(s) }}</button>
-        <button mat-stroked-button type="button" (click)="detection.dismiss(s.key)">Disregard schedule change</button>
+        <button mat-stroked-button type="button" (click)="detection.dismiss(s.key)">{{ s.kind === 'fact' ? 'Disregard' : 'Disregard schedule change' }}</button>
       </div>
     </div>
   </div>

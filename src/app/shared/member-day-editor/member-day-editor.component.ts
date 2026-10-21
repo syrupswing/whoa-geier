@@ -7,7 +7,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatSelectModule } from '@angular/material/select';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { DayProfileField, DayProfileFields, DayProfileService } from '../../services/day-profile.service';
+import { DayProfileField, DayProfileFields, DayProfileService, SpecialFact } from '../../services/day-profile.service';
 import { DayResolverService, ResolvedDay } from '../../services/day-resolver.service';
 import { HouseholdService } from '../../services/household.service';
 
@@ -28,6 +28,8 @@ interface DayForm {
   onCall: boolean;
   dayTitle: string;
   dayNote: string;
+  /** Hand-typed special facts, one per line. */
+  specialFacts: string;
   homeBreakfast: string;
   homeLunch: string;
   homeSnack: string;
@@ -102,12 +104,30 @@ export class MemberDayEditorComponent {
     try {
       const changes = changedFields(day, this.form);
       if (Object.keys(changes).length) await this.profiles.applyFields(id, this.date(), changes, { by: 'manual' });
+      const typed = lines(this.form.specialFacts);
+      if (!same(typed, manualFacts(day))) await this.profiles.setManualFacts(id, this.date(), typed);
       this.snackBar.open('Day saved', 'Close', { duration: 2000 });
     } catch (err) {
       console.error('Saving day failed:', err);
       this.snackBar.open('Failed to save day', 'Close', { duration: 3000 });
     } finally {
       this.isSaving.set(false);
+    }
+  }
+
+  /** Special facts that came from the calendar; they can be removed here but are edited at the source. */
+  calendarFacts(): SpecialFact[] {
+    return (this.resolved()?.specialFacts ?? []).filter(f => f.by === 'calendar');
+  }
+
+  async removeFact(fact: SpecialFact): Promise<void> {
+    const id = this.memberId();
+    if (!id) return;
+    try {
+      await this.profiles.removeSpecialFact(id, this.date(), fact.id);
+    } catch (err) {
+      console.error('Removing special fact failed:', err);
+      this.snackBar.open('Failed to remove', 'Close', { duration: 3000 });
     }
   }
 
@@ -129,7 +149,7 @@ function emptyForm(): DayForm {
   return {
     schoolDay: false, dropOffTime: '', pickUpTime: '', schoolBreakfast: '', schoolSnack: '', schoolLunch: '',
     activities: '', classes: '', workDay: false, startTime: '', stopTime: '', onCall: false,
-    dayTitle: '', dayNote: '', homeBreakfast: '', homeLunch: '', homeSnack: '', homeDinner: ''
+    dayTitle: '', dayNote: '', specialFacts: '', homeBreakfast: '', homeLunch: '', homeSnack: '', homeDinner: ''
   };
 }
 
@@ -149,6 +169,7 @@ function formFrom(day: ResolvedDay): DayForm {
     onCall: day.onCall ?? false,
     dayTitle: day.dayTitle ?? '',
     dayNote: day.dayNote ?? '',
+    specialFacts: manualFacts(day).join('\n'),
     homeBreakfast: day.homeMeals?.breakfast ?? '',
     homeLunch: day.homeMeals?.lunch ?? '',
     homeSnack: day.homeMeals?.snack ?? '',
@@ -156,6 +177,8 @@ function formFrom(day: ResolvedDay): DayForm {
   };
 }
 
+const lines = (text: string): string[] => text.split('\n').map(s => s.trim()).filter(Boolean);
+const manualFacts = (day: ResolvedDay): string[] => (day.specialFacts ?? []).filter(f => f.by === 'manual').map(f => f.text);
 const list = (text: string): string[] => text.split(',').map(s => s.trim()).filter(Boolean);
 const same = (a: unknown, b: unknown): boolean => JSON.stringify(a) === JSON.stringify(b);
 

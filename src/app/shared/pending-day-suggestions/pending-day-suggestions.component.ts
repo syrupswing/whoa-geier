@@ -6,7 +6,7 @@ import { DayDetectionService, PendingSuggestion } from '../../services/day-detec
 import { HouseholdService } from '../../services/household.service';
 import { formatShortDate, formatTime12h } from '../time-format';
 
-/** Calendar events the app thinks change a child's day but wasn't sure enough to apply — one tap to confirm or ignore. */
+/** Calendar events the app thinks change a child's day (or add a note to it) but wasn't sure enough to apply — one tap to confirm or ignore. */
 @Component({
   selector: 'app-pending-day-suggestions',
   standalone: true,
@@ -32,6 +32,7 @@ export class PendingDaySuggestionsComponent {
   confirmLabel(s: PendingSuggestion): string {
     const who = this.household.members().filter(m => m.kind === 'child').length > 1 ? `${s.memberName}'s ` : '';
     const days = s.dates.length > 1 ? `${monthDay(s.dates[0])} – ${monthDay(s.dates[s.dates.length - 1])}` : monthDay(s.dates[0]);
+    if (s.kind === 'fact') return `Add note${who ? ` for ${s.memberName}` : ''} ${days}: “${s.text}”`;
     if (s.kind === 'noSchool') return `Confirm ${who}no school ${days}`;
     const what = s.kind === 'dropoff' ? 'drop-off' : 'pick-up';
     return `Confirm ${who}${s.time ? formatTime12h(s.time) + ' ' : ''}${what} ${days}`;

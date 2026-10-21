@@ -5,7 +5,7 @@ import { AuthService } from './auth.service';
 import { FirestoreService } from './firestore.service';
 import { BacklogService } from './backlog.service';
 
-/** The in-app twin of a push alert, created by the server alongside it (see taskPushAlerts, vehicleMaintenanceAlerts). */
+/** The in-app twin of a push alert, created by the server alongside it (see taskPushAlerts, vehicleMaintenanceAlerts, eveningSpecialFacts). */
 export interface InAppNotification {
   id: string;
   title: string;
@@ -13,7 +13,7 @@ export interface InAppNotification {
   body?: string;
   /** The calendar item that alerted, or for a vehicle alert, the vehicle. */
   itemId: string;
-  itemKind: 'task' | 'event' | 'vehicle';
+  itemKind: 'task' | 'event' | 'vehicle' | 'facts';
   /** A task the alert proposes; the banner offers to add it and nothing is created until that's confirmed. */
   suggestedTask?: { title: string; notes?: string };
   /** What tapping the alert should do on the vehicles page: 'odometer' opens the update-odometer dialog. */
@@ -103,6 +103,10 @@ export class InAppNotificationService {
       await this.router.navigate(['/vehicles'], {
         queryParams: notification.action === 'odometer' ? { odometer: notification.itemId } : {}
       });
+      return;
+    }
+    if (notification.itemKind === 'facts') {
+      await this.router.navigate(['/calendar'], { queryParams: { date: notification.date } });
       return;
     }
     await this.router.navigate(['/calendar'], {
