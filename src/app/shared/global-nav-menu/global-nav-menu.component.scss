@@ -28,10 +28,8 @@
   height: 46px;
   border-radius: 50%;
   border: 2px solid color-mix(in srgb, var(--mat-sys-primary) 20%, transparent);
-  // Frosted glass at rest too, so it reads the same wherever it sits over the page or an alert card.
-  background: color-mix(in srgb, var(--color-surface, #fff) 20%, transparent);
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
+  // Mostly opaque rather than frosted glass: a live backdrop blur over the animated chat glow glitched mobile Safari.
+  background: color-mix(in srgb, var(--color-surface, #fff) 88%, transparent);
   color: var(--color-void-indigo);
 
   // Always fixed near the top of the screen, whatever the scroll position; left is set inline. The

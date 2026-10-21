@@ -433,13 +433,11 @@
   padding: 4px 4px 4px 14px;
   border-radius: 12px;
   color: var(--color-text-primary, inherit);
-  // Alerts and special facts share one look, in the facts' orange; only the icon differs. A frosted-glass
-  // card: the orange tint sits over a mostly-opaque surface, and the page scrolling beneath is blurred
-  // rather than shown through. The surface has to stay partly transparent or there'd be nothing to blur.
+  // Alerts and special facts share one look, in the facts' orange; only the icon differs. A mostly-opaque
+  // tinted card. No backdrop-filter: over the chat input's animated glow it made mobile Safari's compositor
+  // render the whole page as magenta and black blocks.
   border: 1px solid rgba(232, 140, 30, 0.5);
-  background: linear-gradient(rgba(232, 140, 30, 0.1), rgba(232, 140, 30, 0.1)), color-mix(in srgb, var(--color-surface, #fff) 20%, transparent);
-  -webkit-backdrop-filter: blur(12px) saturate(1.4);
-  backdrop-filter: blur(12px) saturate(1.4);
+  background: linear-gradient(rgba(232, 140, 30, 0.1), rgba(232, 140, 30, 0.1)), color-mix(in srgb, var(--color-surface, #fff) 88%, transparent);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   pointer-events: auto;
 }
