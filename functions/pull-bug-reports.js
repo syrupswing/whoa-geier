@@ -1,6 +1,7 @@
 /**
  * Pulls "Report a logic bug" submissions (replyBugReports) from Firestore for local debugging.
- * Usage: node pull-bug-reports.js <path-to-service-account.json> [--all] [--resolve]
+ * Usage: node pull-bug-reports.js [path-to-service-account.json] [--all] [--resolve]
+ *   Without a key file it uses `gcloud auth application-default login` credentials.
  *   (default) prints reports with status "new"; --all prints every report;
  *   --resolve marks the printed reports as status "resolved".
  * Also writes them to functions/bug-reports.json (git-ignored).
@@ -14,15 +15,16 @@ process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
 const args = process.argv.slice(2);
 const serviceAccountPath = args.find(a => !a.startsWith('--'));
-if (!serviceAccountPath) {
-  console.error('Usage: node pull-bug-reports.js <path-to-service-account.json> [--all] [--resolve]');
-  process.exit(1);
+if (serviceAccountPath) {
+  const resolved = serviceAccountPath.startsWith('~')
+    ? path.join(os.homedir(), serviceAccountPath.slice(1))
+    : path.resolve(serviceAccountPath);
+  admin.initializeApp({ credential: admin.credential.cert(require(resolved)) });
+} else {
+  // No key file: use the login from `gcloud auth application-default login`.
+  const project = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '.firebaserc'), 'utf8')).projects.default;
+  admin.initializeApp({ credential: admin.credential.applicationDefault(), projectId: project });
 }
-const resolved = serviceAccountPath.startsWith('~')
-  ? path.join(os.homedir(), serviceAccountPath.slice(1))
-  : path.resolve(serviceAccountPath);
-
-admin.initializeApp({ credential: admin.credential.cert(require(resolved)) });
 
 (async () => {
   const db = admin.firestore();

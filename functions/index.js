@@ -8,6 +8,7 @@ const ical = require('node-ical');
 const dns = require('dns').promises;
 const net = require('net');
 const vehicleMaintenance = require('./vehicle-maintenance');
+const chatContext = require('./chat-context');
 
 admin.initializeApp();
 
@@ -526,7 +527,7 @@ function parseClockLabelToMinutes(label) {
  * today's activities, meal plans — is dropped once that time has passed, even
  * earlier the same day, since it's no longer actionable for the person asking.
  */
-async function buildFamilyChatContext(db, payload) {
+async function buildFamilyChatContext(db, payload, caller = {}) {
   const now = new Date();
   const today = toDateStr(now);
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
@@ -546,6 +547,27 @@ async function buildFamilyChatContext(db, payload) {
   const members = (householdDoc.exists && householdDoc.data().members) || [];
   const memberNames = new Map(members.map(m => [m.id, m.name]));
 
+  // The asker's own synced Outlook calendar, with real titles. Google only holds a free/busy import of
+  // it, so without this the answer can only say "Busy". Only the person asking is read, never someone else's.
+  let askerName = null;
+  let outlookEvents = [];
+  if (caller.uid) {
+    const [linkDoc, outlookDoc] = await Promise.all([
+      db.collection('memberLinks').doc(caller.uid).get(),
+      db.collection('outlookCalendarCache').doc(caller.uid).get()
+    ]);
+    askerName = linkDoc.exists ? memberNames.get(linkDoc.data().memberId) || null : null;
+    const syncedAt = outlookDoc.exists ? new Date(outlookDoc.data().syncedAt || 0).getTime() : 0;
+    // Work meetings are plentiful, so only the next two days are included, or they'd crowd out family events.
+    const outlookHorizon = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+    if (Date.now() - syncedAt <= OUTLOOK_CACHE_MAX_AGE_MS) {
+      outlookEvents = (outlookDoc.data().events || [])
+        .filter(e => e.kind !== 'task' && !e.isPointInTime && (e.start?.dateTime || e.start?.date))
+        .filter(e => new Date(e.start.dateTime || e.start.date) <= outlookHorizon)
+        .map(e => ({ ...e, who: askerName }));
+    }
+  }
+
   const nowMin = nowMinutesInTz(now);
   // Once it's late in the evening, whatever was only about today (an all-day field trip, the day's
   // note) is history, not news; the rest of the context should be about what's still ahead.
@@ -560,7 +582,7 @@ async function buildFamilyChatContext(db, payload) {
     .filter(e => !e.isPrivate && !e.repeat && e.kind !== 'task')
     .map(e => ({ ...e, who: e.memberId ? memberNames.get(e.memberId) : null }));
   const sortKey = e => (e.allDay ? new Date(`${e.allDayDateStr}T00:00:00`) : e.start);
-  const calendarEvents = [...cachedEvents, ...appEvents]
+  const calendarEvents = [...chatContext.cleanGoogleEvents(cachedEvents, outlookEvents), ...appEvents, ...outlookEvents]
     .map(e => {
       const isAllDay = !e.start?.dateTime;
       const startStr = e.start?.dateTime || e.start?.date;
@@ -586,7 +608,7 @@ async function buildFamilyChatContext(db, payload) {
     // A one-day all-day event dated today (a field trip, a class day) is over by late evening.
     .filter(e => !(dayIsOver && e.allDay && e.allDayDateStr === today && e.allDayEndStr <= toDateStr(new Date(now.getTime() + 24 * 60 * 60 * 1000))))
     .sort((a, b) => sortKey(a) - sortKey(b))
-    .slice(0, 25)
+    .slice(0, 40)
     .map(e => {
       const dateLabel = e.allDay ? e.allDayDateStr : toDateStr(e.start);
       const timeOf = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE });
@@ -753,7 +775,8 @@ async function buildFamilyChatContext(db, payload) {
       return `${g.name} (bought ${days <= 0 ? 'today' : days === 1 ? 'yesterday' : `${days} days ago`})`;
     });
 
-  const alerts = alertsSnap.docs.map(d => d.data().message).filter(Boolean).slice(0, 10);
+  // A date-bound alert ("field trip tomorrow") is history once its day has passed.
+  const alerts = alertsSnap.docs.map(d => d.data()).filter(a => chatContext.alertIsCurrent(a, today)).map(a => a.message).filter(Boolean).slice(0, 10);
   const vehicles = vehicleMaintenance.summarizeVehiclesForChat({
     vehicles: vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() })),
     records: vehicleRecordsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
@@ -794,7 +817,7 @@ exports.orchestratedGenerate = onCall(
         : await buildOrchestratorMemoryContext(db, memberId);
 
       if (template.buildContext) {
-        Object.assign(context, await template.buildContext(db, payload || {}));
+        Object.assign(context, await template.buildContext(db, payload || {}, { uid: request.auth.uid }));
       }
 
       const prompt = template.buildPrompt(payload || {}, context);
@@ -1947,7 +1970,7 @@ exports.regenerateBriefingFacet = onCall(
  * exists — keeps an ongoing issue (e.g. registration that's been expired for weeks)
  * from generating a fresh alert every single night.
  */
-async function upsertSmartAlert(db, { alertType, message, triggeringRule }) {
+async function upsertSmartAlert(db, { alertType, message, triggeringRule, expiresOn }) {
   const existing = await db.collection('smartAlerts')
     .where('triggeringRule', '==', triggeringRule)
     .where('status', '==', 'pending')
@@ -1959,9 +1982,19 @@ async function upsertSmartAlert(db, { alertType, message, triggeringRule }) {
     alertType,
     message,
     triggeringRule,
+    ...(expiresOn ? { expiresOn } : {}),
     status: 'pending',
     createdAt: new Date().toISOString()
   });
+}
+
+/** Marks pending alerts about a day that has passed as expired, so they stop showing up as active. */
+async function expireStaleSmartAlerts(db) {
+  const today = toDateStr(new Date());
+  const snap = await db.collection('smartAlerts').where('status', '==', 'pending').get();
+  const stale = snap.docs.filter(d => !chatContext.alertIsCurrent(d.data(), today));
+  await Promise.all(stale.map(d => d.ref.update({ status: 'expired' })));
+  return stale.length;
 }
 
 /** A field trip on tomorrow's calendar, when tomorrow is otherwise a hot-lunch school day. */
@@ -1980,12 +2013,14 @@ async function evaluateFieldTripLunchAlert(db) {
   await upsertSmartAlert(db, {
     alertType: 'field-trip-pack-lunch',
     message: `"${fieldTrip.title}" tomorrow — consider packing a lunch instead of hot lunch`,
-    triggeringRule: `field-trip-lunch:${dateStr}`
+    triggeringRule: `field-trip-lunch:${dateStr}`,
+    expiresOn: dateStr
   });
 }
 
 async function evaluateSmartAlerts() {
   const db = admin.firestore();
+  await expireStaleSmartAlerts(db);
   await evaluateFieldTripLunchAlert(db);
 }
 

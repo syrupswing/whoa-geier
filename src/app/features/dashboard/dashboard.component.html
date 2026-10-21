@@ -199,7 +199,7 @@
       </div>
 
       <!-- Prompt ideas: each fills the input with a well-formed question, ready to edit and send. -->
-      <div class="chat-ideas" *ngIf="chatMessages().length === 0 && !isChatLoading()">
+      <div class="chat-ideas">
         <h2 class="chat-ideas-title">Ideas</h2>
         <ul class="chat-ideas-list">
           <li *ngFor="let idea of chatIdeaService.ideas(); trackBy: trackIdea">
