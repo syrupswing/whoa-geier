@@ -14,6 +14,7 @@ import { LoadingAnimationComponent } from './components/loading-animation/loadin
 import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
 import { InAppNotificationService } from './services/in-app-notification.service';
+import { SpecialFactsAlertService } from './services/special-facts-alert.service';
 import { RemiScheduleService } from './services/remi-schedule.service';
 import { HouseholdService } from './services/household.service';
 import { DayDetectionService } from './services/day-detection.service';
@@ -79,6 +80,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     public pushNotificationService: PushNotificationService,
     public drawer: NavDrawerService,
     public notifications: InAppNotificationService,
+    public specialFacts: SpecialFactsAlertService,
     remiSchedule: RemiScheduleService,
     household: HouseholdService,
     injector: Injector

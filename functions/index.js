@@ -1808,7 +1808,7 @@ exports.taskPushAlerts = onSchedule(
       });
       await doc.ref.update(update);
 
-      const title = isTask ? `${task.summary || 'A task'} - reminder` : (task.summary || 'Event');
+      const title = task.summary || (isTask ? 'A task' : 'Event');
       // The in-app twin of this push: tapping the push opens the app, which shows this as a banner
       // linking to (and highlighting) the item. Written before sending so it's there by the time
       // anyone taps. 'family' stands in for "everyone" because rules can only filter on a value.

@@ -265,6 +265,11 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // Which of the day's special facts each person has dismissed; only their own record is readable or writable
+    match /factDismissals/{uid} {
+      allow read, create, update, delete: if isAuthenticated() && request.auth.uid == uid;
+    }
+
     // Starter prompts for the home chat, shared by the whole family
     match /chatIdeas/{ideaId} {
       allow read, create, update, delete: if isAuthenticated();

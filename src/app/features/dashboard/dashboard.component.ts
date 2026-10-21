@@ -37,7 +37,6 @@ import { RemiScheduleService, RemiDailyBriefing } from '../../services/remi-sche
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { TaskLaneComponent } from '../../shared/task-lane/task-lane.component';
 import { TypewriterDirective } from '../../shared/typewriter/typewriter.directive';
-import { SpecialFactsAlertComponent } from '../../shared/special-facts-alert/special-facts-alert.component';
 import { PendingDaySuggestionsComponent } from '../../shared/pending-day-suggestions/pending-day-suggestions.component';
 import { QuickAddCardComponent } from '../../shared/quick-add-card/quick-add-card.component';
 import {
@@ -205,7 +204,7 @@ function discardPersistedChatMessages(): void {
 @Component({
   selector: 'app-dashboard',
   standalone: true,
-  imports: [CommonModule, SwipeNavDirective, CalendarSkeletonComponent, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatDatepickerModule, MatSnackBarModule, GlobalNavMenuComponent, TypewriterDirective, QuickAddCardComponent, PendingDaySuggestionsComponent, SpecialFactsAlertComponent],
+  imports: [CommonModule, SwipeNavDirective, CalendarSkeletonComponent, TaskLaneComponent, FormsModule, MatIconModule, MatButtonModule, MatFormFieldModule, MatInputModule, LoadingAnimationComponent, MatTooltipModule, MatMenuModule, MatDatepickerModule, MatSnackBarModule, GlobalNavMenuComponent, TypewriterDirective, QuickAddCardComponent, PendingDaySuggestionsComponent],
   templateUrl: './dashboard.component.html',
   styleUrls: ['./dashboard.component.scss'],
   changeDetection: ChangeDetectionStrategy.OnPush

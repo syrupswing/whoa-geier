@@ -15,7 +15,20 @@
 <app-sidenav class="sidenav"></app-sidenav>
 <div class="app-container" #appContainer (click)="onContainerClick($event)">
   <!-- In-app twins of push alerts: tapping a push opens the app, and the matching alert waits here. -->
-  <div class="notification-banner" *ngIf="notifications.active().length" [attr.inert]="drawer.contentInert() ? '' : null">
+  <div class="notification-banner" *ngIf="notifications.active().length || specialFacts.lines().length" [attr.inert]="drawer.contentInert() ? '' : null">
+    <!-- The day's special facts: the same kind of card as an alert, in the facts' orange. -->
+    <ng-container *ngIf="specialFacts.lines() as facts">
+      <div class="notification-item" *ngIf="facts.length">
+        <mat-icon class="notification-icon">campaign</mat-icon>
+        <div class="notification-text notification-text-static">
+          Don't forget today
+          <span class="special-fact-line" *ngFor="let line of facts"><b>{{ line.who }}:</b> {{ line.text }}</span>
+        </div>
+        <button mat-icon-button type="button" (click)="specialFacts.dismiss()" aria-label="Dismiss reminders">
+          <mat-icon>close</mat-icon>
+        </button>
+      </div>
+    </ng-container>
     <div class="notification-item" *ngFor="let n of notifications.active()">
       <mat-icon class="notification-icon">notifications_active</mat-icon>
       <button type="button" class="notification-text" (click)="notifications.open(n)">
