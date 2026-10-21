@@ -16,7 +16,6 @@ import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatNativeDateModule } from '@angular/material/core';
 import { CalendarEvent, CalendarItemKind, RepeatRule } from '../../services/google-calendar.service';
 import { ConfirmService } from '../confirm-dialog/confirm-dialog.component';
-import { HouseholdService } from '../../services/household.service';
 import { AuthService } from '../../services/auth.service';
 import { TimeFieldComponent } from '../time-field/time-field.component';
 import { nextDayIso } from '../../services/app-calendar-event.service';
@@ -37,7 +36,7 @@ export interface CalendarEventDialogData {
   /** An existing backlog task being put on the schedule: changes the heading and the confirm button's wording. */
   scheduling?: boolean;
   /** Pre-fills an add from something that already exists, such as a backlog task being scheduled. */
-  prefill?: { title: string; description?: string; itemKind?: CalendarItemKind; memberId?: string | null; scope?: 'private' | 'family' };
+  prefill?: { title: string; description?: string; itemKind?: CalendarItemKind; scope?: 'private' | 'family' };
 }
 
 type Scope = 'private' | 'family';
@@ -305,17 +304,6 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
         </div>
 
         <div class="form-group">
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="householdService.members().length">
-          <mat-label>For</mat-label>
-          <mat-select name="memberId" [(ngModel)]="formData.memberId">
-            <mat-option [value]="null">Whole household</mat-option>
-            <mat-option *ngFor="let member of householdService.members()" [value]="member.id">
-              {{ member.name }}
-            </mat-option>
-          </mat-select>
-          <mat-icon matPrefix>person</mat-icon>
-        </mat-form-field>
-
         <mat-radio-group class="kind-group" name="scope" [(ngModel)]="formData.scope" [disabled]="!canChangeScope()">
           <mat-radio-button value="private"><span class="scope-label"><mat-icon>lock_person</mat-icon>Private</span></mat-radio-button>
           <mat-radio-button value="family"><span class="scope-label"><mat-icon>family_restroom</mat-icon>Shared with family</span></mat-radio-button>
@@ -618,7 +606,6 @@ export class CalendarEventDialogComponent {
     repeatMode: 'schedule' | 'rolling';
     /** Tasks on a specific day: a missed occurrence is dropped instead of carrying forward until done. */
     obsoleteIfMissed: boolean;
-    memberId: string | null;
     scope: Scope;
     /** "HH:mm" for a task's not-done-yet push alert, or null for none. */
     pushAlertTime: string | null;
@@ -629,7 +616,6 @@ export class CalendarEventDialogComponent {
   constructor(
     public dialogRef: MatDialogRef<CalendarEventDialogComponent>,
     @Inject(MAT_DIALOG_DATA) public data: CalendarEventDialogData,
-    public householdService: HouseholdService,
     private authService: AuthService,
     private confirmService: ConfirmService,
     private placeSuggest: PlaceSuggestService
@@ -666,7 +652,6 @@ export class CalendarEventDialogComponent {
         repeatUnit: event.repeat?.unit ?? 'week',
         repeatMode: event.repeat?.mode ?? (event.kind === 'task' && !event.start.dateTime ? 'rolling' : 'schedule'),
         obsoleteIfMissed: !event.repeat?.carryOver,
-        memberId: event.memberId ?? null,
         scope: event.isPrivate ? 'private' : 'family',
         pushAlertTime: event.pushAlertTime ?? null,
         alertSameAsEvent: !isAllDay && !!event.pushAlertTime && event.pushAlertTime === this.toTimeValue(startDate)
@@ -693,7 +678,6 @@ export class CalendarEventDialogComponent {
         repeatUnit: 'week',
         repeatMode: 'schedule',
         obsoleteIfMissed: false,
-        memberId: this.householdService.myMemberId(),
         scope: 'private',
         pushAlertTime: null,
         alertSameAsEvent: false
@@ -703,7 +687,6 @@ export class CalendarEventDialogComponent {
         this.formData.title = prefill.title;
         if (prefill.description) this.formData.description = prefill.description;
         if (prefill.itemKind) this.formData.itemKind = prefill.itemKind;
-        if (prefill.memberId !== undefined) this.formData.memberId = prefill.memberId;
         if (prefill.scope) this.formData.scope = prefill.scope;
       }
     }
@@ -1062,7 +1045,6 @@ export class CalendarEventDialogComponent {
     this.setOptionalField(result, 'isPointInTime', true, f.hasTime && !f.hasDuration, isEdit);
     this.setOptionalField(result, 'startApproximate', true, f.hasTime && f.hasDuration && f.startApproximate, isEdit);
     this.setOptionalField(result, 'endApproximate', true, f.hasTime && f.hasDuration && f.endApproximate, isEdit);
-    this.setOptionalField(result, 'memberId', f.memberId as string, !!f.memberId, isEdit);
     const pushAlertTime = f.alertSameAsEvent && f.hasTime ? f.startTime : f.pushAlertTime;
     this.setOptionalField(result, 'pushAlertTime', pushAlertTime as string, !!pushAlertTime, isEdit);
     this.setOptionalField(

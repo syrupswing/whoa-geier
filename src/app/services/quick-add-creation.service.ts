@@ -135,18 +135,15 @@ export class QuickAddCreationService {
     switch (item.type) {
       case 'event': {
         const { start, end } = this.buildEventTimes(item);
-        const memberId = this.resolvePersonToMemberId(item.person);
         const event: Parameters<AppCalendarEventService['addEvent']>[0] = {
           summary: item.title || 'Untitled event',
           start,
           end
         };
-        if (memberId) event.memberId = memberId;
         return this.appCalendarEventService.addEvent(event);
       }
       case 'reminder':
       case 'todo': {
-        const memberId = this.resolvePersonToMemberId(item.person);
         // Anything with a day is a task on the calendar; an undated to-do waits in the backlog.
         if (item.date) {
           const { start, end } = this.buildEventTimes(item);
@@ -157,10 +154,9 @@ export class QuickAddCreationService {
             kind: 'task'
           };
           if (item.time) task.isPointInTime = true;
-          if (memberId) task.memberId = memberId;
           return this.appCalendarEventService.addEvent(task);
         }
-        return this.backlogService.addItem({ title: item.title || 'Untitled', memberId });
+        return this.backlogService.addItem({ title: item.title || 'Untitled' });
       }
       case 'fact': {
         const memberId = this.resolvePersonToMemberId(item.person);

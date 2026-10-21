@@ -4,12 +4,10 @@ import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
-import { MatSelectModule } from '@angular/material/select';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatRadioModule } from '@angular/material/radio';
 import { BacklogItem } from '../../services/backlog.service';
-import { HouseholdService } from '../../services/household.service';
 import { AuthService } from '../../services/auth.service';
 
 export interface BacklogItemDialogData {
@@ -22,7 +20,6 @@ export interface BacklogItemDialogData {
 export interface BacklogItemDialogResult {
   title: string;
   notes?: string;
-  memberId?: string;
   scope: 'family' | 'private';
 }
 
@@ -31,11 +28,11 @@ export interface BacklogItemDialogResult {
   standalone: true,
   imports: [
     CommonModule, FormsModule, MatDialogModule, MatFormFieldModule, MatInputModule,
-    MatSelectModule, MatButtonModule, MatIconModule, MatRadioModule
+    MatButtonModule, MatIconModule, MatRadioModule
   ],
   template: `
     <h2 mat-dialog-title>
-      <mat-icon>inbox</mat-icon>
+      <mat-icon>note_alt</mat-icon>
       {{ data.item ? 'Edit backlog task' : 'Add to task backlog' }}
     </h2>
 
@@ -49,15 +46,6 @@ export interface BacklogItemDialogResult {
         <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
           <mat-label>Notes</mat-label>
           <textarea matInput name="notes" [(ngModel)]="notes" rows="3"></textarea>
-        </mat-form-field>
-
-        <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width" *ngIf="householdService.members().length">
-          <mat-label>For</mat-label>
-          <mat-select name="memberId" [(ngModel)]="memberId">
-            <mat-option [value]="null">Whole household</mat-option>
-            <mat-option *ngFor="let member of householdService.members()" [value]="member.id">{{ member.name }}</mat-option>
-          </mat-select>
-          <mat-icon matPrefix>person</mat-icon>
         </mat-form-field>
 
         <mat-radio-group class="scope-group" name="scope" [(ngModel)]="scope" [disabled]="!canChangeScope()">
@@ -93,21 +81,17 @@ export interface BacklogItemDialogResult {
 export class BacklogItemDialogComponent {
   title: string;
   notes: string;
-  memberId: string | null;
   scope: 'family' | 'private';
 
   constructor(
     public dialogRef: MatDialogRef<BacklogItemDialogComponent, BacklogItemDialogResult>,
     @Inject(MAT_DIALOG_DATA) public data: BacklogItemDialogData,
-    public householdService: HouseholdService,
     private authService: AuthService
   ) {
     const item = data.item;
     this.title = item?.title ?? data.title ?? '';
     this.notes = item?.notes ?? '';
-    this.memberId = item?.memberId ?? this.householdService.myMemberId() ?? null;
     this.scope = item?.scope ?? 'family';
-    if (item) this.memberId = item.memberId ?? null;
   }
 
   /** Who sees an item is fixed to its creator, so only they may flip it. */
@@ -121,7 +105,6 @@ export class BacklogItemDialogComponent {
     this.dialogRef.close({
       title: this.title.trim(),
       notes: this.notes.trim() || undefined,
-      memberId: this.memberId || undefined,
       scope: this.scope
     });
   }

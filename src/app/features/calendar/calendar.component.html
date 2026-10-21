@@ -301,9 +301,7 @@
           </div>
         </div>
         <p class="cal-popover-time">{{ formatEventTime(sel) }}</p>
-        <p class="cal-popover-person" *ngIf="memberName(sel.memberId) as name">
-          <mat-icon>{{ sel.isPrivate ? 'lock' : 'person' }}</mat-icon>{{ sel.isPrivate ? 'Private — only you' : 'For ' + name }}
-        </p>
+        <p class="cal-popover-person" *ngIf="sel.isPrivate"><mat-icon>lock</mat-icon>Private — only you</p>
         <p class="cal-popover-person" *ngIf="!sel.isPrivate && sel.createdByName"><mat-icon>person_add</mat-icon>Created by {{ sel.createdByName }}</p>
         <p class="cal-popover-person" *ngIf="completionFor(sel) as done"><mat-icon>task_alt</mat-icon>Completed by {{ done.byName }} · {{ formatCompletionTime(done.at) }}</p>
         <p class="cal-popover-location" *ngIf="sel.location"><mat-icon>location_on</mat-icon>{{ sel.location }}</p>

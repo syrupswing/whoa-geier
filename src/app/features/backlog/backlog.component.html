@@ -30,9 +30,8 @@
         <mat-checkbox [checked]="false" (change)="toggle(item)" [attr.aria-label]="'Complete ' + item.title"></mat-checkbox>
         <button type="button" class="task-body" (click)="edit(item)">
           <span class="task-title">{{ item.title }}</span>
-          <span class="task-meta" *ngIf="item.notes || memberName(item) || item.scope === 'private'">
+          <span class="task-meta" *ngIf="item.notes || item.scope === 'private'">
             <mat-icon *ngIf="item.scope === 'private'" class="meta-icon" aria-label="Private">lock_person</mat-icon>
-            <span *ngIf="memberName(item)" class="chip">{{ memberName(item) }}</span>
             <span *ngIf="item.notes" class="notes">{{ item.notes }}</span>
           </span>
         </button>

@@ -20,7 +20,6 @@ import { BacklogService } from '../../services/backlog.service';
 import { highlightWhenPresent } from '../../utils/highlight';
 import { TASK_COLOR, toIsoDate, buildTaskChecklist, completionFor, expandRecurringForDay, isSnoozedOccurrence, occurrenceKey, TaskChecklistRow } from '../../utils/recurrence';
 import { formatSnoozeEnd, getSnoozeOptions } from '../../utils/snooze';
-import { HouseholdService } from '../../services/household.service';
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
@@ -123,7 +122,6 @@ export class CalendarComponent implements OnInit, OnDestroy {
     public calendarService: GoogleCalendarService,
     public outlookService: OutlookCalendarService,
     public appCalendarEventService: AppCalendarEventService,
-    private householdService: HouseholdService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
     private route: ActivatedRoute
@@ -592,7 +590,6 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const id = await this.backlogService.addItem({
         title: event.summary,
         notes: event.description,
-        memberId: event.memberId,
         scope: event.isPrivate ? 'private' : 'family'
       });
       if (!id) throw new Error('Could not add to the backlog');
@@ -780,11 +777,5 @@ export class CalendarComponent implements OnInit, OnDestroy {
 
   trackByHour(_index: number, hour: number): number {
     return hour;
-  }
-
-  /** Name of the household member an event is tagged for, or null when it concerns everyone. */
-  memberName(memberId: string | undefined): string | null {
-    if (!memberId) return null;
-    return this.householdService.getMemberById(memberId)?.name ?? null;
   }
 }

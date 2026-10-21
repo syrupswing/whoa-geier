@@ -292,6 +292,17 @@ ol, ul {
   margin-top: 4px;
 }
 
+.mdc-dialog .mdc-dialog__title {
+  align-items: center;
+  display: flex;
+  margin-bottom: 0;
+  padding: 8px 24px;
+
+  .mat-icon {
+    margin-right: 8px;
+  }
+}
+
 /* Fix icon prefix label positioning for empty fields only */
 .mat-mdc-form-field-has-icon-prefix .mdc-text-field--outlined {
   .mdc-floating-label:not(.mdc-floating-label--float-above) {

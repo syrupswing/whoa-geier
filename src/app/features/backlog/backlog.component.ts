@@ -12,7 +12,6 @@ import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { BacklogService, BacklogItem } from '../../services/backlog.service';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
-import { HouseholdService } from '../../services/household.service';
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
@@ -38,7 +37,6 @@ import { highlightWhenPresent } from '../../utils/highlight';
 export class BacklogComponent {
   backlog = inject(BacklogService);
   private calendarEvents = inject(AppCalendarEventService);
-  private household = inject(HouseholdService);
   private dialog = inject(MatDialog);
   private snackBar = inject(MatSnackBar);
   private confirmService = inject(ConfirmService);
@@ -57,11 +55,10 @@ export class BacklogComponent {
     const title = this.newTitle.trim();
     if (!title) return;
     this.newTitle = '';
-    const memberId = this.household.myMemberId() ?? undefined;
-    await this.backlog.addItem({ title, scope: 'family', memberId });
+    await this.backlog.addItem({ title, scope: 'family' });
   }
 
-  /** The full add form (notes, who it's for, privacy); the field below it stays for one-line quick adds. */
+  /** The full add form (notes, privacy); the field below it stays for one-line quick adds. */
   openAdd(): void {
     const ref = this.dialog.open<BacklogItemDialogComponent, BacklogItemDialogData, BacklogItemDialogResult>(
       BacklogItemDialogComponent, { width: '500px', maxWidth: '95vw', data: { title: this.newTitle.trim() } }
@@ -71,10 +68,6 @@ export class BacklogComponent {
       this.newTitle = '';
       await this.backlog.addItem(result);
     });
-  }
-
-  memberName(item: BacklogItem): string | null {
-    return item.memberId ? this.household.members().find(m => m.id === item.memberId)?.name ?? null : null;
   }
 
   toggle(item: BacklogItem): void {
@@ -89,7 +82,7 @@ export class BacklogComponent {
       if (!result) return;
       // Cleared optional fields are sent as undefined so they're removed from the item.
       await this.backlog.updateItem(item.id, {
-        title: result.title, notes: result.notes, memberId: result.memberId, scope: result.scope
+        title: result.title, notes: result.notes, scope: result.scope
       });
     });
   }
@@ -105,7 +98,7 @@ export class BacklogComponent {
           mode: 'add',
           scheduling: true,
           defaultDate: new Date(),
-          prefill: { title: item.title, description: item.notes, itemKind: 'task', memberId: item.memberId ?? null, scope: item.scope }
+          prefill: { title: item.title, description: item.notes, itemKind: 'task', scope: item.scope }
         }
       }
     );
