@@ -410,6 +410,8 @@
   gap: 8px;
   box-sizing: border-box;
   pointer-events: none;
+  // Its own layer, so what animates beneath it (the chat input's glow) can't force it to re-blend each frame.
+  transform: translateZ(0);
 
   > .notification-item:first-child {
     margin-top: calc(8px + var(--app-safe-area-top, env(safe-area-inset-top, 0px)));

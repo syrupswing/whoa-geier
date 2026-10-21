@@ -904,9 +904,10 @@
       border: 1px solid rgba(61, 53, 80, 0.14);
       border-radius: 999px;
       background: var(--color-surface);
-      color: var(--color-text-primary);
+      color: var(--color-text-secondary);
       font: inherit;
       font-size: 0.85rem;
+      font-weight: 500;
       cursor: pointer;
       transition: background 0.15s ease, border-color 0.15s ease;
 
@@ -932,14 +933,49 @@
     align-items: center;
     gap: 8px;
     padding: 8px 8px 8px 18px;
-    border-radius: 24px;
-    background: var(--color-surface);
-    animation: home-chat-glow 6s ease-in-out infinite;
+    // A rounded rectangle with a slowly shifting colored glow behind it, the same card the Gavel agent chat uses.
+    // The surface and glow are pseudo-elements behind the content: the glow is blurred and sits just outside
+    // the card's edge, the surface paints over its middle. `isolation` keeps both contained to "behind this
+    // card", and the radius here matches the glow's so mobile browsers that clip the promoted layer to the
+    // box's own corners don't cut a square edge into it.
+    position: relative;
+    isolation: isolate;
+    border-radius: 20px;
+    // Its own layer, so the glow's repaint stays inside this element instead of re-rendering the page layer
+    // beneath the semi-transparent alert banner, which made them flicker where they overlap.
+    transform: translateZ(0);
     width: 92%;
     max-width: 560px;
     align-self: center;
-    &:focus-within {
-      animation-duration: 2.6s;
+
+    &::before {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      z-index: -2;
+      border-radius: 20px;
+      background: linear-gradient(115deg, var(--color-electric-cobalt), var(--color-dusk-rose), var(--color-iris-bloom), var(--color-aura-sage), var(--color-electric-cobalt));
+      background-size: 300% 300%;
+      filter: blur(4px);
+      opacity: 0.45;
+      animation: home-chat-glow-shift 10s ease-in-out infinite;
+    }
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      z-index: -1;
+      border-radius: 18px;
+      background: var(--color-surface);
+      border: 1px solid rgba(61, 53, 80, 0.14);
+      box-shadow:
+        0 8px 32px 0 color-mix(in srgb, var(--color-electric-cobalt) 12%, transparent),
+        0 8px 16px 0 rgba(0, 0, 0, 0.055);
+    }
+
+    &:focus-within::before {
+      animation-duration: 4s;
     }
 
     textarea {
@@ -964,27 +1000,15 @@
   }
 }
 
-// A slow, cycling glow around the chat input — a subtle "listening" cue borrowed
-// from modern AI assistant UIs, using the app's own accent palette.
-@keyframes home-chat-glow {
-  0%, 100% {
-    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-electric-cobalt) 35%, transparent);
-  }
-  25% {
-    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-dusk-rose) 35%, transparent);
-  }
-  50% {
-    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-iris-bloom) 35%, transparent);
-  }
-  75% {
-    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 16px 2px color-mix(in srgb, var(--color-aura-sage) 35%, transparent);
-  }
+// The chat input's glow: a blurred gradient behind the card whose position drifts back and forth.
+@keyframes home-chat-glow-shift {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .home-chat-input {
+  .home-chat-input::before {
     animation: none;
-    box-shadow: 0 0 0 1px rgba(61, 53, 80, 0.06), 0 0 12px 1px color-mix(in srgb, var(--color-electric-cobalt) 25%, transparent);
   }
 }
 
