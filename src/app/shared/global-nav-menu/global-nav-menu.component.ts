@@ -1,4 +1,4 @@
-import { Component, ElementRef, Input, NgZone, OnDestroy, OnInit, inject, signal } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, OnDestroy, OnInit, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -18,62 +18,51 @@ import { NavDrawerService } from '../nav-drawer/nav-drawer.service';
   styleUrl: './global-nav-menu.component.scss',
   host: { '[class.drawer-open]': 'drawer.isOpen()' }
 })
-export class GlobalNavMenuComponent implements OnInit, OnDestroy {
+export class GlobalNavMenuComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly drawer = inject(NavDrawerService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly zone = inject(NgZone);
 
-  /** Gap kept between the pinned button and the top of the screen (below the status bar). */
-  private static readonly STICKY_TOP_GAP = 10;
-
-  /** Whether the button pins to the top of the screen once the page scrolls past it; a page with its own sticky headers turns this off. */
-  @Input() pinOnScroll = true;
-
-  /** True once the page has scrolled the button's resting place off the top — it then pins to the top of the screen. */
-  stuck = signal(false);
-  /** Horizontal position the pinned button keeps — the same column it rests in. */
-  stuckLeft = signal(0);
-  stuckTop = signal(0);
+  /** Horizontal position of the fixed button: the column its slot in the page header sits in. */
+  left = signal(0);
 
   private frame = 0;
 
-  ngOnInit(): void {
-    // The page scrolls inside .app-container, and scroll events don't bubble, so listen in the
-    // capture phase. Outside Angular's zone: scrolling shouldn't trigger change detection on its
-    // own — only a change in the pinned state (a signal) re-renders.
-    this.zone.runOutsideAngular(() => {
-      window.addEventListener('scroll', this.scheduleUpdate, true);
-      window.addEventListener('resize', this.scheduleUpdate);
+  constructor() {
+    // The page slides sideways while the drawer opens, which would skew a measurement taken then;
+    // measure again once it has settled back.
+    effect(() => {
+      if (!this.drawer.isOpen()) setTimeout(() => this.measure(), 350);
     });
-    this.update();
+  }
+
+  ngOnInit(): void {
+    window.addEventListener('resize', this.scheduleMeasure);
+    this.scheduleMeasure();
+  }
+
+  ngAfterViewInit(): void {
+    // Straight away, so the first paint already has the button in its place.
+    this.measure();
   }
 
   ngOnDestroy(): void {
-    window.removeEventListener('scroll', this.scheduleUpdate, true);
-    window.removeEventListener('resize', this.scheduleUpdate);
+    window.removeEventListener('resize', this.scheduleMeasure);
     cancelAnimationFrame(this.frame);
   }
 
-  private scheduleUpdate = (): void => {
+  private scheduleMeasure = (): void => {
     cancelAnimationFrame(this.frame);
-    this.frame = requestAnimationFrame(() => this.update());
+    this.frame = requestAnimationFrame(() => this.measure());
   };
 
-  private update(): void {
-    if (!this.pinOnScroll) {
-      if (this.stuck()) this.stuck.set(false);
-      return;
-    }
-    // The host keeps its 46px footprint in the header even while the button is pinned, so its
-    // rect is always the button's natural (unpinned) position.
-    const rect = this.host.nativeElement.getBoundingClientRect();
-    const safeTop = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-safe-area-top')) || 0;
-    const top = safeTop + GlobalNavMenuComponent.STICKY_TOP_GAP;
-    const stuck = rect.top < top;
-    if (stuck !== this.stuck()) this.stuck.set(stuck);
-    if (stuck) {
-      this.stuckTop.set(top);
-      this.stuckLeft.set(rect.left);
-    }
+  /**
+   * The button is always fixed at the top of the screen, so scrolling never moves it. Its slot in the
+   * header keeps the 46px footprint (the layout is unchanged), and only the slot's column matters: that
+   * is where the button is placed. Scrolling changes the slot's top, never its left, so nothing
+   * listens to scroll.
+   */
+  private measure(): void {
+    const left = this.host.nativeElement.getBoundingClientRect().left;
+    if (left !== this.left()) this.left.set(left);
   }
 }

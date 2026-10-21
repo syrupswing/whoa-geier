@@ -2,8 +2,8 @@
   display: inline-flex;
   // Always first in the header, above the page heading, on the same side the drawer slides out from.
   order: -1;
-  // Reserves the button's footprint in the header, so the layout doesn't change when the
-  // button itself is pinned to the top of the screen (see .stuck below).
+  // Reserves the button's footprint in the header, so the layout doesn't change even though the
+  // button itself is fixed to the top of the screen (see .global-nav-btn below).
   flex: none;
   width: 46px;
   height: 46px;
@@ -27,25 +27,23 @@
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  border: 2px solid color-mix(in srgb, var(--mat-sys-primary) 45%, transparent);
-  background: transparent;
+  border: 2px solid color-mix(in srgb, var(--mat-sys-primary) 20%, transparent);
+  // Frosted glass at rest too, so it reads the same wherever it sits over the page or an alert card.
+  background: color-mix(in srgb, var(--color-surface, #fff) 20%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
   color: var(--color-void-indigo);
-  box-shadow: none;
+
+  // Always fixed near the top of the screen, whatever the scroll position; left is set inline. The
+  // shadow lifts it over whatever scrolls beneath it.
+  position: fixed;
+  top: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 10px);
+  // Above pages' own sticky headers (the calendar's sit at 120), which stack beneath this button.
+  z-index: 130;
+  box-shadow: 0 2px 10px rgba(26, 10, 46, 0.16);
 
   &:hover {
     transform: translateY(-1px);
-  }
-
-  // Scrolled past the header: stays on screen at the top. Filled and lifted so it reads over
-  // whatever scrolls beneath it (its resting style is transparent). top/left are set inline.
-  &.stuck {
-    position: fixed;
-    // Above pages' own sticky headers (the calendar's sit at 120), which stack beneath this button.
-    z-index: 130;
-    background: color-mix(in srgb, var(--color-surface, #fff) 92%, transparent);
-    -webkit-backdrop-filter: blur(6px);
-    backdrop-filter: blur(6px);
-    box-shadow: 0 2px 10px rgba(26, 10, 46, 0.16);
   }
 
   mat-icon {

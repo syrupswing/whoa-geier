@@ -1,9 +1,7 @@
 <button
   mat-icon-button
   class="global-nav-btn"
-  [class.stuck]="stuck()"
-  [style.top.px]="stuck() ? stuckTop() : null"
-  [style.left.px]="stuck() ? stuckLeft() : null"
+  [style.left.px]="left()"
   matTooltip="Open menu"
   (click)="drawer.toggle()"
   [attr.aria-expanded]="drawer.isOpen()"
