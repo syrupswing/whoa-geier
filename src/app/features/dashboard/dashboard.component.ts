@@ -11,6 +11,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { MatDatepickerModule } from '@angular/material/datepicker';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog } from '@angular/material/dialog';
+import { ChatIdea, ChatIdeaService } from '../../services/chat-idea.service';
+import { ChatIdeaDialogComponent, ChatIdeaDialogData, ChatIdeaDialogResult } from '../../components/chat-idea-dialog/chat-idea-dialog.component';
 import { externalEditLabel, externalEditUrl } from '../../utils/external-edit-link';
 import { SwipeNavDirective } from '../../shared/swipe-nav/swipe-nav.directive';
 import { CalendarSkeletonComponent } from '../../shared/calendar-skeleton/calendar-skeleton.component';
@@ -1905,17 +1907,47 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     el.style.height = `${Math.min(el.scrollHeight, this.CHAT_INPUT_MAX_HEIGHT)}px`;
   }
 
-  /** Starter prompts shown under the chat input; picking one fills the input rather than sending it. */
-  readonly chatIdeas: { icon: string; label: string; prompt: string }[] = [
-    { icon: 'today', label: 'What\'s on today?', prompt: 'What\'s on the family calendar today, and is there anything I need to prepare or leave early for?' },
-    { icon: 'date_range', label: 'Plan the week', prompt: 'Look at the week ahead and point out busy days, clashes between family members, and tasks that are due.' },
-    { icon: 'event_available', label: 'Find a free time', prompt: 'When is the next time everyone in the family is free for two hours? Suggest a few options this week.' },
-    { icon: 'add_task', label: 'Add a task', prompt: 'Add a task to remind me to ' },
-    { icon: 'inventory', label: 'Review the task backlog', prompt: 'What\'s in the task backlog? Suggest which few to schedule this week and when.' },
-    { icon: 'shopping_cart', label: 'Add to groceries', prompt: 'Add the following to the grocery list: ' },
-    { icon: 'restaurant', label: 'Dinner ideas', prompt: 'Suggest three dinner ideas for this week using our saved recipes, and note anything I\'d need to buy.' },
-    { icon: 'directions_car', label: 'Vehicle maintenance', prompt: 'Is any vehicle maintenance due or coming up soon?' }
-  ];
+  readonly chatIdeaService = inject(ChatIdeaService);
+  private ideaPressTimer?: ReturnType<typeof setTimeout>;
+  /** Set when a long press opened the editor, so the click that ends the press doesn't also use the idea. */
+  private ideaPressHandled = false;
+
+  trackIdea(_: number, idea: ChatIdea): string {
+    return idea.id;
+  }
+
+  openIdeaDialog(idea?: ChatIdea): void {
+    // A long press can fire both the hold timer and the browser's context menu; open only one editor.
+    if (this.dialog.openDialogs.length) return;
+    clearTimeout(this.ideaPressTimer);
+    const ref = this.dialog.open<ChatIdeaDialogComponent, ChatIdeaDialogData, ChatIdeaDialogResult>(
+      ChatIdeaDialogComponent, { width: '500px', maxWidth: '95vw', data: { idea } }
+    );
+    ref.afterClosed().subscribe(async result => {
+      if (!result) return;
+      if (result === 'delete') await this.chatIdeaService.remove(idea!.id);
+      else if (idea) await this.chatIdeaService.update(idea.id, result);
+      else await this.chatIdeaService.add(result);
+    });
+  }
+
+  /** Holding an idea (or right-clicking it) opens it for editing; a plain tap uses it. */
+  startIdeaPress(idea: ChatIdea): void {
+    this.ideaPressHandled = false;
+    this.ideaPressTimer = setTimeout(() => {
+      this.ideaPressHandled = true;
+      this.openIdeaDialog(idea);
+    }, 600);
+  }
+
+  endIdeaPress(): void {
+    clearTimeout(this.ideaPressTimer);
+  }
+
+  tapIdea(idea: ChatIdea): void {
+    if (this.ideaPressHandled) { this.ideaPressHandled = false; return; }
+    this.useChatIdea(idea.prompt);
+  }
 
   /** Puts an idea's prompt in the chat input, focused with the cursor at the end so it can be finished or edited. */
   useChatIdea(prompt: string): void {

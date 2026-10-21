@@ -920,6 +920,10 @@
       &:hover {
         border-color: var(--color-primary);
       }
+
+      &.chat-idea-add {
+        padding: 6px;
+      }
     }
   }
 

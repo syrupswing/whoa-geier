@@ -265,6 +265,11 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // Starter prompts for the home chat, shared by the whole family
+    match /chatIdeas/{ideaId} {
+      allow read, create, update, delete: if isAuthenticated();
+    }
+
     match /quickLinks/{linkId} {
       allow read: if isAuthenticated();
       allow create: if isAuthenticated();

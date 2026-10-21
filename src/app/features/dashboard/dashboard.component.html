@@ -202,10 +202,19 @@
       <div class="chat-ideas" *ngIf="chatMessages().length === 0 && !isChatLoading()">
         <h2 class="chat-ideas-title">Ideas</h2>
         <ul class="chat-ideas-list">
-          <li *ngFor="let idea of chatIdeas">
-            <button type="button" class="chat-idea-btn" (click)="useChatIdea(idea.prompt)">
+          <li *ngFor="let idea of chatIdeaService.ideas(); trackBy: trackIdea">
+            <button type="button" class="chat-idea-btn"
+              (click)="tapIdea(idea)" (pointerdown)="startIdeaPress(idea)" (pointerup)="endIdeaPress()"
+              (pointerleave)="endIdeaPress()" (pointercancel)="endIdeaPress()"
+              (contextmenu)="$event.preventDefault(); openIdeaDialog(idea)"
+              matTooltip="Hold to edit">
               <mat-icon>{{ idea.icon }}</mat-icon>
               <span>{{ idea.label }}</span>
+            </button>
+          </li>
+          <li>
+            <button type="button" class="chat-idea-btn chat-idea-add" (click)="openIdeaDialog()" aria-label="Add an idea">
+              <mat-icon>add</mat-icon>
             </button>
           </li>
         </ul>
