@@ -390,7 +390,9 @@ const ORCHESTRATOR_TEMPLATES = {
         ? `\nCurrent weather: ${context.weatherSummary}.`
         : '';
       const calendarClause = context.calendarEvents.length
-        ? `\nUpcoming calendar events (already-finished ones are removed; the soonest come first): ${context.calendarEvents.join('; ')}.`
+        ? `\nUpcoming calendar events (already-finished ones are removed; the soonest come first): ${context.calendarEvents.join('; ')}.` +
+          `\nAn entry titled "Busy (details hidden)" is only a time block from a work calendar: it has no details and no known owner. ` +
+          `Mention it only when asked about availability or free time. Never call it an activity or assign it to a person, especially a child.`
         : '';
       const peopleNowClause = (context.peopleNextUp || []).length
         ? `\nWhere each person is in their regular day right now: ${context.peopleNextUp.join('; ')}.`
@@ -550,7 +552,9 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   // The asker's own synced Outlook calendar, with real titles. Google only holds a free/busy import of
   // it, so without this the answer can only say "Busy". Only the person asking is read, never someone else's.
   let askerName = null;
+  const hiddenOutlookCalendars = new Set(Array.isArray(payload?.hiddenOutlookCalendarIds) ? payload.hiddenOutlookCalendarIds : []);
   let outlookEvents = [];
+  let outlookFresh = false;
   if (caller.uid) {
     const [linkDoc, outlookDoc] = await Promise.all([
       db.collection('memberLinks').doc(caller.uid).get(),
@@ -561,7 +565,9 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
     // Work meetings are plentiful, so only the next two days are included, or they'd crowd out family events.
     const outlookHorizon = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
     if (Date.now() - syncedAt <= OUTLOOK_CACHE_MAX_AGE_MS) {
+      outlookFresh = true;
       outlookEvents = (outlookDoc.data().events || [])
+        .filter(e => !hiddenOutlookCalendars.has(e.calendarId))
         .filter(e => e.kind !== 'task' && !e.isPointInTime && (e.start?.dateTime || e.start?.date))
         .filter(e => new Date(e.start.dateTime || e.start.date) <= outlookHorizon)
         .map(e => ({ ...e, who: askerName }));
@@ -574,7 +580,10 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   const DAY_OVER_MIN = 21 * 60;
   const dayIsOver = nowMin >= DAY_OVER_MIN;
 
-  const cachedEvents = calendarCacheDoc.exists ? (calendarCacheDoc.data().events || []) : [];
+  // Calendars the person has switched off on their device are as invisible to the assistant as to them.
+  const hiddenCalendars = new Set(Array.isArray(payload?.hiddenCalendarIds) ? payload.hiddenCalendarIds : []);
+  const cachedEvents = (calendarCacheDoc.exists ? (calendarCacheDoc.data().events || []) : [])
+    .filter(e => !hiddenCalendars.has(e.calendarId));
   // In-app events too (they know who they're for). Private ones belong to one person and this
   // context is shared with anyone chatting, so they're left out, as are tasks and repeating items.
   const appEvents = appEventsSnap.docs
@@ -582,7 +591,7 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
     .filter(e => !e.isPrivate && !e.repeat && e.kind !== 'task')
     .map(e => ({ ...e, who: e.memberId ? memberNames.get(e.memberId) : null }));
   const sortKey = e => (e.allDay ? new Date(`${e.allDayDateStr}T00:00:00`) : e.start);
-  const calendarEvents = [...chatContext.cleanGoogleEvents(cachedEvents, outlookEvents), ...appEvents, ...outlookEvents]
+  const calendarEvents = [...chatContext.cleanGoogleEvents(cachedEvents, outlookFresh), ...appEvents, ...outlookEvents]
     .map(e => {
       const isAllDay = !e.start?.dateTime;
       const startStr = e.start?.dateTime || e.start?.date;

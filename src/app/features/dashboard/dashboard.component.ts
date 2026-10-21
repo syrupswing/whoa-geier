@@ -1693,7 +1693,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       const knownPeople = this.householdService.members().map(m => m.name);
       const { result, suggestionIds } = await this.aiOrchestrator.generateWithSuggestionIds<
         { text: string; items: ParsedQuickAddItem[] }
-      >('family-chat', { message: userMessage, knownPeople, conversationHistory });
+      >('family-chat', { message: userMessage, knownPeople, conversationHistory, hiddenCalendarIds: this.calendarService.hiddenCalendarIds(), hiddenOutlookCalendarIds: [...this.outlookService.hiddenCalendarIds()] });
 
       const items = result.items || [];
       const ids = suggestionIds || [];

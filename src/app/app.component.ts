@@ -15,6 +15,8 @@ import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
 import { InAppNotificationService } from './services/in-app-notification.service';
 import { SpecialFactsAlertService } from './services/special-facts-alert.service';
+import { GoogleCalendarService } from './services/google-calendar.service';
+import { OutlookCalendarService } from './services/outlook-calendar.service';
 import { RemiScheduleService } from './services/remi-schedule.service';
 import { HouseholdService } from './services/household.service';
 import { DayDetectionService } from './services/day-detection.service';
@@ -80,6 +82,8 @@ export class AppComponent implements OnInit, AfterViewChecked {
     public pushNotificationService: PushNotificationService,
     public drawer: NavDrawerService,
     public notifications: InAppNotificationService,
+    private calendarService: GoogleCalendarService,
+    private outlookService: OutlookCalendarService,
     public specialFacts: SpecialFactsAlertService,
     remiSchedule: RemiScheduleService,
     household: HouseholdService,
@@ -226,7 +230,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     this.isChatLoading.set(true);
     
     try {
-      const result = await this.aiOrchestrator.generate<{ text: string }>('family-chat', { message: userMessage });
+      const result = await this.aiOrchestrator.generate<{ text: string }>('family-chat', { message: userMessage, hiddenCalendarIds: this.calendarService.hiddenCalendarIds(), hiddenOutlookCalendarIds: [...this.outlookService.hiddenCalendarIds()] });
       this.chatMessages.update(messages => [...messages, {
         text: result.text,
         isUser: false,

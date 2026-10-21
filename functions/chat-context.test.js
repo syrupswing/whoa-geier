@@ -4,20 +4,22 @@ const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent } = require('./chat-co
 
 const g = (summary, dateTime) => ({ summary, start: { dateTime }, end: { dateTime } });
 
-test('Busy block matching an Outlook event is dropped; unmatched Busy is relabeled; Free is dropped', () => {
-  const outlook = [{ summary: 'Nate/Sam 1:1', start: { dateTime: '2026-10-22T18:30:00.000Z' } }];
+test('with fresh Outlook data every generic block is dropped', () => {
   const out = cleanGoogleEvents([
-    g('Busy', '2026-10-22T18:30:00Z'),
-    g('Busy', '2026-10-22T19:00:00Z'),
+    g('Busy', '2026-10-21T19:30:00Z'),
     { summary: 'Free', start: { date: '2026-10-21' } },
     g('Remi swimmy', '2026-10-21T22:45:00Z')
-  ], outlook);
-  assert.deepEqual(out.map(e => e.summary), ['Busy (details hidden)', 'Remi swimmy']);
+  ], true);
+  assert.deepEqual(out.map(e => e.summary), ['Remi swimmy']);
 });
 
-test('with no Outlook events every Busy stays, relabeled', () => {
-  const out = cleanGoogleEvents([g('Busy', '2026-10-22T18:30:00Z')], []);
-  assert.equal(out[0].summary, 'Busy (details hidden)');
+test('without Outlook data Busy is kept and relabeled, Free is dropped', () => {
+  const out = cleanGoogleEvents([
+    g('Busy', '2026-10-22T18:30:00Z'),
+    { summary: 'Free', start: { date: '2026-10-21' } },
+    g('Remi swimmy', '2026-10-21T22:45:00Z')
+  ], false);
+  assert.deepEqual(out.map(e => e.summary), ['Busy (details hidden)', 'Remi swimmy']);
 });
 
 test('alerts expire after the day in their rule key; ongoing ones never do', () => {

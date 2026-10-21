@@ -380,6 +380,11 @@ export class GoogleCalendarService {
     return this.visibleCalendarIds().has(calendarId);
   }
 
+  /** Known calendars this device has switched off, so the assistant can leave out what the person doesn't see either. */
+  hiddenCalendarIds(): string[] {
+    return this.calendars().map(c => c.id).filter(id => !this.isCalendarVisible(id));
+  }
+
   private loadVisibleCalendarPreferences(): void {
     try {
       const saved = this.localStorageService.getItem<string>(this.VISIBLE_CALENDARS_KEY);
