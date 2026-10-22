@@ -15,6 +15,7 @@ import { AiOrchestratorService } from './services/ai-orchestrator.service';
 import { PushNotificationService } from './services/push-notification.service';
 import { InAppNotificationService } from './services/in-app-notification.service';
 import { SpecialFactsAlertService } from './services/special-facts-alert.service';
+import { LocalAlertService } from './services/local-alert.service';
 import { GoogleCalendarService } from './services/google-calendar.service';
 import { OutlookCalendarService } from './services/outlook-calendar.service';
 import { RemiScheduleService } from './services/remi-schedule.service';
@@ -85,6 +86,7 @@ export class AppComponent implements OnInit, AfterViewChecked {
     private calendarService: GoogleCalendarService,
     private outlookService: OutlookCalendarService,
     public specialFacts: SpecialFactsAlertService,
+    public localAlerts: LocalAlertService,
     remiSchedule: RemiScheduleService,
     household: HouseholdService,
     injector: Injector

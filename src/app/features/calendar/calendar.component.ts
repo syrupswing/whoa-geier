@@ -1,4 +1,5 @@
-import { Component, OnInit, OnDestroy, HostListener, computed, inject, signal, ChangeDetectionStrategy } from '@angular/core';
+import { LocalAlertService } from '../../services/local-alert.service';
+import { Component, OnInit, OnDestroy, HostListener, computed, inject, signal, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
@@ -124,8 +125,21 @@ export class CalendarComponent implements OnInit, OnDestroy {
     public appCalendarEventService: AppCalendarEventService,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
-    private route: ActivatedRoute
+    private route: ActivatedRoute,
+    private localAlerts: LocalAlertService
   ) {
+    // Connection problems show in the app's floating alert banner, with the fix a tap away.
+    effect(() => {
+      const failed = this.calendarConnectionFailed();
+      const googleError = this.calendarService.error();
+      const outlookError = this.outlookService.error();
+      const connect = () => this.signIn();
+      if (googleError) this.localAlerts.show({ id: 'google-calendar', icon: 'error', text: googleError, actionLabel: 'Connect', action: connect });
+      else if (failed) this.localAlerts.show({ id: 'google-calendar', icon: 'sync_problem', text: 'Unable to connect to Google Calendar.', actionLabel: 'Connect', action: connect });
+      else this.localAlerts.clear('google-calendar');
+      if (outlookError) this.localAlerts.show({ id: 'outlook-calendar', icon: 'error', text: outlookError });
+      else this.localAlerts.clear('outlook-calendar');
+    });
   }
 
   ngOnInit(): void {
@@ -183,6 +197,8 @@ export class CalendarComponent implements OnInit, OnDestroy {
   );
 
   ngOnDestroy(): void {
+    this.localAlerts.clear('google-calendar');
+    this.localAlerts.clear('outlook-calendar');
     this.dateParamSub?.unsubscribe();
     if (this.calendarTimeout) clearTimeout(this.calendarTimeout);
     if (this.timeInterval) {

@@ -6,22 +6,7 @@
 
   <app-add-button label="Add item" (pressed)="openAddEventDialog()"></app-add-button>
 
-  <div *ngIf="outlookService.error()" class="error-box">
-    <mat-icon>error</mat-icon>
-    <p>{{ outlookService.error() }}</p>
-  </div>
-
-  <!-- Error State -->
-  <div *ngIf="calendarService.error()" class="error-box">
-    <mat-icon>error</mat-icon>
-    <p>{{ calendarService.error() }}</p>
-  </div>
-
-  <!-- Timed out with no Google connection — connecting is an action in the options menu -->
-  <div *ngIf="calendarConnectionFailed()" class="error-box">
-    <mat-icon>sync_problem</mat-icon>
-    <p>Unable to connect to calendars. Use the menu to connect Google Calendar.</p>
-  </div>
+  <!-- Connection and sync errors show in the app's floating alert banner (see LocalAlertService). -->
 
   <!-- Same nav/timeline/popover structure as the dashboard's home calendar widget,
        extended with a Sunday–Saturday week view for wide viewports. -->
@@ -86,7 +71,7 @@
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
         </button>
-        <button mat-menu-item *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn()" (click)="signIn()">
+        <button mat-menu-item *ngIf="!calendarService.isSignedIn()" (click)="signIn()">
           <mat-icon>login</mat-icon>
           <span>Connect Google Calendar</span>
         </button>

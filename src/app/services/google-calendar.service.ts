@@ -106,6 +106,8 @@ export class GoogleCalendarService {
   // Signals for reactive state
   isSignedIn = signal<boolean>(false);
   isInitialized = signal<boolean>(false);
+  /** Google's sign-in client is ready, so a Connect click can open the consent window (independent of the calendar client loading). */
+  canConnect = signal<boolean>(false);
   events = signal<CalendarEvent[]>([]);
   calendars = signal<CalendarInfo[]>([]);
   visibleCalendarIds = signal<Set<string>>(new Set(['primary']));
@@ -129,7 +131,7 @@ export class GoogleCalendarService {
   ) {
     this.loadVisibleCalendarPreferences();
     this.loadCachedEvents(); // Show stale events immediately while waiting for auth
-    this.initializeGapi();
+    this.startInit();
 
     // Reconnecting needs both the Google client and the Firebase account (the server keeps
     // the refresh token per account), and either can resolve first.
@@ -147,14 +149,41 @@ export class GoogleCalendarService {
   /**
    * Initialize the Google API client
    */
+  private initPromise?: Promise<void>;
+
+  /** Starts (or restarts, after a failure) loading Google's clients; safe to call while one is running. */
+  private startInit(): Promise<void> {
+    if (!this.initPromise) {
+      this.initPromise = this.initializeGapi().finally(() => {
+        if (!this.isInitialized()) this.initPromise = undefined;
+      });
+    }
+    return this.initPromise;
+  }
+
   private async initializeGapi(): Promise<void> {
     try {
+      // The sign-in client comes first and on its own: Connect needs only this, so a slow or failed
+      // calendar client can't leave the person with no way to reconnect.
+      await this.loadGsiScript();
+      this.codeClient = (window as any).google.accounts.oauth2.initCodeClient({
+        client_id: environment.googleCalendar.clientId,
+        scope: environment.googleCalendar.scopes,
+        ux_mode: 'popup',
+        callback: (response: any) => this.handleAuthCode(response),
+        error_callback: () => {
+          // Popup closed or blocked — nothing to do until the next Connect click.
+        },
+      });
+      this.canConnect.set(true);
+
       // Load the gapi script
       await this.loadGapiScript();
 
       // Initialize gapi client
       await new Promise<void>((resolve, reject) => {
-        gapi.load('client', async () => {
+        gapi.load('client', {
+          callback: async () => {
           try {
             // Initialize with or without API key (OAuth works without it)
             const initConfig: any = {
@@ -174,20 +203,11 @@ export class GoogleCalendarService {
             this.error.set(`Error initializing GAPI: ${err.message}`);
             reject(err);
           }
+          },
+          onerror: () => reject(new Error('Google API failed to load')),
+          timeout: 15000,
+          ontimeout: () => reject(new Error('Google API timed out')),
         });
-      });
-
-      // The code client is only used for the explicit Connect click: it returns a one-time
-      // code the server trades for a long-lived refresh token. Renewals never come back here.
-      await this.loadGsiScript();
-      this.codeClient = (window as any).google.accounts.oauth2.initCodeClient({
-        client_id: environment.googleCalendar.clientId,
-        scope: environment.googleCalendar.scopes,
-        ux_mode: 'popup',
-        callback: (response: any) => this.handleAuthCode(response),
-        error_callback: () => {
-          // Popup closed or blocked — nothing to do until the next Connect click.
-        },
       });
 
       this.isInitialized.set(true);
@@ -250,6 +270,7 @@ export class GoogleCalendarService {
     try {
       const connect = httpsCallable<{ code: string }, TokenResult>(getFunctions(), 'googleCalendarConnect');
       const result = await connect({ code: response.code });
+      await this.startInit();
       this.applyToken(result.data);
     } catch (err: any) {
       if (err?.message === 'no-refresh-token') {
@@ -412,8 +433,10 @@ export class GoogleCalendarService {
   }
   /** Must run from a click — it opens Google's one-time consent window. */
   signIn(): void {
-    if (!this.isInitialized()) {
-      this.error.set('Google API not initialized yet');
+    if (!this.canConnect()) {
+      // Google's script hasn't loaded (offline, blocked, or still loading): try again, and say so.
+      this.error.set('Google sign-in is still loading — try Connect again in a moment.');
+      void this.startInit();
       return;
     }
     this.codeClient.requestCode();

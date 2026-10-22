@@ -1,3 +1,4 @@
+import { LocalAlertService } from '../../services/local-alert.service';
 import { Component, OnInit, AfterViewInit, OnDestroy, signal, computed, ViewChild, ElementRef, inject, effect, HostListener, ChangeDetectionStrategy, untracked } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -339,8 +340,15 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     private aiSuggestionService: AiSuggestionService,
     private householdService: HouseholdService,
     public appCalendarEventService: AppCalendarEventService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private localAlerts: LocalAlertService
   ) {
+    // A lost calendar connection shows in the app's floating alert banner, with Connect on it.
+    effect(() => {
+      const failed = this.calendarConnectionFailed();
+      if (failed) this.localAlerts.show({ id: 'google-calendar', icon: 'sync_problem', text: 'Unable to connect to Google Calendar.', actionLabel: 'Connect', action: () => this.signInToCalendar() });
+      else this.localAlerts.clear('google-calendar');
+    });
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
 
     discardPersistedChatMessages();
@@ -532,6 +540,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   }
 
   ngOnDestroy(): void {
+    this.localAlerts.clear('google-calendar');
     if (this.calendarTimeout) clearTimeout(this.calendarTimeout);
     window.removeEventListener('scroll', this.closePopoverOnScroll, true);
     window.removeEventListener('scroll', this.updateChatDockState, true);

@@ -15,7 +15,7 @@
 <app-sidenav class="sidenav"></app-sidenav>
 <div class="app-container" #appContainer (click)="onContainerClick($event)">
   <!-- In-app twins of push alerts: tapping a push opens the app, and the matching alert waits here. -->
-  <div class="notification-banner" *ngIf="notifications.active().length || specialFacts.lines().length" [attr.inert]="drawer.contentInert() ? '' : null">
+  <div class="notification-banner" *ngIf="notifications.active().length || specialFacts.lines().length || localAlerts.active().length" [attr.inert]="drawer.contentInert() ? '' : null">
     <!-- The day's special facts: the same kind of card as an alert, in the facts' orange. -->
     <ng-container *ngIf="specialFacts.lines() as facts">
       <div class="notification-item" *ngIf="facts.length">
@@ -29,6 +29,15 @@
         </button>
       </div>
     </ng-container>
+    <!-- The app's own alerts (a lost calendar connection, a failed sync), in the same card. -->
+    <div class="notification-item" *ngFor="let a of localAlerts.active()">
+      <mat-icon class="notification-icon">{{ a.icon }}</mat-icon>
+      <div class="notification-text notification-text-static">{{ a.text }}</div>
+      <button mat-button type="button" class="notification-action" *ngIf="a.action" (click)="a.action()">{{ a.actionLabel }}</button>
+      <button mat-icon-button type="button" (click)="localAlerts.dismiss(a)" aria-label="Dismiss alert">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
     <div class="notification-item" *ngFor="let n of notifications.active()">
       <mat-icon class="notification-icon">notifications_active</mat-icon>
       <button type="button" class="notification-text" (click)="notifications.open(n)">

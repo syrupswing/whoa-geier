@@ -307,7 +307,7 @@
           <mat-icon>refresh</mat-icon>
           <span>Refresh</span>
         </button>
-        <button mat-menu-item *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn()" (click)="signInToCalendar()">
+        <button mat-menu-item *ngIf="!calendarService.isSignedIn()" (click)="signInToCalendar()">
           <mat-icon>login</mat-icon>
           <span>Connect Google Calendar</span>
         </button>
@@ -519,14 +519,8 @@
     <!-- Loading: a placeholder day of events until a connection or the first events arrive (10s at most) -->
     <app-calendar-skeleton *ngIf="calendarWaiting()" [columns]="1" [height]="TOTAL_TIMELINE_HEIGHT"></app-calendar-skeleton>
 
-    <!-- Timed out with no Google connection — connecting is an action in the options menu -->
-    <div class="cal-reconnect-banner" *ngIf="calendarConnectionFailed()">
-      <mat-icon>sync_problem</mat-icon>
-      <span>Unable to connect to calendars. Use the menu to connect Google Calendar.</span>
-    </div>
-
     <!-- Connection lapsed but we still have cached events — keep showing them instead of walling off the timeline -->
-    <div class="cal-reconnect-banner" *ngIf="calendarService.isInitialized() && !calendarService.isSignedIn() && calendarService.events().length > 0">
+    <div class="cal-reconnect-banner" *ngIf="!calendarService.isSignedIn() && calendarService.events().length > 0">
       <mat-icon>sync_problem</mat-icon>
       <span>Showing your last-synced events.</span>
       <button type="button" (click)="signInToCalendar()">Reconnect</button>
