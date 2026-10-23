@@ -1,4 +1,4 @@
-import { Injectable, inject, signal, OnDestroy } from '@angular/core';
+import { Injectable, inject, signal, computed, effect, OnDestroy } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { CalendarEvent, TaskCompletion } from './google-calendar.service';
 import { AuthService } from './auth.service';
@@ -38,22 +38,39 @@ export class AppCalendarEventService implements OnDestroy {
   private firestoreService = inject(FirestoreService);
   private authService = inject(AuthService);
   private readonly COLLECTION_NAME = 'calendarEvents';
-  private firestoreSubscription: Unsubscribe | null = null;
+  private unsubscribes: Unsubscribe[] = [];
+  private sharedItems = signal<AppCalendarEvent[]>([]);
+  private ownItems = signal<AppCalendarEvent[]>([]);
 
-  events = signal<AppCalendarEvent[]>([]);
+  /** Shared items plus the signed-in person's own (including their private ones), de-duplicated. */
+  events = computed(() => {
+    const byId = new Map<string, AppCalendarEvent>();
+    for (const item of [...this.sharedItems(), ...this.ownItems()]) byId.set(item.id, item);
+    return [...byId.values()].map(normalizeAllDayEnd);
+  });
 
   constructor() {
-    if (this.firestoreService.isInitialized()) {
-      this.firestoreSubscription = this.firestoreService.subscribeToCollection<AppCalendarEvent>(
-        this.COLLECTION_NAME, (items) => this.events.set(items.map(normalizeAllDayEnd))
+    // Two filtered queries, because the security rules only allow reads provably limited to what
+    // this person may see: items that aren't private, and items they created.
+    effect(() => {
+      const uid = this.authService.currentUser()?.uid;
+      this.unsubscribes.forEach(u => u());
+      this.unsubscribes = [];
+      this.sharedItems.set([]);
+      this.ownItems.set([]);
+      if (!uid || !this.firestoreService.isInitialized()) return;
+      const shared = this.firestoreService.subscribeToWhereEquals<AppCalendarEvent>(
+        this.COLLECTION_NAME, 'isPrivate', false, items => this.sharedItems.set(items)
       );
-    }
+      const own = this.firestoreService.subscribeToWhereEquals<AppCalendarEvent>(
+        this.COLLECTION_NAME, 'createdByUid', uid, items => this.ownItems.set(items)
+      );
+      this.unsubscribes = [shared, own].filter((u): u is Unsubscribe => !!u);
+    }, { allowSignalWrites: true });
   }
 
   ngOnDestroy(): void {
-    if (this.firestoreSubscription) {
-      this.firestoreSubscription();
-    }
+    this.unsubscribes.forEach(u => u());
   }
 
   async addEvent(event: Omit<AppCalendarEvent, 'id' | 'source'>): Promise<string | null> {
@@ -62,6 +79,8 @@ export class AppCalendarEventService implements OnDestroy {
       ...event,
       source: 'app',
       kind: event.kind ?? 'event',
+      // Always stored, because the shared-items query matches on it.
+      isPrivate: event.isPrivate ?? false,
       // Who made it — drives "created by" on shared items and who may see a private one.
       ...(user ? { createdByUid: user.uid, createdByName: user.displayName || user.email || 'Someone' } : {})
     };

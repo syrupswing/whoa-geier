@@ -79,7 +79,10 @@ export class SidenavComponent {
     try {
       this.drawer.close();
       await this.authService.signOut();
-      this.router.navigate(['/login']);
+      await this.router.navigate(['/login']);
+      // Services are app-wide singletons that keep the last person's data in memory, so the next
+      // person to sign in on this device would briefly see it (private items included).
+      window.location.reload();
     } catch (error) {
       console.error('Error signing out:', error);
     }

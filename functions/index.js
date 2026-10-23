@@ -522,7 +522,7 @@ function parseClockLabelToMinutes(label) {
 
 /**
  * Gathers a snapshot of household data for family-chat: the client's last-synced
- * Google Calendar events (app-cache/calendar-events, written by GoogleCalendarService
+ * Google Calendar events (googleCalendarCache/{uid}, the asker's own, written by GoogleCalendarService
  * on every load), Remi's schedule for today (from the cached daily briefing, or
  * computed live if no briefing exists yet), open to-dos, the shopping list, and any
  * pending smart alerts. Anything tied to a specific time of day — calendar events,
@@ -535,7 +535,8 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
   const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap, vehiclesSnap, vehicleRecordsSnap, odometerSnap] = await Promise.all([
-    db.collection('app-cache').doc('calendar-events').get(),
+    // Only the asker's own Google events: the cache is per account, so private calendars never reach someone else's chat.
+    caller.uid ? db.collection('googleCalendarCache').doc(caller.uid).get() : Promise.resolve(null),
     db.collection('remi-daily-briefing').doc(today).get(),
     db.collection('backlog').where('completed', '==', false).get(),
     db.collection('groceryItems').get(),
@@ -582,7 +583,7 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
 
   // Calendars the person has switched off on their device are as invisible to the assistant as to them.
   const hiddenCalendars = new Set(Array.isArray(payload?.hiddenCalendarIds) ? payload.hiddenCalendarIds : []);
-  const cachedEvents = (calendarCacheDoc.exists ? (calendarCacheDoc.data().events || []) : [])
+  const cachedEvents = (calendarCacheDoc?.exists ? (calendarCacheDoc.data().events || []) : [])
     .filter(e => !hiddenCalendars.has(e.calendarId));
   // In-app events too (they know who they're for). Private ones belong to one person and this
   // context is shared with anyone chatting, so they're left out, as are tasks and repeating items.

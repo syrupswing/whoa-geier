@@ -234,10 +234,13 @@ service cloud.firestore {
         return data.get('isPrivate', false) != true
           || (data.get('createdByUid', null) != null
               ? data.get('createdByUid', null) == request.auth.uid
-              : myMemberId() == data.get('memberId', null));
+              : (data.get('memberId', null) != null && myMemberId() == data.get('memberId', null)));
       }
 
-      allow read: if isAuthenticated() && canAccess(resource.data);
+      // The client reads with two queries (isPrivate == false, createdByUid == me) so this is
+      // provable from the query alone; items must carry an explicit isPrivate (see the backfill script).
+      allow read: if isAuthenticated()
+        && (resource.data.isPrivate == false || resource.data.createdByUid == request.auth.uid);
       // A new item must be stamped with its real creator (or left unstamped), so nobody can
       // create items that appear to come from someone else.
       allow create: if isAuthenticated() && canAccess(request.resource.data) &&
@@ -330,14 +333,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['dismissedBy', 'taskAddedBy', 'updatedAt']);
     }
 
-    // Shared cache of the family's Google Calendar events, written by GoogleCalendarService whenever
-    // it syncs and read by the chat function (via the Admin SDK) and by the app on startup, before
-    // sign-in to Google finishes. Without this rule the writes are denied and the cache goes stale.
-    match /app-cache/{docId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if false;
+    // Each person's cached Google Calendar events (including their private calendars), written by
+    // their own browser and read by the chat function through the Admin SDK. Only that person can
+    // read or write it.
+    match /googleCalendarCache/{uid} {
+      allow read, write: if isAuthenticated() && request.auth.uid == uid;
     }
 
     // Default: deny all access unless explicitly granted above

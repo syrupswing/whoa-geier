@@ -150,7 +150,7 @@ export class FirestoreService {
   subscribeToWhereEquals<T>(
     collectionName: string,
     field: string,
-    value: string,
+    value: string | boolean,
     callback: (items: T[]) => void
   ): Unsubscribe | null {
     if (!this.db) {

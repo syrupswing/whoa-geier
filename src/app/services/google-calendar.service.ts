@@ -100,8 +100,7 @@ interface TokenResult {
 export class GoogleCalendarService {
   private readonly TOKEN_STORAGE_KEY = 'google-calendar-token';
   private readonly VISIBLE_CALENDARS_KEY = 'google-calendar-visible-ids';
-  private readonly CACHE_DOC = 'calendar-events';
-  private readonly CACHE_COLLECTION = 'app-cache';
+  private readonly CACHE_COLLECTION = 'googleCalendarCache';
 
   // Signals for reactive state
   isSignedIn = signal<boolean>(false);
@@ -130,8 +129,16 @@ export class GoogleCalendarService {
     private authService: AuthService
   ) {
     this.loadVisibleCalendarPreferences();
-    this.loadCachedEvents(); // Show stale events immediately while waiting for auth
     this.startInit();
+
+    // The cache is per account (it holds that person's private calendars), so it can only be
+    // shown once we know who is signed in.
+    effect(() => {
+      const uid = this.authService.currentUser()?.uid ?? null;
+      untracked(() => {
+        if (uid) this.loadCachedEvents(uid);
+      });
+    });
 
     // Reconnecting needs both the Google client and the Firebase account (the server keeps
     // the refresh token per account), and either can resolve first.
@@ -345,13 +352,13 @@ export class GoogleCalendarService {
     this.localStorageService.removeItem(this.TOKEN_STORAGE_KEY);
   }
 
-  // Load last-cached events from Firestore so the UI shows data before sign-in
-  async loadCachedEvents(): Promise<void> {
+  // Load this account's last-cached events from Firestore so the UI shows data before sign-in
+  async loadCachedEvents(uid: string): Promise<void> {
     if (!this.firestoreService.isInitialized()) return;
     this.isLoadingFromCache.set(true);
     try {
       const cached = await this.firestoreService.getDocument<{ events: CalendarEvent[]; calendars: CalendarInfo[] }>(
-        this.CACHE_COLLECTION, this.CACHE_DOC
+        this.CACHE_COLLECTION, uid
       );
       if (cached?.events?.length) {
         this.events.set(cached.events);
@@ -373,9 +380,10 @@ export class GoogleCalendarService {
   }
 
   private async cacheEventsToFirestore(events: CalendarEvent[]): Promise<void> {
-    if (!this.firestoreService.isInitialized()) return;
+    const uid = this.authService.currentUser()?.uid;
+    if (!uid || !this.firestoreService.isInitialized()) return;
     try {
-      await this.firestoreService.setDocument(this.CACHE_COLLECTION, this.CACHE_DOC, {
+      await this.firestoreService.setDocument(this.CACHE_COLLECTION, uid, {
         events,
         calendars: this.calendars(),
         cachedAt: new Date().toISOString(),
