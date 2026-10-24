@@ -1,5 +1,6 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { FirestoreService } from './firestore.service';
+import { NoteService } from './note.service';
 
 export interface ExplicitFact {
   id: string;
@@ -26,6 +27,8 @@ export interface RecentContextEntry {
   archivedAt?: string | null;
 }
 
+// Explicit facts are notes of kind 'fact' in the family notebook (see NoteService); this keeps
+// the fact-shaped API the rest of the app already uses.
 // This memory system exists to be read by server-side Cloud Functions (nightly smart
 // alerts, briefing generation), so it deliberately has no localStorage fallback like other
 // services here — data that only lives on-device can't inform a job that runs on a schedule.
@@ -35,19 +38,25 @@ export interface RecentContextEntry {
 export class MemoryService {
   private firestoreService = inject(FirestoreService);
 
-  private readonly FACTS_COLLECTION = 'explicitFacts';
+  private noteService = inject(NoteService);
+
   private readonly PATTERNS_COLLECTION = 'learnedPatterns';
   private readonly CONTEXT_COLLECTION = 'recentContext';
 
-  explicitFacts = signal<ExplicitFact[]>([]);
+  explicitFacts = computed<ExplicitFact[]>(() =>
+    this.noteService.facts().map(n => ({
+      id: n.id,
+      memberId: n.memberId,
+      factText: n.body || n.title,
+      category: n.category || 'other',
+      createdAt: n.createdAt
+    }))
+  );
   learnedPatterns = signal<LearnedPattern[]>([]);
   recentContext = signal<RecentContextEntry[]>([]);
 
   constructor() {
     if (this.firestoreService.isInitialized()) {
-      this.firestoreService.subscribeToCollection<ExplicitFact>(
-        this.FACTS_COLLECTION, (items) => this.explicitFacts.set(items)
-      );
       this.firestoreService.subscribeToCollection<LearnedPattern>(
         this.PATTERNS_COLLECTION, (items) => this.learnedPatterns.set(items)
       );
@@ -68,15 +77,26 @@ export class MemoryService {
   }
 
   async addExplicitFact(fact: Omit<ExplicitFact, 'id' | 'createdAt'>): Promise<string | null> {
-    return this.firestoreService.addDocument<ExplicitFact>(this.FACTS_COLLECTION, fact);
+    return this.noteService.add({
+      kind: 'fact',
+      title: fact.factText.slice(0, 80),
+      body: fact.factText,
+      category: fact.category,
+      ...(fact.memberId ? { memberId: fact.memberId } : {})
+    });
   }
 
   async updateExplicitFact(id: string, updates: Partial<ExplicitFact>): Promise<boolean> {
-    return this.firestoreService.updateDocument<ExplicitFact>(this.FACTS_COLLECTION, id, updates);
+    const { factText, category, memberId } = updates;
+    return this.noteService.update(id, {
+      ...(factText !== undefined ? { title: factText.slice(0, 80), body: factText } : {}),
+      ...(category !== undefined ? { category } : {}),
+      ...(memberId !== undefined ? { memberId } : {})
+    });
   }
 
   async deleteExplicitFact(id: string): Promise<boolean> {
-    return this.firestoreService.deleteDocument(this.FACTS_COLLECTION, id);
+    return this.noteService.remove(id);
   }
 
   async addRecentContext(entry: Omit<RecentContextEntry, 'id' | 'archivedAt'>): Promise<string | null> {

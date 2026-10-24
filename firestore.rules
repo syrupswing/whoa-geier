@@ -133,6 +133,15 @@ service cloud.firestore {
       allow delete: if isAuthenticated();
     }
 
+    // The family notebook: facts, providers, places, warranties, how-tos and free-form notes.
+    // Shared by the whole household; read by the Cloud Functions too (Admin SDK).
+    match /notes/{noteId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+
     // "Report a logic bug" submissions from the chat's Correct-this-reply dialog. Anyone signed in can file
     // one; they're read only by the developer through the Admin SDK (functions/pull-bug-reports.js).
     match /replyBugReports/{reportId} {

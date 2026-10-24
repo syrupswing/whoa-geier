@@ -4,13 +4,19 @@
      [class.warning]="card.status === 'pending' && (card.isLowConfidence || card.duplicateNote)">
 
   <div class="card-main">
-    <mat-icon class="type-icon">{{ typeIcons[card.item.type] }}</mat-icon>
+    <mat-icon class="type-icon">{{ typeIcon }}</mat-icon>
 
     <div class="card-details" *ngIf="!card.isEditing || card.status !== 'pending'">
       <div class="card-title-row">
         <span class="card-title">{{ card.item.title || card.item.factText }}</span>
-        <span class="type-label">{{ typeLabels[card.item.type] }}</span>
+        <span class="type-label">{{ typeLabel }}</span>
       </div>
+      <div class="card-meta" *ngIf="card.item.type === 'note' && (card.item.category || card.item.tags?.length)">
+        <span *ngIf="card.item.category">{{ card.item.category }}</span>
+        <span *ngIf="card.item.tags?.length"> · {{ card.item.tags!.join(', ') }}</span>
+      </div>
+      <div class="card-meta" *ngFor="let d of noteDetails">{{ d.label }}: {{ d.value }}</div>
+      <div class="card-meta" *ngIf="card.item.type === 'note' && card.item.body">{{ card.item.body }}</div>
       <div class="card-meta" *ngIf="card.item.date || card.item.person">
         <span *ngIf="card.item.date">{{ card.item.date }}</span>
         <span *ngIf="card.item.time"> · {{ card.item.time }}</span>
@@ -36,7 +42,34 @@
           [ngModel]="card.item.type === 'fact' ? card.item.factText : card.item.title"
           (ngModelChange)="onFieldChange(card.item.type === 'fact' ? 'factText' : 'title', $event)"></textarea>
       </mat-form-field>
-      <mat-form-field appearance="outline" *ngIf="card.item.type !== 'fact'">
+      <ng-container *ngIf="card.item.type === 'note'">
+        <mat-form-field appearance="outline">
+          <mat-label>Save as</mat-label>
+          <mat-select [ngModel]="card.item.noteKind || 'note'" (ngModelChange)="onFieldChange('noteKind', $event)">
+            <mat-option *ngFor="let k of noteKinds" [value]="k.kind">{{ k.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline" *ngFor="let f of noteFields">
+          <mat-label>{{ f.label }}</mat-label>
+          <input matInput [type]="f.type || 'text'"
+                 [ngModel]="card.item.data?.[f.key] || ''"
+                 (ngModelChange)="onDataChange(f.key, $event)">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Category</mat-label>
+          <input matInput [ngModel]="card.item.category || ''" (ngModelChange)="onFieldChange('category', $event)">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Tags (comma separated)</mat-label>
+          <input matInput [ngModel]="(card.item.tags || []).join(', ')" (ngModelChange)="onTagsChange($event)">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Notes</mat-label>
+          <textarea matInput rows="2" cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="8"
+                    [ngModel]="card.item.body || ''" (ngModelChange)="onFieldChange('body', $event)"></textarea>
+        </mat-form-field>
+      </ng-container>
+      <mat-form-field appearance="outline" *ngIf="card.item.type !== 'fact' && card.item.type !== 'note'">
         <mat-label>Date</mat-label>
         <input matInput type="date" [ngModel]="card.item.date" (ngModelChange)="onFieldChange('date', $event)">
       </mat-form-field>
@@ -44,7 +77,7 @@
         <mat-label>Time</mat-label>
         <input matInput type="time" [ngModel]="card.item.time" (ngModelChange)="onFieldChange('time', $event)">
       </mat-form-field>
-      <mat-form-field appearance="outline">
+      <mat-form-field appearance="outline" *ngIf="card.item.type !== 'note'">
         <mat-label>Person</mat-label>
         <input matInput [ngModel]="card.item.person" (ngModelChange)="onFieldChange('person', $event)">
       </mat-form-field>

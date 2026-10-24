@@ -36,4 +36,29 @@ function alertIsCurrent(alert, today) {
   return !expires || expires >= today;
 }
 
-module.exports = { isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent };
+/**
+ * One compact line per family-notebook entry (providers, places, warranties, how-tos, notes) for the chat
+ * prompt. Facts are left out: they are already included in full in every conversation. At family scale the
+ * whole notebook fits in the prompt, so the model picks what's relevant instead of the server searching;
+ * entries beyond `limit` (newest kept) and long bodies are cut so one big note can't crowd out the rest.
+ */
+function summarizeNotebookForChat(notes, { limit = 150, bodyMax = 240, memberNames = new Map() } = {}) {
+  return (notes || [])
+    .filter(n => n && n.kind !== 'fact' && (n.title || n.body))
+    .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+    .slice(0, limit)
+    .map(n => {
+      const parts = [`${n.kind || 'note'}: ${n.title || String(n.body).slice(0, 60)}`];
+      if (n.category) parts.push(`category ${n.category}`);
+      if (n.memberId && memberNames.get(n.memberId)) parts.push(`for ${memberNames.get(n.memberId)}`);
+      for (const [key, value] of Object.entries(n.data || {})) if (value) parts.push(`${key} ${value}`);
+      if (n.tags && n.tags.length) parts.push(`tags ${n.tags.join('/')}`);
+      if (n.body) {
+        const body = String(n.body).replace(/\s+/g, ' ').trim();
+        parts.push(`notes: ${body.length > bodyMax ? body.slice(0, bodyMax) + '…' : body}`);
+      }
+      return parts.join(', ');
+    });
+}
+
+module.exports = { isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };

@@ -2,11 +2,13 @@ import { Injectable, inject } from '@angular/core';
 import { BacklogService } from './backlog.service';
 import { GroceryService } from './grocery.service';
 import { MemoryService, ExplicitFact } from './memory.service';
+import { NoteService, NoteKind } from './note.service';
+import { noteKindDef } from './note-kinds';
 import { HouseholdService } from './household.service';
 import { GoogleCalendarService } from './google-calendar.service';
 import { AppCalendarEventService, nextDayIso } from './app-calendar-event.service';
 
-export type QuickAddItemType = 'event' | 'reminder' | 'todo' | 'fact' | 'shopping_item';
+export type QuickAddItemType = 'event' | 'reminder' | 'todo' | 'fact' | 'shopping_item' | 'note';
 
 export interface QuickAddConfidence {
   date?: 'high' | 'low';
@@ -21,7 +23,15 @@ export interface ParsedQuickAddItem {
   /** Fact only: id of a saved fact this one supersedes, so confirming updates it rather than adding a duplicate. */
   replacesFactId?: string | null;
   category?: string;
+  /** Note only: which kind of notebook entry (provider, place, warranty, how-to, plain note). */
+  noteKind?: NoteKind;
+  /** Note only: free-text details not covered by a kind-specific field. */
+  body?: string;
+  tags?: string[];
+  /** Note only: kind-specific fields, e.g. a provider's phone. */
+  data?: Record<string, string>;
   date?: string;
+
   time?: string;
   person?: string | null;
   confidence?: QuickAddConfidence;
@@ -47,7 +57,8 @@ export const QUICK_ADD_TYPE_ICONS: Record<QuickAddItemType, string> = {
   reminder: 'notifications_active',
   todo: 'task_alt',
   fact: 'psychology',
-  shopping_item: 'shopping_cart'
+  shopping_item: 'shopping_cart',
+  note: 'sticky_note_2'
 };
 
 export const QUICK_ADD_TYPE_LABELS: Record<QuickAddItemType, string> = {
@@ -55,7 +66,8 @@ export const QUICK_ADD_TYPE_LABELS: Record<QuickAddItemType, string> = {
   reminder: 'Reminder',
   todo: 'To-do',
   fact: 'Fact',
-  shopping_item: 'Shopping item'
+  shopping_item: 'Shopping item',
+  note: 'Note'
 };
 
 export interface QuickAddDestination {
@@ -79,6 +91,7 @@ export class QuickAddCreationService {
   private backlogService = inject(BacklogService);
   private groceryService = inject(GroceryService);
   private memoryService = inject(MemoryService);
+  private noteService = inject(NoteService);
   private householdService = inject(HouseholdService);
   private googleCalendarService = inject(GoogleCalendarService);
   private appCalendarEventService = inject(AppCalendarEventService);
@@ -98,6 +111,8 @@ export class QuickAddCreationService {
         return { path: '/backlog', queryParams: highlight, label: 'View in the task backlog' };
       case 'shopping_item':
         return { path: '/grocery-list', queryParams: highlight, label: 'View in the shopping list' };
+      case 'note':
+        return { path: '/notebook', queryParams: highlight, label: 'View in the notebook' };
       case 'fact':
         return { path: '/settings', queryParams: { section: 'family-memory', ...highlight }, label: 'View in Family memory' };
     }
@@ -174,6 +189,20 @@ export class QuickAddCreationService {
       case 'shopping_item': {
         return this.groceryService.addItem(item.title || 'Untitled item');
       }
+      case 'note': {
+        const memberId = this.resolvePersonToMemberId(item.person);
+        const tags = (item.tags || []).filter(Boolean);
+        return this.noteService.add({
+          kind: item.noteKind || 'note',
+          title: item.title || 'Untitled note',
+          body: item.body || undefined,
+          category: item.category || undefined,
+          ...(tags.length ? { tags } : {}),
+          ...(memberId ? { memberId } : {}),
+          ...(item.data && Object.keys(item.data).length ? { data: item.data } : {}),
+          source: 'chat'
+        });
+      }
     }
     return null;
   }
@@ -227,6 +256,17 @@ export class QuickAddCreationService {
       case 'fact': {
         const match = this.memoryService.explicitFacts().find(f => this.isSimilar(f.factText, title));
         return match ? `A similar fact is already saved: "${match.factText}".` : null;
+      }
+      case 'note': {
+        const kind = item.noteKind || 'note';
+        const phone = item.data?.['phone']?.replace(/\D/g, '');
+        const match = this.noteService.notes().find(n =>
+          n.kind === kind && (
+            this.isSimilar(n.title, title) ||
+            (!!phone && phone.length >= 7 && n.data?.['phone']?.replace(/\D/g, '') === phone)
+          )
+        );
+        return match ? `Looks similar to a ${noteKindDef(kind).label.toLowerCase()} already in the notebook: "${match.title}".` : null;
       }
       case 'event': {
         if (!item.date) return null;

@@ -127,8 +127,20 @@ const GROCERY_STORE_SECTIONS = [
   'Dry Goods', 'Condiments', 'Snacks', 'Beverages', 'Health/Beauty', 'Household', 'Other'
 ];
 
+// The family notebook's kinds and the detail fields each one carries (mirrors src/app/services/note-kinds.ts).
+const NOTEBOOK_KINDS = {
+  provider: { about: 'a service professional or business to call again (plumber, dentist, mechanic, vet)', fields: ['business', 'phone', 'email', 'address', 'website', 'status (used | recommended | avoid)', 'recommendedBy', 'lastUsed (YYYY-MM-DD)'] },
+  place: { about: 'a place worth remembering (restaurant, park, trip spot)', fields: ['address', 'phone', 'website', 'hours'] },
+  warranty: { about: 'a warranty or purchase record for an item', fields: ['purchasedOn (YYYY-MM-DD)', 'expiresOn (YYYY-MM-DD)', 'vendor', 'serialNumber', 'claimInfo'] },
+  howto: { about: 'how to do something around the house, car or tech', fields: [] },
+  note: { about: 'any other free-form note', fields: [] }
+};
+const NOTEBOOK_KINDS_BLOCK = Object.entries(NOTEBOOK_KINDS).map(([kind, def]) =>
+  `  - "${kind}": ${def.about}` + (def.fields.length ? `. data keys: ${def.fields.join(', ')}` : '')
+).join('\n');
+
 // Shared item shape/instructions for anything that asks the model to turn free text into
-// structured event/reminder/todo/shopping_item/fact records — used by 'family-chat' so a
+// structured event/reminder/todo/shopping_item/fact/note records — used by 'family-chat' so a
 // chat message can both get a reply and (optionally) propose data to create.
 const ITEM_SCHEMA_BLOCK = (
   `Classify each item as exactly one of these types:\n` +
@@ -137,13 +149,22 @@ const ITEM_SCHEMA_BLOCK = (
   `- "todo": a task. With a "date" it goes on the calendar as a task; with no date it goes to the undated backlog\n` +
   `- "shopping_item": something to buy or add to the shopping list (e.g. "we need milk", "add paper towels to the list")\n` +
   `- "fact": a persistent statement about a person or household rule, not a scheduled item (e.g. ` +
-  `"Remi is allergic to shellfish", "oil change every 5000 miles")\n\n` +
+  `"Remi is allergic to shellfish", "oil change every 5000 miles"). Facts are short and are shown to you in every ` +
+  `future conversation, so use "note" instead for anything longer or only occasionally useful\n` +
+  `- "note": something to keep in the family notebook for later lookup. Set "noteKind" to one of:\n` +
+  `${NOTEBOOK_KINDS_BLOCK}\n` +
+  `  When unsure which kind fits, use noteKind "note" — never drop information because it doesn't fit a kind. ` +
+  `Put details a kind has a field for in "data", and everything else in "body".\n\n` +
   `Each item has this shape (omit fields that don't apply to its type):\n` +
   `{\n` +
-  `  "type": "event" | "reminder" | "todo" | "shopping_item" | "fact",\n` +
-  `  "title": "short title (for event/reminder/todo/shopping_item)",\n` +
+  `  "type": "event" | "reminder" | "todo" | "shopping_item" | "fact" | "note",\n` +
+  `  "title": "short title (for event/reminder/todo/shopping_item/note; for a provider, their name)",\n` +
+  `  "noteKind": "provider" | "place" | "warranty" | "howto" | "note" (for note only),\n` +
+  `  "body": "free-text details not covered by a field (for note only)",\n` +
+  `  "tags": ["short lowercase keywords like plumbing, emergency, dentist"] (for note only),\n` +
+  `  "data": { "fieldKey": "value" } (for note only; only the field keys listed for its kind, omit what wasn't said),\n` +
   `  "factText": "the fact, verbatim or lightly cleaned up (for fact only)",\n` +
-  `  "category": "dietary | preference | maintenance | medical | schedule | other (for fact only)",\n` +
+  `  "category": "for a fact: dietary | preference | maintenance | medical | schedule | other. For a note: a short lowercase area such as house, vehicle, medical, dental, pet, school, legal, financial, other",\n` +
   `  "date": "YYYY-MM-DD (for event/reminder/todo, resolved from today's date above)",\n` +
   `  "time": "HH:mm 24-hour, or null if no time was given (for event/reminder)",\n` +
   `  "person": "a name from the known list above, or the mentioned name/pronoun as written, or null",\n` +
@@ -330,8 +351,8 @@ const ORCHESTRATOR_TEMPLATES = {
     logSuggestion: false,
     maxTokens: 400,
     buildContext: async (db) => {
-      const snap = await db.collection('explicitFacts').get();
-      return { savedFacts: snap.docs.map(d => ({ id: d.id, text: d.data().factText })) };
+      const snap = await db.collection('notes').where('kind', '==', 'fact').get();
+      return { savedFacts: snap.docs.map(d => ({ id: d.id, text: d.data().body || d.data().title })) };
     },
     buildPrompt: (payload, context) => {
       const clip = (text, max) => String(text || '').slice(0, max);
@@ -423,6 +444,12 @@ const ORCHESTRATOR_TEMPLATES = {
         ? `\nVehicles (odometers marked "about" are estimated from past usage, not read off the car): ` +
           `${context.vehicles.join(' | ')}.`
         : '';
+      const notebookClause = (context.notebook || []).length
+        ? `\nThe family notebook (service providers, places, warranties, how-tos and notes they saved). When asked ` +
+          `who to call, where something is, how to do something or similar, answer from it and give the saved details ` +
+          `(phone, address) in full. If nothing in it matches, say it isn't saved rather than guessing, and offer to ` +
+          `save it once they have the details. Entries:\n- ${context.notebook.join('\n- ')}`
+        : '';
       const referenceClause = (context.referenceDocs || []).length
         ? `\n\nReference documents the family saved (flyers, guides, notes). For questions they cover, answer ` +
           `from them, mention which document you used, and don't invent details they don't contain:\n` +
@@ -447,7 +474,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `a short markdown bullet list with the time or name in bold first, one line per item, instead of a ` +
         `paragraph. Use a short bold label rather than a heading to separate parts. Use the household information below when it's relevant to the question — don't recite ` +
         `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${peopleNowClause}${specialFactsClause}${weatherClause}${calendarClause}` +
-        `${todosClause}${groceryClause}${alertsClause}${vehiclesClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
+        `${todosClause}${groceryClause}${alertsClause}${vehiclesClause}${notebookClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
         `the user is clearly asking you to add/save/remember/schedule something (e.g. "remind me to...", ` +
@@ -480,14 +507,14 @@ function loggableContext(context) {
 async function buildOrchestratorMemoryContext(db, memberId) {
   const now = new Date();
   const [factsSnap, contextSnap] = await Promise.all([
-    db.collection('explicitFacts').get(),
+    db.collection('notes').where('kind', '==', 'fact').get(),
     db.collection('recentContext').get()
   ]);
 
   const facts = factsSnap.docs
     .map(d => d.data())
     .filter(f => !f.memberId || f.memberId === memberId)
-    .map(f => f.factText);
+    .map(f => f.body || f.title);
 
   const recentContext = contextSnap.docs
     .map(d => d.data())
@@ -534,7 +561,7 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   const today = toDateStr(now);
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap, vehiclesSnap, vehicleRecordsSnap, odometerSnap] = await Promise.all([
+  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap, vehiclesSnap, vehicleRecordsSnap, odometerSnap, notesSnap] = await Promise.all([
     // Only the asker's own Google events: the cache is per account, so private calendars never reach someone else's chat.
     caller.uid ? db.collection('googleCalendarCache').doc(caller.uid).get() : Promise.resolve(null),
     db.collection('remi-daily-briefing').doc(today).get(),
@@ -545,7 +572,8 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
     db.collection('calendarEvents').get(),
     db.collection('vehicles').get(),
     db.collection('maintenanceRecords').get(),
-    db.collection('odometerReadings').get()
+    db.collection('odometerReadings').get(),
+    db.collection('notes').get()
   ]);
   const members = (householdDoc.exists && householdDoc.data().members) || [];
   const memberNames = new Map(members.map(m => [m.id, m.name]));
@@ -794,15 +822,18 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
     now
   });
 
+  const notebook = chatContext.summarizeNotebookForChat(notesSnap.docs.map(d => d.data()), { memberNames });
+
   const todayWeekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
 
   const referenceDocs = await selectReferenceDocs(db, payload?.message);
 
-  return { today, todayWeekday, nowLabel, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, vehicles, referenceDocs };
+  return { today, todayWeekday, nowLabel, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, vehicles, notebook, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(
-  { secrets: ['CLAUDE_API_KEY', 'OPEN_WEATHER_API_KEY'] },
+  // 512 MiB: the chat context loads several whole collections plus reference docs, and overran the 256 MiB default.
+  { secrets: ['CLAUDE_API_KEY', 'OPEN_WEATHER_API_KEY'], memory: '512MiB' },
   async (request) => {
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Sign-in required');

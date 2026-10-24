@@ -1,0 +1,125 @@
+.notebook-container {
+  max-width: 900px;
+  margin: 0 auto;
+
+  h1 {
+    font-size: 2rem;
+    margin: 0;
+    line-height: 1.2;
+    color: var(--color-text-primary);
+    font-weight: 700;
+  }
+
+  .subtitle {
+    margin: 6px 0 24px;
+    color: var(--color-text-secondary);
+  }
+}
+
+.search-field {
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border-radius: 999px;
+    border: 1px solid rgba(128, 128, 128, 0.35);
+    background: transparent;
+    color: var(--color-text-primary);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+
+    mat-icon { font-size: 16px; width: 16px; height: 16px; }
+
+    &.active {
+      background: color-mix(in srgb, var(--color-aura-sage) 20%, transparent);
+      border-color: var(--color-aura-sage);
+    }
+  }
+
+  &.secondary .chip { font-size: 12px; padding: 4px 10px; }
+}
+
+.note-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.note-card {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 14px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  .kind-icon { flex: none; color: var(--color-aura-sage); margin-top: 2px; }
+  .note-main { flex: 1; min-width: 0; }
+  .note-actions { flex: none; display: flex; }
+
+  .note-title-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+
+    h3 { margin: 0; font-size: 1.05rem; font-weight: 600; overflow-wrap: anywhere; }
+    .kind-label { font-size: 12px; color: var(--color-text-secondary); }
+  }
+
+  .note-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+
+  .note-detail {
+    display: flex;
+    gap: 8px;
+    margin-top: 4px;
+    font-size: 14px;
+    overflow-wrap: anywhere;
+
+    .detail-label { flex: none; min-width: 90px; color: var(--color-text-secondary); }
+    a { color: var(--color-aura-sage); }
+  }
+
+  .note-body {
+    margin: 8px 0 0;
+    font-size: 14px;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+}
+
+.empty-text {
+  text-align: center;
+  color: var(--color-text-secondary);
+  margin-top: 32px;
+}
+
+.form-dialog .form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px 16px;
+  margin-top: 16px;
+
+  .full-width { grid-column: 1 / -1; }
+}

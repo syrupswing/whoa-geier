@@ -1,0 +1,111 @@
+<div class="notebook-container">
+  <div class="header">
+    <h1>Notebook</h1>
+    <app-global-nav-menu></app-global-nav-menu>
+  </div>
+  <p class="subtitle">Providers, places, warranties and anything else worth remembering. Ask the chat to save or find things here.</p>
+
+  <app-add-button label="Add to the notebook" (pressed)="openAdd()"></app-add-button>
+
+  <mat-form-field appearance="outline" class="search-field" subscriptSizing="dynamic">
+    <mat-label>Search</mat-label>
+    <mat-icon matPrefix>search</mat-icon>
+    <input matInput type="search" [ngModel]="search()" (ngModelChange)="search.set($event)" placeholder="plumber, warranty, dentist…">
+  </mat-form-field>
+
+  <div class="chips" *ngIf="kindsInUse().length > 1">
+    <button type="button" class="chip" [class.active]="!kindFilter()" (click)="setKindFilter(null)">All</button>
+    <button type="button" class="chip" *ngFor="let k of kindsInUse()"
+            [class.active]="kindFilter() === k.kind" (click)="setKindFilter(k.kind)">
+      <mat-icon>{{ k.icon }}</mat-icon>{{ k.plural }}
+    </button>
+  </div>
+  <div class="chips secondary" *ngIf="categoryChips().length > 1">
+    <button type="button" class="chip" *ngFor="let c of categoryChips()"
+            [class.active]="categoryFilter() === c"
+            (click)="categoryFilter.set(categoryFilter() === c ? null : c)">{{ c }}</button>
+  </div>
+
+  <div class="note-list" *ngIf="visible().length; else empty">
+    <article class="note-card" *ngFor="let note of visible()" [attr.data-highlight-id]="note.id">
+      <mat-icon class="kind-icon">{{ kindDef(note.kind).icon }}</mat-icon>
+      <div class="note-main">
+        <div class="note-title-row">
+          <h3>{{ note.title }}</h3>
+          <span class="kind-label">{{ kindDef(note.kind).label }}</span>
+        </div>
+        <div class="note-meta" *ngIf="note.category || memberName(note.memberId) || note.tags?.length">
+          <span *ngIf="note.category">{{ note.category }}</span>
+          <span *ngIf="memberName(note.memberId)">for {{ memberName(note.memberId) }}</span>
+          <span class="tag" *ngFor="let t of note.tags">#{{ t }}</span>
+        </div>
+        <div class="note-detail" *ngFor="let d of details(note)">
+          <span class="detail-label">{{ displayLabel(d.field) }}</span>
+          <a *ngIf="linkFor(d.field, d.value) as href; else plain" [href]="href"
+             [attr.target]="d.field.type === 'url' || d.field.key === 'address' ? '_blank' : null" rel="noopener noreferrer">{{ d.value }}</a>
+          <ng-template #plain><span>{{ d.value }}</span></ng-template>
+        </div>
+        <p class="note-body" *ngIf="note.body && note.body !== note.title">{{ note.body }}</p>
+      </div>
+      <div class="note-actions">
+        <button mat-icon-button (click)="openEdit(note)" aria-label="Edit"><mat-icon>edit</mat-icon></button>
+        <button mat-icon-button (click)="remove(note)" aria-label="Delete"><mat-icon>delete</mat-icon></button>
+      </div>
+    </article>
+  </div>
+  <ng-template #empty>
+    <p class="empty-text" *ngIf="!noteService.isLoading()">
+      {{ noteService.notes().length ? 'Nothing matches.' : 'Nothing saved yet. Add something here, or tell the chat what to remember.' }}
+    </p>
+  </ng-template>
+
+  <ng-template #noteDialog>
+    <h2 mat-dialog-title>{{ editingId() ? 'Edit entry' : 'Add to the notebook' }}</h2>
+    <mat-dialog-content class="form-dialog">
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Kind</mat-label>
+          <mat-select [(ngModel)]="form.kind">
+            <mat-option *ngFor="let k of kinds" [value]="k.kind">{{ k.label }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>{{ kindDef(form.kind).titleLabel }}</mat-label>
+          <input matInput [(ngModel)]="form.title">
+        </mat-form-field>
+        <mat-form-field appearance="outline" *ngFor="let f of fieldsFor(form.kind)">
+          <mat-label>{{ f.label }}</mat-label>
+          <input matInput [type]="f.type || 'text'" [(ngModel)]="form.data[f.key]">
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Category</mat-label>
+          <input matInput [(ngModel)]="form.category" [attr.list]="'categories'">
+          <datalist id="categories">
+            <option *ngFor="let c of kindDef(form.kind).categories" [value]="c"></option>
+          </datalist>
+        </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Tags (comma separated)</mat-label>
+          <input matInput [(ngModel)]="form.tags">
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>{{ kindDef(form.kind).bodyLabel }}</mat-label>
+          <textarea matInput rows="3" cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="10" [(ngModel)]="form.body"></textarea>
+        </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>About</mat-label>
+          <mat-select [(ngModel)]="form.memberId">
+            <mat-option value="">Whole household</mat-option>
+            <mat-option *ngFor="let m of household.members()" [value]="m.id">{{ m.name }}</mat-option>
+          </mat-select>
+        </mat-form-field>
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Cancel</button>
+      <button mat-raised-button color="primary" [disabled]="!canSave() || isSaving()" (click)="save()">
+        {{ isSaving() ? 'Saving…' : 'Save' }}
+      </button>
+    </mat-dialog-actions>
+  </ng-template>
+</div>

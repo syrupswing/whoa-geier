@@ -33,6 +33,7 @@ export class SidenavComponent {
     { path: '/food', icon: 'restaurant', label: 'Food' },
     { path: '/calendar', icon: 'calendar_month', label: 'Calendar' },
     { path: '/vehicles', icon: 'directions_car', label: 'Vehicles' },
+    { path: '/notebook', icon: 'auto_stories', label: 'Notebook' },
     { path: '/remi-world', icon: 'sports_esports', label: 'Remi world' },
     { path: '/settings', icon: 'settings', label: 'Settings' }
   ];

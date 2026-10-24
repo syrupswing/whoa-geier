@@ -49,6 +49,11 @@ export const routes: Routes = [
     canActivate: [authGuard]
   },
   {
+    path: 'notebook',
+    loadComponent: () => import('./features/notebook/notebook.component').then(m => m.NotebookComponent),
+    canActivate: [authGuard]
+  },
+  {
     path: 'remi-world',
     loadComponent: () => import('./features/remi-world/remi-world.component').then(m => m.RemiWorldComponent),
     canActivate: [authGuard]
