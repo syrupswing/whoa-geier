@@ -68,7 +68,22 @@ export class NoteService {
     const cleaned = Object.fromEntries(
       Object.entries(this.clean(note)).filter(([, value]) => value !== undefined)
     ) as NewNote;
+    if (cleaned.kind === 'service') void this.markProviderUsed(cleaned);
     return this.firestore.addDocument<Note>(this.COLLECTION, cleaned);
+  }
+
+  /**
+   * A logged service means its provider (matched by name, or business name, in the provider entries) was
+   * last used on that date. Never moves the date backwards, and does nothing if no provider matches.
+   */
+  private async markProviderUsed(service: NewNote): Promise<void> {
+    const name = service.data?.['provider']?.trim().toLowerCase();
+    const doneOn = service.data?.['doneOn'];
+    if (!name || !doneOn) return;
+    const provider = this.notes().find(n => n.kind === 'provider' &&
+      [n.title, n.data?.['business']].some(v => v?.trim().toLowerCase() === name));
+    if (!provider || (provider.data?.['lastUsed'] ?? '') >= doneOn) return;
+    await this.update(provider.id, { data: { ...provider.data, lastUsed: doneOn } });
   }
 
   update(id: string, updates: Partial<NewNote>): Promise<boolean> {

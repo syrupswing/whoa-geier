@@ -1,5 +1,5 @@
 /** The kinds of thing the family notebook holds, and the extra fields each kind carries in `data`. */
-export type NoteKind = 'fact' | 'note' | 'provider' | 'place' | 'warranty' | 'howto';
+export type NoteKind = 'fact' | 'note' | 'provider' | 'place' | 'warranty' | 'service' | 'howto';
 
 export interface NoteField {
   key: string;
@@ -59,6 +59,18 @@ export const NOTE_KINDS: NoteKindDef[] = [
       { key: 'claimInfo', label: 'How to claim' }
     ],
     categories: ['appliance', 'electronics', 'vehicle', 'home', 'other']
+  },
+  {
+    kind: 'service', label: 'Service', plural: 'Services', icon: 'handyman',
+    titleLabel: 'What was done', bodyLabel: 'How it went',
+    fields: [
+      { key: 'provider', label: 'Provider' },
+      { key: 'doneOn', label: 'Date done', type: 'date' },
+      { key: 'cost', label: 'Cost' },
+      { key: 'coveredUntil', label: 'Guaranteed until', type: 'date' },
+      { key: 'nextDue', label: 'Next due', type: 'date' }
+    ],
+    categories: ['house', 'vehicle', 'appliance', 'yard', 'other']
   },
   {
     kind: 'howto', label: 'How-to', plural: 'How-tos', icon: 'menu_book',

@@ -262,7 +262,8 @@ export class QuickAddCreationService {
         const phone = item.data?.['phone']?.replace(/\D/g, '');
         const match = this.noteService.notes().find(n =>
           n.kind === kind && (
-            this.isSimilar(n.title, title) ||
+            // The same job done again on another day is a new service, not a duplicate.
+            (this.isSimilar(n.title, title) && (kind !== 'service' || n.data?.['doneOn'] === item.data?.['doneOn'])) ||
             (!!phone && phone.length >= 7 && n.data?.['phone']?.replace(/\D/g, '') === phone)
           )
         );

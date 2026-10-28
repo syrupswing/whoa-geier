@@ -132,6 +132,7 @@ const NOTEBOOK_KINDS = {
   provider: { about: 'a service professional or business to call again (plumber, dentist, mechanic, vet)', fields: ['business', 'phone', 'email', 'address', 'website', 'status (used | recommended | avoid)', 'recommendedBy', 'lastUsed (YYYY-MM-DD)'] },
   place: { about: 'a place worth remembering (restaurant, park, trip spot)', fields: ['address', 'phone', 'website', 'hours'] },
   warranty: { about: 'a warranty or purchase record for an item', fields: ['purchasedOn (YYYY-MM-DD)', 'expiresOn (YYYY-MM-DD)', 'vendor', 'serialNumber', 'claimInfo'] },
+  service: { about: 'a job a provider completed (sewer line cleared, furnace tuned, oil change): what was done and how it went in "body", the provider\'s name in "provider"', fields: ['provider', 'doneOn (YYYY-MM-DD, resolved from today\'s date)', 'cost (as said, e.g. $285)', 'coveredUntil (YYYY-MM-DD, only if a guarantee was mentioned)', 'nextDue (YYYY-MM-DD, only if a follow-up or repeat was recommended)'] },
   howto: { about: 'how to do something around the house, car or tech', fields: [] },
   note: { about: 'any other free-form note', fields: [] }
 };
@@ -159,7 +160,7 @@ const ITEM_SCHEMA_BLOCK = (
   `{\n` +
   `  "type": "event" | "reminder" | "todo" | "shopping_item" | "fact" | "note",\n` +
   `  "title": "short title (for event/reminder/todo/shopping_item/note; for a provider, their name)",\n` +
-  `  "noteKind": "provider" | "place" | "warranty" | "howto" | "note" (for note only),\n` +
+  `  "noteKind": "provider" | "place" | "warranty" | "service" | "howto" | "note" (for note only),\n` +
   `  "body": "free-text details not covered by a field (for note only)",\n` +
   `  "tags": ["short lowercase keywords like plumbing, emergency, dentist"] (for note only),\n` +
   `  "data": { "fieldKey": "value" } (for note only; only the field keys listed for its kind, omit what wasn't said),\n` +
