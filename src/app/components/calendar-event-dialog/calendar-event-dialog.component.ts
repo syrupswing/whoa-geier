@@ -92,10 +92,11 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
             <mat-button-toggle value="task">Task</mat-button-toggle>
           </mat-button-toggle-group>
           <!-- Not item types here: these open a new event in Google Calendar / Outlook (prefilled
-               from this form), so it's created at that source instead of in the app. -->
+               from this form), so it's created at that source instead of in the app. The dialog closes
+               with the click, since there's nothing left to do here; the link still opens as usual. -->
           <ng-container *ngIf="data.mode === 'add'">
-            <a class="external-btn" [href]="googleEventUrl()" target="_blank" rel="noopener">Google<mat-icon>open_in_new</mat-icon></a>
-            <a class="external-btn" [href]="outlookEventUrl()" target="_blank" rel="noopener">Outlook<mat-icon>open_in_new</mat-icon></a>
+            <a class="external-btn" [href]="googleEventUrl()" target="_blank" rel="noopener" (click)="onCancel()">Google<mat-icon>open_in_new</mat-icon></a>
+            <a class="external-btn" [href]="outlookEventUrl()" target="_blank" rel="noopener" (click)="onCancel()">Outlook<mat-icon>open_in_new</mat-icon></a>
           </ng-container>
         </div>
         <p class="kind-hint" *ngIf="formData.itemKind === 'task'">
