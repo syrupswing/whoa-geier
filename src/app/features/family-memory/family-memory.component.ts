@@ -10,6 +10,7 @@ import { MatSelectModule } from '@angular/material/select';
 import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MemoryService, ExplicitFact } from '../../services/memory.service';
 import { HouseholdService } from '../../services/household.service';
@@ -32,6 +33,7 @@ const CATEGORIES = ['dietary', 'preference', 'maintenance', 'medical', 'schedule
     MatButtonToggleModule,
     MatChipsModule,
     MatTooltipModule,
+    MatProgressBarModule,
     MatSnackBarModule
   ],
   templateUrl: './family-memory.component.html',
@@ -47,10 +49,13 @@ export class FamilyMemoryComponent {
 
 
   // Reference library
-  docMode: 'paste' | 'link' = 'paste';
+  docMode: 'paste' | 'link' | 'file' = 'file';
   docTitle = '';
   docText = '';
   docUrl = '';
+  docSearch = '';
+  selectedFile = signal<File | null>(null);
+  uploadPercent = signal(0);
   isAddingDoc = signal(false);
   refreshingDocId = signal<string | null>(null);
   expandedDocId = signal<string | null>(null);
@@ -63,18 +68,59 @@ export class FamilyMemoryComponent {
   ) {}
 
   canAddDoc(): boolean {
+    if (this.docMode === 'file') return !!this.selectedFile();
     return this.docMode === 'paste' ? !!this.docText.trim() : !!this.docUrl.trim();
+  }
+
+  /** The library, narrowed by the search box (title, summary, file name and the saved text). */
+  filteredDocs(): ReferenceDoc[] {
+    const terms = this.docSearch.toLowerCase().split(/\s+/).filter(Boolean);
+    return this.referenceDocs.docs().filter(d => {
+      if (!terms.length) return true;
+      const haystack = [d.title, d.summary, d.fileName, d.text].join(' ').toLowerCase();
+      return terms.every(t => haystack.includes(t));
+    });
+  }
+
+  onFilePicked(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    input.value = '';   // so picking the same file again still fires
+    if (file && !this.referenceDocs.uploadTypeFor(file)) {
+      this.snackBar.open('Upload a PDF, a photo (JPEG, PNG, WebP) or a text file', 'Close', { duration: 5000 });
+      return;
+    }
+    this.selectedFile.set(file);
+  }
+
+  fileSizeLabel(bytes: number | undefined): string {
+    if (!bytes) return '';
+    return bytes >= 1024 * 1024 ? `${(bytes / (1024 * 1024)).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  }
+
+  async openDoc(doc: ReferenceDoc): Promise<void> {
+    try {
+      await this.referenceDocs.openFile(doc);
+    } catch (err: any) {
+      this.snackBar.open(err?.message || "Couldn't open that file", 'Close', { duration: 5000 });
+    }
   }
 
   async addDoc(): Promise<void> {
     if (!this.canAddDoc() || this.isAddingDoc()) return;
     this.isAddingDoc.set(true);
+    this.uploadPercent.set(0);
     try {
-      await this.referenceDocs.add({
-        title: this.docTitle.trim() || undefined,
-        text: this.docMode === 'paste' ? this.docText : undefined,
-        url: this.docMode === 'link' ? this.docUrl.trim() : undefined
-      });
+      if (this.docMode === 'file') {
+        await this.referenceDocs.upload(this.selectedFile()!, this.docTitle.trim() || undefined, p => this.uploadPercent.set(p));
+        this.selectedFile.set(null);
+      } else {
+        await this.referenceDocs.add({
+          title: this.docTitle.trim() || undefined,
+          text: this.docMode === 'paste' ? this.docText : undefined,
+          url: this.docMode === 'link' ? this.docUrl.trim() : undefined
+        });
+      }
       this.docTitle = '';
       this.docText = '';
       this.docUrl = '';
@@ -100,7 +146,7 @@ export class FamilyMemoryComponent {
 
   async deleteDoc(doc: ReferenceDoc): Promise<void> {
     if (!confirm(`Remove "${doc.title}" from the reference library?`)) return;
-    const ok = await this.referenceDocs.remove(doc.id);
+    const ok = await this.referenceDocs.remove(doc);
     if (!ok) {
       this.snackBar.open('Failed to delete', 'Close', { duration: 3000 });
     }

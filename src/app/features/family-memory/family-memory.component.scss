@@ -61,6 +61,20 @@
     margin-top: 12px;
   }
 
+  .file-pick {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+
+    .file-name { font-size: 0.85rem; overflow-wrap: anywhere; }
+    mat-progress-bar { width: 100%; }
+  }
+
+  .doc-search {
+    margin-top: 12px;
+  }
+
   .doc-list {
     display: flex;
     flex-direction: column;
@@ -98,6 +112,12 @@
       .doc-summary {
         font-size: 0.85rem;
         opacity: 0.8;
+      }
+
+      .doc-file {
+        font-size: 0.75rem;
+        opacity: 0.7;
+        overflow-wrap: anywhere;
       }
 
       .doc-link {

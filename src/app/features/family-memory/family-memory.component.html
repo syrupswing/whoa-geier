@@ -50,12 +50,14 @@
     </mat-card-header>
     <mat-card-content>
       <p class="hint-text">
-        Flyers, guides and notes the chat can answer from — paste the text, or link to a web page, PDF or
-        Google Doc. Links must be public (for a Google Doc, share it as "anyone with the link"); a link is
-        saved as a snapshot, so use Refresh to pick up changes.
+        Documents the whole family can open and the chat can answer from. Upload a PDF, photo or text file
+        (flyers, receipts, forms), paste the text, or link to a web page, PDF or Google Doc. Links must be
+        public (for a Google Doc, share it as "anyone with the link"); a link is saved as a snapshot, so use
+        Refresh to pick up changes.
       </p>
 
       <mat-button-toggle-group class="doc-mode" [(ngModel)]="docMode" aria-label="How to add a document">
+        <mat-button-toggle value="file">Upload file</mat-button-toggle>
         <mat-button-toggle value="paste">Paste text</mat-button-toggle>
         <mat-button-toggle value="link">Link</mat-button-toggle>
       </mat-button-toggle-group>
@@ -65,6 +67,17 @@
           <mat-label>Title (optional)</mat-label>
           <input matInput [(ngModel)]="docTitle" placeholder="Summer swim lesson flyer">
         </mat-form-field>
+
+        <div class="full-width file-pick" *ngIf="docMode === 'file'">
+          <input #filePicker type="file" hidden accept="application/pdf,image/*,text/plain,.pdf,.txt" (change)="onFilePicked($event)">
+          <button mat-stroked-button type="button" [disabled]="isAddingDoc()" (click)="filePicker.click()">
+            <mat-icon>upload_file</mat-icon>
+            {{ selectedFile() ? 'Choose a different file' : 'Choose a file' }}
+          </button>
+          <span class="file-name" *ngIf="selectedFile() as file">{{ file.name }} · {{ fileSizeLabel(file.size) }}</span>
+          <span class="hint-text" *ngIf="!selectedFile()">PDF, photo or text file, up to 15 MB</span>
+          <mat-progress-bar *ngIf="isAddingDoc() && uploadPercent() < 100" mode="determinate" [value]="uploadPercent()"></mat-progress-bar>
+        </div>
 
         <mat-form-field appearance="outline" class="full-width" *ngIf="docMode === 'paste'">
           <mat-label>Text</mat-label>
@@ -77,17 +90,25 @@
         </mat-form-field>
       </div>
 
+      <mat-form-field appearance="outline" class="full-width doc-search" *ngIf="referenceDocs.docs().length > 1">
+        <mat-label>Search documents</mat-label>
+        <input matInput [(ngModel)]="docSearch" placeholder="Title, summary or anything in the text">
+        <mat-icon matSuffix>search</mat-icon>
+      </mat-form-field>
+
       <div class="doc-list" *ngIf="referenceDocs.docs().length; else noDocs">
-        <div class="doc-row" *ngFor="let doc of referenceDocs.docs()">
+        <p class="hint-text" *ngIf="!filteredDocs().length">Nothing matches that search.</p>
+        <div class="doc-row" *ngFor="let doc of filteredDocs()">
           <div class="doc-main">
             <div class="doc-heading">
               <strong>{{ doc.title }}</strong>
               <mat-chip-set>
-                <mat-chip>{{ doc.source === 'url' ? 'Link' : 'Pasted' }}</mat-chip>
+                <mat-chip>{{ doc.source === 'url' ? 'Link' : doc.source === 'file' ? 'File' : 'Pasted' }}</mat-chip>
                 <mat-chip *ngIf="doc.truncated">Shortened</mat-chip>
               </mat-chip-set>
             </div>
             <span class="doc-summary" *ngIf="doc.summary">{{ doc.summary }}</span>
+            <span class="doc-file" *ngIf="doc.source === 'file'">{{ doc.fileName }} · {{ fileSizeLabel(doc.size) }}</span>
             <a *ngIf="doc.url" class="doc-link" [href]="doc.url" target="_blank" rel="noopener">{{ doc.url }}</a>
             <button type="button" class="doc-toggle" (click)="toggleDocExpanded(doc.id)">
               {{ expandedDocId() === doc.id ? 'Hide text' : 'Show saved text' }}
@@ -95,6 +116,9 @@
             <pre class="doc-text" *ngIf="expandedDocId() === doc.id">{{ doc.text }}</pre>
           </div>
           <div class="doc-actions">
+            <button mat-icon-button *ngIf="doc.source === 'file'" (click)="openDoc(doc)" matTooltip="Open the file">
+              <mat-icon>open_in_new</mat-icon>
+            </button>
             <button
               mat-icon-button
               *ngIf="doc.source === 'url'"
@@ -115,7 +139,7 @@
     </mat-card-content>
     <mat-card-actions>
       <button mat-raised-button color="primary" [disabled]="isAddingDoc() || !canAddDoc()" (click)="addDoc()">
-        {{ isAddingDoc() ? 'Reading…' : 'Add to library' }}
+        {{ isAddingDoc() ? (docMode === 'file' && uploadPercent() < 100 ? 'Uploading…' : 'Reading…') : 'Add to library' }}
       </button>
     </mat-card-actions>
   </mat-card>
