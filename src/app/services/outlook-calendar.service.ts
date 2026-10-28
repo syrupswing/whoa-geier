@@ -78,6 +78,7 @@ export class OutlookCalendarService {
   error = signal<string | null>(null);
 
   private accessToken: string | null = null;
+  private syncing?: Promise<boolean>;
   private expiryTimer?: number;
   private resyncTimer?: number;
   private bootstrappedUid: string | null = null;
@@ -108,7 +109,8 @@ export class OutlookCalendarService {
 
   /** Uses a token pasted from Graph Explorer, syncs with it, and remembers it until it expires. */
   async connectWithToken(rawToken: string): Promise<boolean> {
-    const token = rawToken.trim().replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '');
+    // A token copied on a phone can pick up line breaks or spaces in the middle, so strip all whitespace.
+    const token = rawToken.trim().replace(/^Bearer\s+/i, '').replace(/^"|"$/g, '').replace(/\s+/g, '');
     if (!token) {
       this.error.set('Paste the access token from Graph Explorer first.');
       return false;
@@ -119,10 +121,16 @@ export class OutlookCalendarService {
       return false;
     }
 
+    // Let a sync already running on the old token finish first; otherwise sync() would refuse to
+    // run with the new one, and the old token's failure could end the session we're about to start.
+    await this.syncing?.catch(() => false);
+
     this.accessToken = token;
+    this.error.set(null);
     const ok = await this.sync();
     if (!ok) {
       this.accessToken = null;
+      if (!this.error()) this.error.set('Could not load your Outlook calendars with that token. Copy a fresh one and try again.');
       return false;
     }
     // A token with no readable expiry is assumed to last an hour.
@@ -209,8 +217,14 @@ export class OutlookCalendarService {
    * Pulls every calendar's events from 7 days back to 60 ahead and replaces both the on-screen
    * events and the Firestore copy with them, so anything deleted or moved in Outlook disappears.
    */
-  async sync(daysAhead: number = 60, daysBehind: number = 7): Promise<boolean> {
-    if (!this.accessToken || this.isSyncing()) return false;
+  sync(daysAhead: number = 60, daysBehind: number = 7): Promise<boolean> {
+    if (!this.accessToken || this.syncing) return Promise.resolve(false);
+    const run = this.runSync(daysAhead, daysBehind).finally(() => (this.syncing = undefined));
+    this.syncing = run;
+    return run;
+  }
+
+  private async runSync(daysAhead: number, daysBehind: number): Promise<boolean> {
     this.isSyncing.set(true);
     try {
       const start = new Date();

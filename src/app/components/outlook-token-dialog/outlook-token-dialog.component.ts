@@ -39,12 +39,21 @@ export const GRAPH_EXPLORER_URL = 'https://developer.microsoft.com/graph/graph-e
           [disabled]="connecting()"
           spellcheck="false"
           autocomplete="off"
-          (paste)="onPaste($event)">
+          (paste)="onPaste($event)"
+          (input)="onInput()"
+          (keydown.enter)="connect()">
       </mat-form-field>
 
       <p class="status" *ngIf="connecting()">Connecting…</p>
       <p class="error" *ngIf="error()">{{ error() }}</p>
     </mat-dialog-content>
+
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close [disabled]="connecting()">Cancel</button>
+      <button mat-flat-button color="primary" (click)="connect()" [disabled]="connecting() || !token.trim()">
+        Connect
+      </button>
+    </mat-dialog-actions>
   `,
   styles: [`
     .full-width { width: 100%; }
@@ -65,19 +74,25 @@ export class OutlookTokenDialogComponent {
   connecting = signal(false);
   error = signal<string | null>(null);
 
-  /** Pasting the token connects straight away — no separate Connect button. */
+  /** Pasting the token connects straight away; the Connect button covers anything else. */
   onPaste(event: ClipboardEvent): void {
     const text = event.clipboardData?.getData('text') ?? '';
     if (!text.trim()) return;
     event.preventDefault();
     this.token = text;
-    // Close right away; the sync runs in the background and reports any problem through the
-    // service's error (shown on the calendar) rather than leaving this dialog spinning.
-    this.dialogRef.close(true);
-    void this.outlookService.connectWithToken(text);
+    void this.connect();
+  }
+
+  /**
+   * Some mobile keyboards and autofill put the token in the field without a paste event,
+   * so connect when the field suddenly holds something that looks like a whole token.
+   */
+  onInput(): void {
+    if (/^(Bearer\s+)?"?eyJ[\w\-.\s]{100,}/i.test(this.token.trim())) void this.connect();
   }
 
   async connect(): Promise<void> {
+    if (this.connecting() || !this.token.trim()) return;
     this.connecting.set(true);
     this.error.set(null);
     const ok = await this.outlookService.connectWithToken(this.token);
