@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat } = require('./chat-context');
+const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat, tomorrowStartPhrase } = require('./chat-context');
 
 const g = (summary, dateTime) => ({ summary, start: { dateTime }, end: { dateTime } });
 
@@ -45,4 +45,22 @@ test('notebook summary skips facts, lists details, and trims long bodies', () =>
 test('notebook summary keeps only the newest entries past the limit', () => {
   const notes = [1, 2, 3].map(i => ({ kind: 'note', title: `n${i}`, createdAt: `2026-10-0${i}` }));
   assert.deepEqual(summarizeNotebookForChat(notes, { limit: 2 }), ['note: n3', 'note: n2']);
+});
+
+test('tomorrow start: a stored drop-off replaces the routine time and names it', () => {
+  const remi = { kind: 'child', routine: { dropOffTime: '09:00', schoolDays: [1, 2, 3, 4, 5] } };
+  const fmt = t => t;
+  assert.equal(tomorrowStartPhrase(remi, { dropOffTime: '08:15' }, 1, fmt), ", tomorrow's school drop-off is 08:15 instead of the usual 09:00");
+  assert.equal(tomorrowStartPhrase(remi, { dropOffTime: '09:00' }, 1, fmt), ", tomorrow's school drop-off is 09:00");
+  assert.equal(tomorrowStartPhrase(remi, {}, 1, fmt), ", tomorrow's school drop-off is 09:00 (usually)");
+  assert.equal(tomorrowStartPhrase(remi, { schoolDay: false }, 1, fmt), ', no school tomorrow');
+  assert.equal(tomorrowStartPhrase(remi, {}, 6, fmt), '');
+});
+
+test('tomorrow start: adults use work start, and a profile can say they are off', () => {
+  const kelly = { kind: 'adult', routine: { workDays: [1, 2, 3, 4, 5], workStartTime: '08:00' } };
+  const fmt = t => t;
+  assert.equal(tomorrowStartPhrase(kelly, {}, 2, fmt), ', tomorrow work starts at 08:00 (usually)');
+  assert.equal(tomorrowStartPhrase(kelly, { startTime: '10:00' }, 2, fmt), ', tomorrow work starts at 10:00 instead of the usual 08:00');
+  assert.equal(tomorrowStartPhrase(kelly, { workDay: false }, 2, fmt), ', not working tomorrow');
 });

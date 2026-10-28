@@ -416,7 +416,10 @@ const ORCHESTRATOR_TEMPLATES = {
           `Mention it only when asked about availability or free time. Never call it an activity or assign it to a person, especially a child.`
         : '';
       const peopleNowClause = (context.peopleNextUp || []).length
-        ? `\nWhere each person is in their regular day right now: ${context.peopleNextUp.join('; ')}.`
+        ? `\nWhere each person is in their regular day right now: ${context.peopleNextUp.join('; ')}.` +
+          `\nTimes marked "usually" are only the regular routine. If a calendar event or note for that day gives a ` +
+          `different drop-off or start (an early drop-off, a late start), that replaces the usual time: give only the ` +
+          `one that applies, never both.`
         : '';
       const specialFactsClause = (context.specialFacts || []).length
         ? `\nSpecial things to remember today (mention these when they're relevant, e.g. what to wear or bring): ${context.specialFacts.join('; ')}.`
@@ -452,7 +455,9 @@ const ORCHESTRATOR_TEMPLATES = {
         : '';
       const referenceClause = (context.referenceDocs || []).length
         ? `\n\nReference documents the family saved (flyers, guides, notes). For questions they cover, answer ` +
-          `from them, mention which document you used, and don't invent details they don't contain:\n` +
+          `from them, mention which document you used, and don't invent details they don't contain. Each document ` +
+          `applies only to the situation its title describes: rules for a non-school-day program (what to send, when ` +
+          `to arrive, field trips) don't apply on a regular school day, so never carry them over to one:\n` +
           context.referenceDocs.map(d => `### ${d.title}\n${d.text}`).join('\n\n')
         : '';
       const peopleClause = (payload.knownPeople || []).length
@@ -741,15 +746,13 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   // Once a person's day is over, what's next is usually tomorrow's start (their regular routine; a
   // calendar-derived change for tomorrow isn't known here, so it's worded as "usually").
   const tomorrowWeekday = (weekday + 1) % 7;
-  const tomorrowStart = m => {
-    const r = m.routine || {};
-    if (m.kind === 'child') {
-      return (r.schoolDays || [1, 2, 3, 4, 5]).includes(tomorrowWeekday) && r.dropOffTime
-        ? `, tomorrow school usually starts with drop-off at ${formatTime12h(r.dropOffTime)}` : '';
-    }
-    return (r.workDays || []).includes(tomorrowWeekday) && r.workStartTime
-      ? `, tomorrow work usually starts at ${formatTime12h(r.workStartTime)}` : '';
-  };
+  const tomorrowStr = toDateStr(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+  const tomorrowProfileDocs = await Promise.all(
+    members.map(m => db.collection('dayProfiles').doc(`${m.id}_${tomorrowStr}`).get())
+  );
+  const tomorrowStart = (m, i) => chatContext.tomorrowStartPhrase(
+    m, tomorrowProfileDocs[i].exists ? tomorrowProfileDocs[i].data() : {}, tomorrowWeekday, formatTime12h
+  );
   const pick = (stored, key, fallback) => (stored[key] !== undefined ? stored[key] : fallback);
   const peopleNextUp = members.map((m, i) => {
     const routine = m.routine || {};
@@ -758,21 +761,21 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
       const drop = pick(stored, 'dropOffTime', routine.dropOffTime);
       const pickUp = pick(stored, 'pickUpTime', routine.pickUpTime);
       const schoolDay = pick(stored, 'schoolDay', (routine.schoolDays || [1, 2, 3, 4, 5]).includes(weekday));
-      if (!schoolDay) return `${m.name}: no school today${tomorrowStart(m)}`;
+      if (!schoolDay) return `${m.name}: no school today${tomorrowStart(m, i)}`;
       if (!drop && !pickUp) return null;
       if (drop && nowMin < parseHHmmToMinutes(drop)) return `${m.name}: school drop-off at ${formatTime12h(drop)}${pickUp ? `, pick-up ${formatTime12h(pickUp)}` : ''}`;
       if (pickUp && nowMin < parseHHmmToMinutes(pickUp)) return `${m.name}: at school until pick-up at ${formatTime12h(pickUp)}`;
-      return `${m.name}: school is done for today${tomorrowStart(m)}`;
+      return `${m.name}: school is done for today${tomorrowStart(m, i)}`;
     }
     if (m.kind === 'adult') {
       const start = pick(stored, 'startTime', routine.workStartTime);
       const stop = pick(stored, 'stopTime', routine.workStopTime);
       const workDay = pick(stored, 'workDay', (routine.workDays || []).includes(weekday));
-      if (!workDay) return `${m.name}: not working today${tomorrowStart(m)}`;
+      if (!workDay) return `${m.name}: not working today${tomorrowStart(m, i)}`;
       if (!start && !stop) return null;
       if (start && nowMin < parseHHmmToMinutes(start)) return `${m.name}: work starts at ${formatTime12h(start)}`;
       if (stop && nowMin < parseHHmmToMinutes(stop)) return `${m.name}: working until ${formatTime12h(stop)}`;
-      return `${m.name}: work is done for today${tomorrowStart(m)}`;
+      return `${m.name}: work is done for today${tomorrowStart(m, i)}`;
     }
     return null;
   }).filter(Boolean);

@@ -61,4 +61,32 @@ function summarizeNotebookForChat(notes, { limit = 150, bodyMax = 240, memberNam
     });
 }
 
-module.exports = { isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };
+/**
+ * How a person's next day starts, worded for the chat. A stored day profile (a drop-off or work time found
+ * from the calendar or set by hand) wins over the regular routine, and when it differs the routine time is
+ * named as replaced, so the answer doesn't offer both. Without a profile it's the routine, said as "usually".
+ */
+function tomorrowStartPhrase(member, stored, weekday, formatTime) {
+  const r = member.routine || {};
+  const s = stored || {};
+  const pick = (key, fallback) => (s[key] !== undefined ? s[key] : fallback);
+  const timeText = (time, usual) => {
+    if (!time) return '';
+    if (s.dropOffTime !== undefined || s.startTime !== undefined) {
+      return usual && usual !== time ? `${formatTime(time)} instead of the usual ${formatTime(usual)}` : formatTime(time);
+    }
+    return `${formatTime(time)} (usually)`;
+  };
+  if (member.kind === 'child') {
+    const schoolDay = pick('schoolDay', (r.schoolDays || [1, 2, 3, 4, 5]).includes(weekday));
+    if (!schoolDay) return s.schoolDay === false ? ', no school tomorrow' : '';
+    const drop = pick('dropOffTime', r.dropOffTime);
+    return drop ? `, tomorrow's school drop-off is ${timeText(drop, r.dropOffTime)}` : '';
+  }
+  const workDay = pick('workDay', (r.workDays || []).includes(weekday));
+  if (!workDay) return s.workDay === false ? ', not working tomorrow' : '';
+  const start = pick('startTime', r.workStartTime);
+  return start ? `, tomorrow work starts at ${timeText(start, r.workStartTime)}` : '';
+}
+
+module.exports = { tomorrowStartPhrase, isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };
