@@ -98,7 +98,7 @@
 
       <div class="doc-list" *ngIf="referenceDocs.docs().length; else noDocs">
         <p class="hint-text" *ngIf="!filteredDocs().length">Nothing matches that search.</p>
-        <div class="doc-row" *ngFor="let doc of filteredDocs()">
+        <div class="doc-row" *ngFor="let doc of filteredDocs()" [attr.data-highlight-id]="doc.id">
           <div class="doc-main">
             <div class="doc-heading">
               <strong>{{ doc.title }}</strong>

@@ -89,4 +89,23 @@ function tomorrowStartPhrase(member, stored, weekday, formatTime) {
   return start ? `, tomorrow work starts at ${timeText(start, r.workStartTime)}` : '';
 }
 
-module.exports = { tomorrowStartPhrase, isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };
+/**
+ * Turns the "[Doc 2]" markers the model puts after facts from reference documents into links to those
+ * documents in the library (Settings, Family memory), where the doc is highlighted and can be opened.
+ * `docs` is the numbered list given to the model, in order. Numbers it invented are dropped, not linked.
+ */
+function linkDocCitations(text, docs) {
+  const label = title => {
+    const clean = String(title || 'Document').replace(/[\[\]]/g, '').trim();
+    return clean.length > 40 ? `${clean.slice(0, 39)}…` : clean;
+  };
+  return String(text || '').replace(/\[\s*docs?\s*(\d+(?:\s*(?:,|&|and)\s*(?:docs?\s*)?\d+)*)\s*\]/gi, (_, list) =>
+    [...new Set(list.match(/\d+/g))]
+      .map(n => (docs || [])[Number(n) - 1])
+      .filter(d => d && d.id)
+      .map(d => `[${label(d.title)}](#/settings?section=family-memory&highlight=${encodeURIComponent(d.id)})`)
+      .join(' ')
+  );
+}
+
+module.exports = { linkDocCitations, tomorrowStartPhrase, isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };

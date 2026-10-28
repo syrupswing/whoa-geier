@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat, tomorrowStartPhrase } = require('./chat-context');
+const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat, tomorrowStartPhrase, linkDocCitations } = require('./chat-context');
 
 const g = (summary, dateTime) => ({ summary, start: { dateTime }, end: { dateTime } });
 
@@ -63,4 +63,15 @@ test('tomorrow start: adults use work start, and a profile can say they are off'
   assert.equal(tomorrowStartPhrase(kelly, {}, 2, fmt), ', tomorrow work starts at 08:00 (usually)');
   assert.equal(tomorrowStartPhrase(kelly, { startTime: '10:00' }, 2, fmt), ', tomorrow work starts at 10:00 instead of the usual 08:00');
   assert.equal(tomorrowStartPhrase(kelly, { workDay: false }, 2, fmt), ', not working tomorrow');
+});
+
+test('doc citations become links to the library, and invented numbers are dropped', () => {
+  const docs = [{ id: 'abc123', title: 'Swim lesson flyer' }, { id: 'zzz', title: 'A very long document title that keeps going and going' }];
+  const link = id => `(#/settings?section=family-memory&highlight=${id})`;
+  assert.equal(linkDocCitations('Starts at 9:30 [Doc 1].', docs), `Starts at 9:30 [Swim lesson flyer]${link('abc123')}.`);
+  assert.equal(linkDocCitations('Both say so [Doc 1, Doc 2]', docs).includes(link('zzz')), true);
+  assert.equal(linkDocCitations('From the flyer [doc 2]', docs).includes('…]'), true);
+  assert.equal(linkDocCitations('Made up [Doc 9].', docs), 'Made up .');
+  assert.equal(linkDocCitations('No markers here [1] or (Doc 1)', docs), 'No markers here [1] or (Doc 1)');
+  assert.equal(linkDocCitations('Title [with] brackets [Doc 1]', [{ id: 'q', title: 'A [b] c' }]).includes('[A b c]'), true);
 });

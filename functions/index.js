@@ -456,10 +456,12 @@ const ORCHESTRATOR_TEMPLATES = {
         : '';
       const referenceClause = (context.referenceDocs || []).length
         ? `\n\nReference documents the family saved (flyers, guides, notes). For questions they cover, answer ` +
-          `from them, mention which document you used, and don't invent details they don't contain. Each document ` +
+          `from them and don't invent details they don't contain. Right after a fact taken from a document, cite ` +
+          `it with that document's marker exactly as numbered below, like [Doc 2] (never write the marker for ` +
+          `anything else, and don't describe the marker). Each document ` +
           `applies only to the situation its title describes: rules for a non-school-day program (what to send, when ` +
           `to arrive, field trips) don't apply on a regular school day, so never carry them over to one:\n` +
-          context.referenceDocs.map(d => `### ${d.title}\n${d.text}`).join('\n\n')
+          context.referenceDocs.map((d, i) => `### [Doc ${i + 1}] ${d.title}\n${d.text}`).join('\n\n')
         : '';
       const peopleClause = (payload.knownPeople || []).length
         ? ` Known family member names: ${payload.knownPeople.join(', ')}. If a mentioned person matches ` +
@@ -869,6 +871,10 @@ exports.orchestratedGenerate = onCall(
       const history = sanitizeConversationHistory(payload?.conversationHistory);
       const raw = await callClaude(token, prompt, template.maxTokens || 1024, history);
       const result = template.parseResponse(raw);
+      // Chat answers cite saved documents as "[Doc N]"; make each one a link to that document.
+      if (context.referenceDocs?.length && typeof result?.text === 'string') {
+        result.text = chatContext.linkDocCitations(result.text, context.referenceDocs);
+      }
 
       let suggestionId = null;
       let suggestionIds = null;
@@ -2877,7 +2883,7 @@ async function selectReferenceDocs(db, message) {
     if (remaining <= 0) break;
     const text = d.text.slice(0, remaining);
     remaining -= text.length;
-    selected.push({ title: d.title || 'Untitled document', text });
+    selected.push({ id: d.id, title: d.title || 'Untitled document', text });
   }
   return selected;
 }
