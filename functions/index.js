@@ -2727,6 +2727,115 @@ exports.refreshReferenceDoc = onCall(
   }
 );
 
+// Uploaded files (PDFs, photos, plain text) live in Cloud Storage under documents/{uid}/ and each gets a
+// /referenceDocs entry like a pasted or linked one, so the chat can answer from them too.
+const REFERENCE_FILE_MAX_BYTES = 15 * 1024 * 1024;
+const REFERENCE_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+
+/**
+ * The text of an uploaded file. A PDF's own text layer is used when it has one; a photo, or a scanned PDF with
+ * no text layer, is read by Claude instead.
+ */
+async function extractUploadedFileText(token, buffer, contentType) {
+  if (contentType === 'text/plain') return buffer.toString('utf8');
+  const isPdf = contentType === 'application/pdf';
+  if (isPdf) {
+    const parser = new PDFParse({ data: buffer });
+    try {
+      const { text } = await parser.getText();
+      if (cleanDocumentText(text || '').length >= 40) return text;
+    } catch (err) {
+      console.error('extractUploadedFileText pdf text error:', err);
+    } finally {
+      await parser.destroy();
+    }
+  }
+  const data = buffer.toString('base64');
+  const block = isPdf
+    ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data } }
+    : { type: 'image', source: { type: 'base64', media_type: contentType, data } };
+  return callClaude(token, [
+    block,
+    {
+      type: 'text',
+      text: `Transcribe all of the readable text in this ${isPdf ? 'document' : 'image'}, keeping its order and ` +
+        `line structure, including names, dates, amounts, phone numbers and addresses. If there is little or no ` +
+        `text, describe in a few plain sentences what it shows instead. Respond with only the text.`
+    }
+  ], 4000);
+}
+
+/** Turns an uploaded Storage file into a /referenceDocs entry. The caller may only use files in their own folder. */
+exports.addReferenceFile = onCall(
+  { secrets: ['CLAUDE_API_KEY'], invoker: 'public', timeoutSeconds: 120, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const { path, title } = request.data || {};
+    if (typeof path !== 'string' || !path.startsWith(`documents/${request.auth.uid}/`) || path.includes('..')) {
+      throw new HttpsError('invalid-argument', 'Upload the file first');
+    }
+    const file = admin.storage().bucket().file(path);
+    const [exists] = await file.exists();
+    if (!exists) {
+      throw new HttpsError('not-found', "That upload didn't arrive. Try again");
+    }
+
+    try {
+      const [meta] = await file.getMetadata();
+      const contentType = String(meta.contentType || '').toLowerCase();
+      if (Number(meta.size) > REFERENCE_FILE_MAX_BYTES) {
+        throw new HttpsError('invalid-argument', 'That file is too large (15 MB at most)');
+      }
+      if (contentType !== 'application/pdf' && contentType !== 'text/plain' && !REFERENCE_IMAGE_TYPES.includes(contentType)) {
+        throw new HttpsError('invalid-argument', 'Upload a PDF, a photo (JPEG, PNG, WebP) or a text file');
+      }
+      const [buffer] = await file.download();
+      const fileName = String(meta.metadata?.originalName || path.split('/').pop()).slice(0, 200);
+
+      let body;
+      try {
+        body = cleanDocumentText(await extractUploadedFileText(claudeApiKey.value(), buffer, contentType));
+      } catch (err) {
+        console.error('addReferenceFile extract error:', err);
+        throw new HttpsError('internal', "Couldn't read that file. Try a clearer copy");
+      }
+      if (!body) {
+        throw new HttpsError('invalid-argument', "Couldn't find anything readable in that file");
+      }
+      const truncated = body.length > MAX_REFERENCE_CHARS;
+      if (truncated) body = body.slice(0, MAX_REFERENCE_CHARS);
+
+      const givenTitle = (typeof title === 'string' ? title : '').trim().slice(0, 100);
+      const fallbackTitle = fileName.replace(/\.[^.]+$/, '').slice(0, 100);
+      const generated = await summarizeReferenceDoc(claudeApiKey.value(), body, givenTitle);
+      const now = new Date().toISOString();
+      const ref = await admin.firestore().collection(REFERENCE_COLLECTION).add({
+        source: 'file',
+        url: null,
+        title: generated.title || givenTitle || fallbackTitle || 'Untitled document',
+        summary: generated.summary || body.slice(0, 160),
+        text: body,
+        truncated,
+        storagePath: path,
+        fileName,
+        contentType,
+        size: Number(meta.size) || buffer.length,
+        fetchedAt: now,
+        updatedAt: now,
+        createdAt: now,
+        createdBy: request.auth.uid
+      });
+      return { id: ref.id };
+    } catch (err) {
+      // A file that can't become a document shouldn't be left behind in Storage.
+      await file.delete({ ignoreNotFound: true }).catch(() => {});
+      throw err;
+    }
+  }
+);
+
 /**
  * Picks the reference docs to include in a family-chat prompt. A handful of short flyers
  * all fit, so they go in whole; only once the library outgrows the prompt budget does a
