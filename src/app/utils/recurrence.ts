@@ -72,12 +72,37 @@ function shiftDays(event: CalendarEvent, days: number): Pick<CalendarEvent, 'sta
   return { start: shift(event.start), end: shift(event.end) };
 }
 
+/** The occurrence of a repeating task that was completed most recently (by the day it falls on), or null if none has been. */
+function lastCompletedKey(task: CalendarEvent): string | null {
+  // Keys are ISO dates, so they sort by day.
+  return Object.keys(task.completions ?? {}).sort().pop() ?? null;
+}
+
+/**
+ * The occurrence of a repeating task that is next to do: the one a rolling task is due on, otherwise the
+ * first from today on that hasn't been completed (a snoozed one still counts, it's just hidden while it sleeps).
+ */
+function nextOpenKey(task: CalendarEvent, now: Date): string | null {
+  if (!task.start.dateTime && taskRepeatMode(task) === 'rolling') return toIsoDate(rollingDueDay(task));
+  const seriesStart = firstDay(task);
+  const today = startOfDay(now);
+  for (let i = 0; i <= 366 * 3; i++) {
+    const candidate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + i);
+    if (!occurrenceStartsOn(seriesStart, task.repeat!, candidate)) continue;
+    const key = toIsoDate(candidate);
+    if (!task.completions?.[key]) return key;
+  }
+  return null;
+}
+
 /**
  * Replaces each repeating item with the occurrence (if any) that overlaps the given day, dated to
  * that day so the rest of the calendar code can treat it like any one-off item. Non-repeating
- * items pass through untouched.
+ * items pass through untouched. A repeating task is the exception to "every day it repeats": only its
+ * last completed occurrence and its next one to do appear, so a daily task doesn't fill the calendar
+ * with every past and future day.
  */
-export function expandRecurringForDay(events: CalendarEvent[], dayStart: Date, dayEnd: Date): CalendarEvent[] {
+export function expandRecurringForDay(events: CalendarEvent[], dayStart: Date, dayEnd: Date, now: Date = new Date()): CalendarEvent[] {
   const day = startOfDay(dayStart);
   const out: CalendarEvent[] = [];
   for (const event of events) {
@@ -91,7 +116,9 @@ export function expandRecurringForDay(events: CalendarEvent[], dayStart: Date, d
     for (let back = 0; back <= span; back++) {
       const candidate = new Date(day.getFullYear(), day.getMonth(), day.getDate() - back);
       if (occurrenceStartsOn(seriesStart, event.repeat, candidate)) {
-        out.push({ ...event, ...shiftDays(event, daysBetween(seriesStart, candidate)), occurrenceDate: toIsoDate(candidate) });
+        const key = toIsoDate(candidate);
+        if (event.kind === 'task' && key !== lastCompletedKey(event) && key !== nextOpenKey(event, now)) break;
+        out.push({ ...event, ...shiftDays(event, daysBetween(seriesStart, candidate)), occurrenceDate: key });
         break;
       }
     }
@@ -145,8 +172,8 @@ export interface TaskChecklistRow {
 }
 
 /** The occurrence of a (single-day) task that falls on `day`, if any. */
-function taskOccurrenceOn(task: CalendarEvent, day: Date): CalendarEvent | null {
-  const occurrence = expandRecurringForDay([task], day, day)[0];
+function taskOccurrenceOn(task: CalendarEvent, day: Date, now: Date): CalendarEvent | null {
+  const occurrence = expandRecurringForDay([task], day, day, now)[0];
   return occurrence && toIsoDate(firstDay(occurrence)) === toIsoDate(day) ? occurrence : null;
 }
 
@@ -238,7 +265,7 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
           else if (isToday && due < today) carried.push({ event: occurrence, done: false, daysOverdue: daysBetween(due, today) });
         }
       } else {
-        const occurrence = taskOccurrenceOn(task, dayStart);
+        const occurrence = taskOccurrenceOn(task, dayStart, now);
         if (occurrence && !isSnoozedOccurrence(occurrence, now)) {
           const completion = completionFor(occurrence);
           // A one-off completed on another day is listed there instead.
@@ -249,7 +276,7 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
     }
 
     // A carry-over task with no occurrence of its own today keeps its latest missed one on today's list.
-    if (carry && isToday && !taskOccurrenceOn(task, dayStart)) {
+    if (carry && isToday && !taskOccurrenceOn(task, dayStart, now)) {
       const missed = previousOccurrence(task, dayStart);
       if (missed && !completionFor(missed) && !isSnoozedOccurrence(missed, now)) {
         carried.push({ event: missed, done: false, daysOverdue: daysBetween(firstDay(missed), today) });
@@ -267,6 +294,8 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
     if (movable) {
       for (const [key, completion] of Object.entries(task.completions ?? {})) {
         if (toIsoDate(startOfDay(new Date(completion.at))) !== dayIso) continue;
+        // A repeating task keeps only its latest completion on the calendar; older ones are history.
+        if (task.repeat && key !== lastCompletedKey(task)) continue;
         if (!task.repeat) {
           // A one-off completed on its own day is already listed there (all-day) or on the timeline (timed).
           if (key === dayIso) continue;
