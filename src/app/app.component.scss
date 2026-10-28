@@ -3,11 +3,12 @@
   --app-content-max-width: 880px;
   --app-content-inline-padding: 24px;
   --app-mobile-top-inset: 0px;
+  --app-container-height: 100dvh;
   position: relative;
   display: flex;
   flex-direction: column;
-  min-height: 100dvh;
-  height: 100dvh;
+  min-height: var(--app-container-height);
+  height: var(--app-container-height);
   width: 100%;
   flex: 1;
   min-width: 0;
@@ -74,10 +75,17 @@
   }
 }
 
+// The logo watermark. Sticky rather than fixed: the page is transformed while the drawer is open, and a
+// fixed child of a transformed element re-anchors to the page's scrolled content, so the watermark jumped
+// up by the scroll distance. Sticky pins to the scroller itself, so it holds still through the slide.
+// The negative margin takes its height back out of the flow.
 .app-container::before {
   content: '';
-  position: fixed;
-  inset: 0;
+  position: sticky;
+  top: 0;
+  flex: none;
+  height: var(--app-container-height);
+  margin-bottom: calc(-1 * var(--app-container-height));
   background-image: url('../assets/WG-no-bg-sage.svg');
   background-repeat: no-repeat;
   background-position: left -42px top -24px;
@@ -998,8 +1006,7 @@
   }
 
   .app-container {
-    height: 100lvh;
-    min-height: 100lvh;
+    --app-container-height: 100lvh;
   }
 
   .content {

@@ -37,15 +37,38 @@ const PRESET_COLORS: Record<string, string> = {
 };
 const DEFAULT_COLOR = '#0078d4';
 
-/** Reads a JWT's expiry (seconds since epoch) without verifying it — only used to know when to stop trying. */
-function tokenExpiryMs(token: string): number | null {
+/** Reads a JWT's claims without verifying it — only used to explain and pre-empt failures. */
+function tokenPayload(token: string): any | null {
   try {
-    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
-    return typeof payload.exp === 'number' ? payload.exp * 1000 : null;
+    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
   } catch {
     return null;
   }
 }
+
+/** The token's expiry (ms since epoch), used to know when to stop trying. */
+function tokenExpiryMs(token: string): number | null {
+  const payload = tokenPayload(token);
+  return typeof payload?.exp === 'number' ? payload.exp * 1000 : null;
+}
+
+/** The delegated permissions the token carries, or null when they can't be read. */
+function tokenScopes(token: string): string[] | null {
+  const scp = tokenPayload(token)?.scp;
+  return typeof scp === 'string' ? scp.split(/\s+/).filter(Boolean) : null;
+}
+
+function canReadCalendars(scopes: string[]): boolean {
+  return scopes.some(s => /^Calendars\.Read(Write)?$/i.test(s));
+}
+
+function describeScopes(scopes: string[] | null): string {
+  return scopes?.length ? `This token only has: ${scopes.join(', ')}.` : 'This token has no permissions listed.';
+}
+
+const MISSING_SCOPE_HELP =
+  'Sign out and back in on Graph Explorer (if it keeps happening, consent to Calendars.Read under "Modify permissions" ' +
+  'after running a /me/calendars query), then copy a new access token.';
 
 /**
  * Read-only link to a person's Outlook calendars through Microsoft Graph, using an access token
@@ -118,6 +141,12 @@ export class OutlookCalendarService {
     const expiresAt = tokenExpiryMs(token);
     if (expiresAt !== null && expiresAt <= Date.now()) {
       this.error.set('That token has already expired — copy a fresh one from Graph Explorer.');
+      return false;
+    }
+
+    const scopes = tokenScopes(token);
+    if (scopes && !canReadCalendars(scopes)) {
+      this.error.set(`${describeScopes(scopes)} It needs Calendars.Read. ${MISSING_SCOPE_HELP}`);
       return false;
     }
 
@@ -271,7 +300,7 @@ export class OutlookCalendarService {
       if (err?.status === 401 || err?.status === 403) {
         this.error.set(err.status === 401
           ? 'Microsoft rejected the token — copy a fresh one from Graph Explorer.'
-          : 'The token can\'t read calendars — in Graph Explorer, open "Modify permissions" and consent to Calendars.Read, then copy the new token.');
+          : `Microsoft says the token can't read calendars. ${describeScopes(tokenScopes(this.accessToken ?? ''))} ${MISSING_SCOPE_HELP}`);
         this.expireSession();
       } else {
         this.error.set(`Error loading Outlook events: ${err?.message || err}`);
