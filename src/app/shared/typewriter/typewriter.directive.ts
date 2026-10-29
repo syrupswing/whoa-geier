@@ -2,6 +2,36 @@ import { Directive, ElementRef, EventEmitter, Input, NgZone, OnChanges, OnDestro
 import { DomSanitizer } from '@angular/platform-browser';
 import { marked } from 'marked';
 
+/** US-style phone numbers: 555-123-4567, (555) 123-4567, 555.123.4567, +1 555 123 4567. Not part of a longer digit run or date. */
+const PHONE_PATTERN = /(?<![\d-])(?:\+?1[\s.-]?)?(?:\(\d{3}\)\s?|\d{3}[\s.-])\d{3}[\s.-]\d{4}(?![\d-])/g;
+
+/** Wraps phone numbers in tel: links so a tap on a phone offers to call; text already inside a link is left alone. */
+function linkifyPhoneNumbers(root: HTMLElement): void {
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  const texts: Text[] = [];
+  for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+    if (!(n.parentElement?.closest('a')) && /\d{4}/.test(n.nodeValue ?? '')) texts.push(n as Text);
+  }
+  for (const text of texts) {
+    const value = text.nodeValue ?? '';
+    PHONE_PATTERN.lastIndex = 0;
+    let last = 0;
+    let match: RegExpExecArray | null;
+    const frag = document.createDocumentFragment();
+    while ((match = PHONE_PATTERN.exec(value))) {
+      frag.append(value.slice(last, match.index));
+      const a = document.createElement('a');
+      a.href = 'tel:' + match[0].replace(/[^\d+]/g, '');
+      a.textContent = match[0];
+      frag.append(a);
+      last = match.index + match[0].length;
+    }
+    if (!last) continue;
+    frag.append(value.slice(last));
+    text.replaceWith(frag);
+  }
+}
+
 /**
  * Reveals AI-generated text one character at a time.
  * Usage: <p [appTypewriter]="aiText()"></p>
@@ -163,6 +193,7 @@ export class TypewriterDirective implements OnChanges, OnDestroy {
     // streaming markdown renderer.
     const html = marked.parse(text, { breaks: true, async: false }) as string;
     node.innerHTML = this.sanitizer.sanitize(SecurityContext.HTML, html) ?? '';
+    linkifyPhoneNumbers(node);
   }
 
   /**
