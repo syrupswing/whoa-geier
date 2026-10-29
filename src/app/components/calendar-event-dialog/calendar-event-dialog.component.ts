@@ -266,6 +266,26 @@ const WEEKDAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', '
         </ng-container>
         </div>
 
+        <!-- A one-off task only: a repeating one has no single date it's crucially due by. -->
+        <div class="form-group" *ngIf="formData.itemKind === 'task' && !formData.repeats">
+          <button mat-stroked-button type="button" *ngIf="!formData.hardDeadline" (click)="addHardDeadline()">
+            <mat-icon>flag</mat-icon>
+            Add hard deadline
+          </button>
+          <div class="field-with-action" *ngIf="formData.hardDeadline">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic" class="full-width">
+              <mat-label>Hard deadline</mat-label>
+              <input matInput [matDatepicker]="deadlinePicker" name="hardDeadline" [(ngModel)]="formData.hardDeadline" required>
+              <mat-datepicker-toggle matIconSuffix [for]="deadlinePicker"></mat-datepicker-toggle>
+              <mat-datepicker #deadlinePicker></mat-datepicker>
+            </mat-form-field>
+            <button mat-button type="button" class="remove-action" (click)="formData.hardDeadline = null">
+              <mat-icon class="icon-remove">cancel</mat-icon>
+              Remove deadline
+            </button>
+          </div>
+        </div>
+
         <div class="form-group">
           <button mat-stroked-button type="button" *ngIf="formData.pushAlertTime === null; else alertField" (click)="addNotification()">
             <mat-icon>notifications</mat-icon>
@@ -608,6 +628,8 @@ export class CalendarEventDialogComponent {
     /** Tasks on a specific day: a missed occurrence is dropped instead of carrying forward until done. */
     obsoleteIfMissed: boolean;
     scope: Scope;
+    /** One-off tasks only: the day it must be done by, or null for none. */
+    hardDeadline: Date | null;
     /** "HH:mm" for a task's not-done-yet push alert, or null for none. */
     pushAlertTime: string | null;
     /** Timed items only: the alert fires at the item's start time, following it if it changes, until the user picks its own time. */
@@ -654,6 +676,7 @@ export class CalendarEventDialogComponent {
         repeatMode: event.repeat?.mode ?? (event.kind === 'task' && !event.start.dateTime ? 'rolling' : 'schedule'),
         obsoleteIfMissed: !event.repeat?.carryOver,
         scope: event.isPrivate ? 'private' : 'family',
+        hardDeadline: event.hardDeadline ? this.parseIsoDate(event.hardDeadline) : null,
         pushAlertTime: event.pushAlertTime ?? null,
         alertSameAsEvent: !isAllDay && !!event.pushAlertTime && event.pushAlertTime === this.toTimeValue(startDate)
       };
@@ -680,6 +703,7 @@ export class CalendarEventDialogComponent {
         repeatMode: 'schedule',
         obsoleteIfMissed: false,
         scope: 'private',
+        hardDeadline: null,
         pushAlertTime: null,
         alertSameAsEvent: false
       };
@@ -1003,6 +1027,11 @@ export class CalendarEventDialogComponent {
     return `https://outlook.office.com/calendar/0/deeplink/compose?${params.toString()}`;
   }
 
+  /** Starts the hard deadline on the task's own day, for the user to move. */
+  addHardDeadline(): void {
+    this.formData.hardDeadline = this.formData.startDate;
+  }
+
   /** A local date plus an "HH:mm" time → a Date. */
   private combine(date: Date, time: string): Date {
     const [h, m] = time.split(':').map(Number);
@@ -1046,6 +1075,8 @@ export class CalendarEventDialogComponent {
     this.setOptionalField(result, 'isPointInTime', true, f.hasTime && !f.hasDuration, isEdit);
     this.setOptionalField(result, 'startApproximate', true, f.hasTime && f.hasDuration && f.startApproximate, isEdit);
     this.setOptionalField(result, 'endApproximate', true, f.hasTime && f.hasDuration && f.endApproximate, isEdit);
+    const hardDeadline = f.itemKind === 'task' && !f.repeats && f.hardDeadline ? this.toIsoDate(f.hardDeadline) : '';
+    this.setOptionalField(result, 'hardDeadline', hardDeadline, !!hardDeadline, isEdit);
     const pushAlertTime = f.alertSameAsEvent && f.hasTime ? f.startTime : f.pushAlertTime;
     this.setOptionalField(result, 'pushAlertTime', pushAlertTime as string, !!pushAlertTime, isEdit);
     this.setOptionalField(

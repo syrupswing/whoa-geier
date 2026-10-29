@@ -4,7 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AppCalendarEventService } from '../../services/app-calendar-event.service';
 import { CalendarEvent } from '../../services/google-calendar.service';
-import { buildSnoozedTasks, buildTaskChecklist, occurrenceKey, toIsoDate, SnoozedTaskRow, TaskChecklistRow } from '../../utils/recurrence';
+import { buildSnoozedTasks, buildTaskChecklist, hardDeadlineStatus, HardDeadlineStatus, occurrenceKey, toIsoDate, SnoozedTaskRow, TaskChecklistRow } from '../../utils/recurrence';
 import { formatSnoozeEnd } from '../../utils/snooze';
 
 /** A click on a task, with the DOM event so the host can anchor a popover to what was clicked. */
@@ -104,6 +104,11 @@ export class TaskLaneComponent {
     const repeat = row.event.repeat;
     if (!repeat) return '';
     return repeat.interval === 1 ? `Every ${repeat.unit}` : `Every ${repeat.interval} ${repeat.unit}s`;
+  }
+
+  /** The hard-deadline badge for a row, or null when it has none. */
+  deadline(row: TaskChecklistRow): HardDeadlineStatus | null {
+    return hardDeadlineStatus(row.event, row.done, new Date(this.now()));
   }
 
   /** "from 3 days ago" — shown for tasks carried over from an earlier day. */

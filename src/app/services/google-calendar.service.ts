@@ -77,6 +77,8 @@ export interface CalendarEvent {
   pushAlertTime?: string;
   /** Occurrence dates ("YYYY-MM-DD") whose alert has already been sent, written by the server so each goes out once. */
   pushAlertsSent?: Record<string, string>;
+  /** One-off tasks only — "YYYY-MM-DD" the task must be done by, as opposed to the day it's planned for. */
+  hardDeadline?: string;
   /** Tasks only — snoozes keyed by the occurrence's start date ("YYYY-MM-DD"): ISO time until which that occurrence is hidden from the calendar. */
   snoozes?: Record<string, string>;
 }

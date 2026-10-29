@@ -311,7 +311,32 @@ export function buildTaskChecklist(events: CalendarEvent[], day: Date, now: Date
 
   carried.sort((a, b) => b.daysOverdue - a.daysOverdue);
   onDay.sort((a, b) => Number(a.done) - Number(b.done) || a.event.summary.localeCompare(b.event.summary));
-  return [...carried, ...onDay];
+  // Open tasks with a hard deadline come first, soonest deadline first; the rest keep their order.
+  const deadline = (row: TaskChecklistRow) => (row.done ? '' : row.event.hardDeadline ?? '');
+  return [...carried, ...onDay].sort((a, b) => {
+    const x = deadline(a);
+    const y = deadline(b);
+    return x && y ? x.localeCompare(y) : x ? -1 : y ? 1 : 0;
+  });
+}
+
+export interface HardDeadlineStatus {
+  /** "Due today", "Due tomorrow", "Due Fri, Oct 30", "Overdue since Oct 28". */
+  label: string;
+  /** 'overdue' once it has passed, 'urgent' for today or tomorrow, 'soon' within three days after that, else 'later'. */
+  level: 'overdue' | 'urgent' | 'soon' | 'later';
+}
+
+/** How a task's hard deadline reads on `now`, or null when it has none or is done (no longer pressing). */
+export function hardDeadlineStatus(task: CalendarEvent, done: boolean, now: Date = new Date()): HardDeadlineStatus | null {
+  if (!task.hardDeadline || done) return null;
+  const due = parseIso(task.hardDeadline);
+  const days = daysBetween(startOfDay(now), due);
+  const dayText = due.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  if (days < 0) return { label: `Overdue since ${due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`, level: 'overdue' };
+  if (days === 0) return { label: 'Due today', level: 'urgent' };
+  if (days === 1) return { label: 'Due tomorrow', level: 'urgent' };
+  return { label: `Due ${dayText}`, level: days <= 4 ? 'soon' : 'later' };
 }
 
 export interface SnoozedTaskRow {

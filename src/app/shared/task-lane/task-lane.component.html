@@ -18,6 +18,9 @@
       [attr.data-highlight-day]="dayIso()"
       *ngFor="let row of rows(); trackBy: trackByRow"
       [class.carried]="row.daysOverdue > 0"
+      [class.has-deadline]="!!deadline(row)"
+      [class.deadline-overdue]="deadline(row)?.level === 'overdue'"
+      [class.deadline-urgent]="deadline(row)?.level === 'urgent'"
       (click)="taskSelect.emit({ event: row.event, domEvent: $event })">
       <button
         type="button"
@@ -27,6 +30,9 @@
         <mat-icon>{{ row.done ? 'check_box' : 'check_box_outline_blank' }}</mat-icon>
       </button>
       <span class="task-title" [class.task-done]="row.done">{{ row.event.summary }}</span>
+      <span class="task-deadline" *ngIf="deadline(row) as d" [class]="'task-deadline deadline-' + d.level">
+        <mat-icon>flag</mat-icon>{{ d.label }}
+      </span>
       <mat-icon class="task-private" [class.task-icon-classic]="row.event.isPrivate" [attr.aria-label]="row.event.isPrivate ? 'Private' : 'Family'">{{ row.event.isPrivate ? 'person' : 'family_restroom' }}</mat-icon>
       <mat-icon class="task-private" *ngIf="row.event.repeat" [matTooltip]="repeatText(row)" aria-label="Repeats">event_repeat</mat-icon>
       <mat-icon class="task-private task-icon-classic" *ngIf="meta(row) as text" [matTooltip]="text" aria-label="Carried over">redo</mat-icon>

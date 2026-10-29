@@ -150,6 +150,35 @@
   font-family: 'Material Icons' !important;
 }
 
+.task-deadline {
+  display: inline-flex;
+  align-items: center;
+  flex: none;
+  gap: 1px;
+  margin-left: 4px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+
+  mat-icon {
+    width: 12px;
+    height: 12px;
+    font-size: 12px;
+  }
+
+  &.deadline-soon { color: #b36b00; }
+  &.deadline-urgent,
+  &.deadline-overdue { color: var(--color-warn-dark); }
+}
+
+// A task that's due today/tomorrow or past its hard deadline gets a red edge instead of the usual amber.
+.task-lane-item.deadline-urgent,
+.task-lane-item.deadline-overdue {
+  background: color-mix(in srgb, var(--color-warn) 14%, white);
+
+  &::after { background: var(--color-warn); }
+}
+
 .task-meta {
   flex: none;
   margin-left: 4px;

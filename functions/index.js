@@ -430,6 +430,10 @@ const ORCHESTRATOR_TEMPLATES = {
       const specialFactsClause = (context.specialFacts || []).length
         ? `\nSpecial things to remember today (mention these when they're relevant, e.g. what to wear or bring): ${context.specialFacts.join('; ')}.`
         : '';
+      const hardDeadlinesClause = (context.hardDeadlines || []).length
+        ? `\nTasks with a HARD DEADLINE (it is crucial they are finished by then; not done yet): ${context.hardDeadlines.join('; ')}.` +
+          `\nCall these out when they are due today, tomorrow or overdue, and weigh them when suggesting what to do or fit in.`
+        : '';
       const todosClause = context.todos.length
         ? `\nBacklog tasks (no day set): ${context.todos.join('; ')}.`
         : '';
@@ -487,7 +491,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `a short markdown bullet list with the time or name in bold first, one line per item, instead of a ` +
         `paragraph. Use a short bold label rather than a heading to separate parts. Use the household information below when it's relevant to the question — don't recite ` +
         `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${peopleNowClause}${specialFactsClause}${weatherClause}${calendarClause}` +
-        `${todosClause}${groceryClause}${alertsClause}${vehiclesClause}${notebookClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
+        `${todosClause}${hardDeadlinesClause}${groceryClause}${alertsClause}${vehiclesClause}${notebookClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
         `the user is clearly asking you to add/save/remember/schedule something (e.g. "remind me to...", ` +
@@ -806,6 +810,22 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
     .map(t => t.title)
     .slice(0, 20);
 
+  // Open one-off tasks with a hard deadline (a private one is left out for the same reason as above),
+  // soonest first, including any already past.
+  const hardDeadlines = appEventsSnap.docs
+    .map(d => d.data())
+    .filter(t => t.kind === 'task' && t.hardDeadline && !t.repeat && !t.isPrivate && !Object.keys(t.completions || {}).length)
+    .filter(t => daysBetweenDateStrs(today, t.hardDeadline) <= 60)
+    .sort((a, b) => a.hardDeadline.localeCompare(b.hardDeadline))
+    .slice(0, 15)
+    .map(t => {
+      const days = daysBetweenDateStrs(today, t.hardDeadline);
+      const dayText = new Date(`${t.hardDeadline}T12:00:00Z`)
+        .toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+      const when = days < 0 ? `OVERDUE since ${dayText}` : days === 0 ? 'due TODAY' : days === 1 ? `due tomorrow, ${dayText}` : `due ${dayText}, in ${days} days`;
+      return `${t.summary || 'A task'} (${when})`;
+    });
+
   const groceryDocs = grocerySnap.docs.map(d => d.data()).filter(g => g.name);
   const groceryItems = groceryDocs.filter(g => !g.completed).map(g => g.name).slice(0, 30);
 
@@ -839,7 +859,7 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
 
   const referenceDocs = await selectReferenceDocs(db, payload?.message);
 
-  return { today, todayWeekday, nowLabel, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, groceryItems, pantryItems, alerts, vehicles, notebook, referenceDocs };
+  return { today, todayWeekday, nowLabel, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, hardDeadlines, groceryItems, pantryItems, alerts, vehicles, notebook, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(
@@ -1886,6 +1906,59 @@ exports.taskPushAlerts = onSchedule(
     const cutoff = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
     const stale = await db.collection('notifications').where('createdAt', '<', cutoff).get();
     await Promise.all(stale.docs.map(d => d.ref.delete()));
+  }
+);
+
+/**
+ * Every morning, pushes each unfinished task whose hard deadline is today or tomorrow — to just its
+ * owner when private, otherwise to every device. Each deadline alerts once per day (hardDeadlineAlertsSent).
+ */
+exports.hardDeadlineAlerts = onSchedule(
+  { schedule: 'every day 08:00', timeZone: TIME_ZONE },
+  async () => {
+    const db = admin.firestore();
+    const now = new Date();
+    const today = toDateStr(now);
+    const tomorrow = toDateStr(new Date(now.getTime() + 24 * 60 * 60 * 1000));
+
+    const snap = await db.collection('calendarEvents').where('hardDeadline', 'in', [today, tomorrow]).get();
+    for (const doc of snap.docs) {
+      const task = doc.data();
+      if (task.kind !== 'task' || task.repeat) continue;
+      if (Object.keys(task.completions || {}).length) continue;
+      if (task.hardDeadlineAlertsSent?.[today]) continue;
+
+      let uid = null;
+      if (task.isPrivate) {
+        uid = task.createdByUid || null;
+        if (!uid && task.memberId) {
+          const links = await db.collection('memberLinks').where('memberId', '==', task.memberId).limit(1).get();
+          uid = links.empty ? null : links.docs[0].id;
+        }
+        if (!uid) {
+          console.warn(`hardDeadlineAlerts: private task ${doc.id} has no owner to alert — skipping.`);
+          continue;
+        }
+      }
+      const tokens = await fcmTokensFor(db, uid);
+      if (!tokens.length) continue;
+
+      // Claim today's alert before sending, so an overlapping run can't send it twice.
+      await doc.ref.update({ [`hardDeadlineAlertsSent.${today}`]: now.toISOString() });
+
+      const title = `${task.summary || 'A task'} — due ${task.hardDeadline === today ? 'today' : 'tomorrow'}`;
+      await db.collection('notifications').add({
+        title,
+        itemId: doc.id,
+        itemKind: 'task',
+        date: today,
+        targetUid: uid || 'family',
+        dismissedBy: [],
+        createdAt: now.toISOString()
+      });
+      const sent = await sendPushToTokens(db, tokens, { title, body: 'Hard deadline' });
+      console.log(`hardDeadlineAlerts: task ${doc.id} alerted ${sent}/${tokens.length} device(s).`);
+    }
   }
 );
 
