@@ -214,7 +214,12 @@ const ORCHESTRATOR_TEMPLATES = {
         `day, color day, pajama day, picture day, field trip, show and tell), a permission slip or item due. ` +
         `time is null. "text" is one short imperative line that includes the detail and the occasion, e.g. ` +
         `"Wear orange for Unity Day" or "Bring a sack lunch for the field trip". Ordinary classes and ` +
-        `appointments are not facts, and a fact must be stated or clearly implied by the event, never invented.\n` +
+        `appointments are not facts, and a fact must be stated or clearly implied by the event, never invented. ` +
+        `An event that is itself the parent's own commitment (volunteering, helping at, attending or chaperoning ` +
+        `a class party or school event, e.g. "Do Fall Bingo at Remi's class party!") is a calendar entry for the ` +
+        `parent, not an instruction for the child: do not turn it into a fact, and never invent something to bring ` +
+        `or do from it. Only make a fact when the event text itself names what the child or family must wear, bring ` +
+        `or hand in.\n` +
         `Rules:\n` +
         `- Use the time the event says the drop-off or pick-up happens, not necessarily its start time or end time.\n` +
         `- Never guess a time. If it isn't stated or clearly implied, use null for time and a low confidence.\n` +
