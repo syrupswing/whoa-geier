@@ -238,9 +238,9 @@ export class CalendarComponent implements OnInit, OnDestroy {
     ]);
   }
 
-  async refreshEvents(): Promise<void> {
-    // Force refresh from API
-    await this.loadEventsForCurrentView();
+  /** Reloads the whole page: reloading only the events didn't reliably bring in changes. */
+  refreshEvents(): void {
+    window.location.reload();
   }
 
   /** Opens the add-event form, pre-filled to whatever day is currently in view. */

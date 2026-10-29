@@ -1483,12 +1483,9 @@ export class DashboardComponent implements OnInit, AfterViewInit {
       : this.calendarService.isCalendarVisible(calendarId);
   }
 
-  /** Re-pulls events from every connected calendar (Google and, while its token is valid, Outlook). */
-  async refreshEvents(): Promise<void> {
-    await Promise.all([
-      this.calendarService.isSignedIn() ? this.calendarService.loadCalendarEvents(60) : undefined,
-      this.outlookService.isSignedIn() ? this.outlookService.sync(60) : undefined
-    ]);
+  /** Reloads the whole page: re-pulling only the calendars didn't reliably bring in changes. */
+  refreshEvents(): void {
+    window.location.reload();
   }
 
   connectOutlook(): void {
