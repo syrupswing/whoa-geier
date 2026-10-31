@@ -418,6 +418,7 @@ const ORCHESTRATOR_TEMPLATES = {
         : '';
       const calendarClause = context.calendarEvents.length
         ? `\nUpcoming calendar events (already-finished ones are removed; the soonest come first): ${context.calendarEvents.join('; ')}.` +
+          `\nAn event applies only on the exact date listed. Many repeat on certain weekdays only (a Monday/Wednesday program), so never move one to another day, and never say a day has an early drop-off, pick-up or other change unless an event or note is listed for that very date.` +
           `\nAn entry titled "Busy (details hidden)" is only a time block from a work calendar: it has no details and no known owner. ` +
           `Mention it only when asked about availability or free time. Never call it an activity or assign it to a person, especially a child.`
         : '';
@@ -669,7 +670,9 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
       const timeOf = d => d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', timeZone: TIME_ZONE });
       const inProgress = !e.allDay && e.start <= now;
       const timeLabel = e.allDay ? '' : inProgress ? ` (happening now, until ${timeOf(e.end)})` : ` at ${timeOf(e.start)}`;
-      return `${e.title}${e.who ? ` [${e.who}]` : ''} on ${dateLabel}${timeLabel}`;
+      // The weekday keeps the model from sliding a Monday/Wednesday program onto a Friday.
+      const weekdayLabel = new Date(`${dateLabel}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+      return `${e.title}${e.who ? ` [${e.who}]` : ''} on ${weekdayLabel} ${dateLabel}${timeLabel}`;
     });
 
   // Fixed cutoffs since meal plans carry no specific time of their own — once the
