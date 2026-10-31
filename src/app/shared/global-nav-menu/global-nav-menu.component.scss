@@ -35,7 +35,8 @@
   // Always fixed near the top of the screen, whatever the scroll position; left is set inline. The
   // shadow lifts it over whatever scrolls beneath it.
   position: fixed;
-  top: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 10px);
+  // iOS 26 blurs roughly the first 20px below the safe area, so the button starts below the fade.
+  top: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 24px);
   // Above pages' own sticky headers (the calendar's sit at 120), which stack beneath this button.
   z-index: 130;
   box-shadow: 0 2px 10px rgba(26, 10, 46, 0.16);

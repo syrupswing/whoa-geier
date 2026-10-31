@@ -422,7 +422,7 @@
   transform: translateZ(0);
 
   > .notification-item:first-child {
-    margin-top: calc(8px + var(--app-safe-area-top, env(safe-area-inset-top, 0px)));
+    margin-top: calc(22px + var(--app-safe-area-top, env(safe-area-inset-top, 0px)));
   }
 }
 
@@ -513,7 +513,8 @@
   }
 
   .content {
-    padding: calc(10px + var(--app-mobile-top-inset)) 16px 24px;
+    // Clears the iOS 26 top-edge blur (see the pinned nav button), which is why this is larger than the side gaps.
+    padding: calc(24px + var(--app-mobile-top-inset)) 16px 24px;
     padding-bottom: calc(16px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   }
 }
@@ -560,7 +561,7 @@
   }
 
   .content {
-    padding: calc(8px + var(--app-mobile-top-inset)) 12px 24px;
+    padding: calc(22px + var(--app-mobile-top-inset)) 12px 24px;
     padding-bottom: calc(12px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   }
 }

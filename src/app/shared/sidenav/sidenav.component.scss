@@ -10,6 +10,12 @@
   padding: calc(16px + var(--app-safe-area-top, env(safe-area-inset-top, 0px))) 12px
     calc(16px + var(--app-safe-area-bottom, env(safe-area-inset-bottom, 0px)));
   overflow-y: auto;
+
+  // Below the desktop sidebar breakpoint the drawer reaches the top of the screen, where iOS 26 blurs
+  // roughly the first 20px under the safe area, so the brand row and close button start below it.
+  @media (max-width: 1023px) {
+    padding-top: calc(30px + var(--app-safe-area-top, env(safe-area-inset-top, 0px)));
+  }
 }
 
 .sidenav-brand {

@@ -91,9 +91,9 @@
   --cal-nav-height: 52px;
   --cal-sticky-top: var(--app-mobile-top-inset, 0px);
   // Below desktop width the pinned nav button sits at the top of the screen, so the sticky
-  // headers stack beneath it: its top gap (10px) + its height (46px) + a little breathing room.
+  // headers stack beneath it: its top gap (24px) + its height (46px) + a little breathing room.
   @media (max-width: 1023px) {
-    --cal-sticky-top: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 62px);
+    --cal-sticky-top: calc(var(--app-safe-area-top, env(safe-area-inset-top, 0px)) + 76px);
   }
   box-shadow: 0 6px 16px rgba(26, 10, 46, 0.08);
   border: 1px solid rgba(61, 53, 80, 0.06);
