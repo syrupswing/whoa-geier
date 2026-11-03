@@ -90,6 +90,12 @@
         </mat-form-field>
       </div>
 
+      <div class="add-doc-actions">
+        <button mat-raised-button color="primary" [disabled]="isAddingDoc() || !canAddDoc()" (click)="addDoc()">
+          {{ isAddingDoc() ? (docMode === 'file' && uploadPercent() < 100 ? 'Uploading…' : 'Reading…') : 'Add to library' }}
+        </button>
+      </div>
+
       <mat-form-field appearance="outline" class="full-width doc-search" *ngIf="referenceDocs.docs().length > 1">
         <mat-label>Search documents</mat-label>
         <input matInput [(ngModel)]="docSearch" placeholder="Title, summary or anything in the text">
@@ -137,11 +143,6 @@
         <p class="hint-text">No documents yet.</p>
       </ng-template>
     </mat-card-content>
-    <mat-card-actions>
-      <button mat-raised-button color="primary" [disabled]="isAddingDoc() || !canAddDoc()" (click)="addDoc()">
-        {{ isAddingDoc() ? (docMode === 'file' && uploadPercent() < 100 ? 'Uploading…' : 'Reading…') : 'Add to library' }}
-      </button>
-    </mat-card-actions>
   </mat-card>
 
   <mat-card class="form-card">
