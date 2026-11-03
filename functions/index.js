@@ -416,6 +416,9 @@ const ORCHESTRATOR_TEMPLATES = {
       const weatherClause = context.weatherSummary
         ? `\nCurrent weather: ${context.weatherSummary}.`
         : '';
+      const lunchMenuClause = `\nSchool lunch menu entered for the next two weeks: ` +
+        `${(context.lunchMenu || []).length ? context.lunchMenu.join('; ') : 'nothing entered'}. ` +
+        `For a school lunch question about a day, answer from this list; a day not listed has no menu entered yet.`;
       const calendarClause = context.calendarEvents.length
         ? `\nUpcoming calendar events (already-finished ones are removed; the soonest come first): ${context.calendarEvents.join('; ')}.` +
           `\nAn event applies only on the exact date listed. Many repeat on certain weekdays only (a Monday/Wednesday program), so never move one to another day, and never say a day has an early drop-off, pick-up or other change unless an event or note is listed for that very date.` +
@@ -480,7 +483,9 @@ const ORCHESTRATOR_TEMPLATES = {
       return (
         `You are a helpful family assistant for a family command center app. Today is ` +
         `${context.todayWeekday}, ${context.today} — use this as the reference date for "today", ` +
-        `"tomorrow", and any other relative dates. Right now it is ${context.nowLabel}. Always look ahead from ` +
+        `"tomorrow", and any other relative dates. The next two weeks, for resolving "this Friday", "next Monday" ` +
+        `and similar: ${context.upcomingDatesLine}. "This <weekday>" is the first such day listed, counting today; ` +
+        `"next <weekday>" is the one after. Right now it is ${context.nowLabel}. Always look ahead from ` +
         `this moment: never mention anything that has already finished today, and don't summarize the whole day. ` +
         `Something dated today with no time (a field trip, a class day) is over once it's evening, so don't bring it up. ` +
         `For "what's happening", "what's next" or similar, give each person only what comes next for them: their ` +
@@ -491,7 +496,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `add a closing offer to help. When there are several things to list (events, tasks, times, options), use ` +
         `a short markdown bullet list with the time or name in bold first, one line per item, instead of a ` +
         `paragraph. Use a short bold label rather than a heading to separate parts. Use the household information below when it's relevant to the question — don't recite ` +
-        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${peopleNowClause}${specialFactsClause}${weatherClause}${calendarClause}` +
+        `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${lunchMenuClause}${peopleNowClause}${specialFactsClause}${weatherClause}${calendarClause}` +
         `${todosClause}${hardDeadlinesClause}${groceryClause}${alertsClause}${vehiclesClause}${notebookClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
@@ -862,7 +867,15 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
 
   const referenceDocs = await selectReferenceDocs(db, payload?.message);
 
-  return { today, todayWeekday, nowLabel, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, hardDeadlines, groceryItems, pantryItems, alerts, vehicles, notebook, referenceDocs };
+  // The school lunch menu is one doc per date; the briefing above only carries today's.
+  const upcomingDates = chatContext.upcomingDateStrs(today, 14);
+  const lunchMenuDocs = await Promise.all(upcomingDates.map(d => db.collection('remi-lunch-menu').doc(d).get()));
+  const lunchMenu = chatContext.summarizeLunchMenuForChat(
+    lunchMenuDocs.filter(d => d.exists).map(d => ({ date: d.id, lunch: d.data().lunch }))
+  );
+  const upcomingDatesLine = chatContext.upcomingDatesLine(today, 14);
+
+  return { today, todayWeekday, nowLabel, upcomingDatesLine, lunchMenu, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, hardDeadlines, groceryItems, pantryItems, alerts, vehicles, notebook, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(

@@ -108,4 +108,27 @@ function linkDocCitations(text, docs) {
   );
 }
 
-module.exports = { linkDocCitations, tomorrowStartPhrase, isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };
+/** "YYYY-MM-DD" strings for `today` and the following days (calendar arithmetic, so no time-zone drift). */
+function upcomingDateStrs(today, days) {
+  const [y, m, d] = today.split('-').map(Number);
+  return Array.from({ length: days }, (_, i) => new Date(Date.UTC(y, m - 1, d + i)).toISOString().slice(0, 10));
+}
+
+const weekdayShort = dateStr => new Date(`${dateStr}T12:00:00Z`).toLocaleDateString('en-US', { weekday: 'short', timeZone: 'UTC' });
+
+/** A weekday-to-date reference for the next `days` days, so "this Friday" or "next Monday" resolves to one exact date. */
+function upcomingDatesLine(today, days = 14) {
+  return upcomingDateStrs(today, days)
+    .map((d, i) => `${weekdayShort(d)} ${d}${i === 0 ? ' (today)' : i === 1 ? ' (tomorrow)' : ''}`)
+    .join(', ');
+}
+
+/** Lunch-menu entries ({ date, lunch }) as "Fri 2026-11-06: pizza" strings, in date order, skipping blanks. */
+function summarizeLunchMenuForChat(entries) {
+  return (entries || [])
+    .filter(e => e?.date && e.lunch)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map(e => `${weekdayShort(e.date)} ${e.date}: ${e.lunch}`);
+}
+
+module.exports = { upcomingDateStrs, upcomingDatesLine, summarizeLunchMenuForChat, linkDocCitations, tomorrowStartPhrase, isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat, tomorrowStartPhrase, linkDocCitations } = require('./chat-context');
+const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat, tomorrowStartPhrase, linkDocCitations, upcomingDatesLine, summarizeLunchMenuForChat } = require('./chat-context');
 
 const g = (summary, dateTime) => ({ summary, start: { dateTime }, end: { dateTime } });
 
@@ -74,4 +74,20 @@ test('doc citations become links to the library, and invented numbers are droppe
   assert.equal(linkDocCitations('Made up [Doc 9].', docs), 'Made up .');
   assert.equal(linkDocCitations('No markers here [1] or (Doc 1)', docs), 'No markers here [1] or (Doc 1)');
   assert.equal(linkDocCitations('Title [with] brackets [Doc 1]', [{ id: 'q', title: 'A [b] c' }]).includes('[A b c]'), true);
+});
+
+test('upcoming dates line resolves this Friday from a Sunday, across a month end', () => {
+  const line = upcomingDatesLine('2026-11-01', 14);
+  assert.match(line, /^Sun 2026-11-01 \(today\), Mon 2026-11-02 \(tomorrow\), Tue 2026-11-03/);
+  assert.match(line, /Fri 2026-11-06,/);
+  assert.match(line, /Fri 2026-11-13/);
+  assert.match(upcomingDatesLine('2026-10-30', 4), /Sat 2026-10-31 \(tomorrow\), Sun 2026-11-01, Mon 2026-11-02$/);
+});
+
+test('lunch menu entries are sorted, labeled with the weekday, and blanks dropped', () => {
+  assert.deepEqual(summarizeLunchMenuForChat([
+    { date: '2026-11-06', lunch: 'Pizza' },
+    { date: '2026-11-04', lunch: 'Tacos' },
+    { date: '2026-11-05', lunch: '' }
+  ]), ['Wed 2026-11-04: Tacos', 'Fri 2026-11-06: Pizza']);
 });
