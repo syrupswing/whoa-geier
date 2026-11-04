@@ -79,6 +79,14 @@ export interface CalendarEvent {
   pushAlertsSent?: Record<string, string>;
   /** One-off tasks only — "YYYY-MM-DD" the task must be done by, as opposed to the day it's planned for. */
   hardDeadline?: string;
+  /**
+   * Tasks the vehicle maintenance job made: the task for one service cycle of one item. Matched by these fields, never by
+   * title, so renaming the task keeps it linked. Logging the service (or marking registration renewed) completes it.
+   */
+  vehicleTask?: boolean;
+  vehicleId?: string;
+  serviceType?: string;
+  cycleKey?: string;
   /** Tasks only — snoozes keyed by the occurrence's start date ("YYYY-MM-DD"): ISO time until which that occurrence is hidden from the calendar. */
   snoozes?: Record<string, string>;
 }

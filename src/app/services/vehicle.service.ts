@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { LocalStorageService } from './local-storage.service';
+import { AppCalendarEventService } from './app-calendar-event.service';
 import {
   OdometerReading, OdometerEstimate, ServiceInterval, ServiceStatus, ServiceType, VehicleType,
   compareStatuses, computeRegistrationStatus, computeServiceStatus, defaultSchedule, estimateOdometer
@@ -43,6 +44,7 @@ export interface MaintenanceRecord {
 export class VehicleService {
   private firestoreService = inject(FirestoreService);
   private localStorageService = inject(LocalStorageService);
+  private calendarEvents = inject(AppCalendarEventService);
 
   private readonly VEHICLES_COLLECTION = 'vehicles';
   private readonly MAINTENANCE_COLLECTION = 'maintenanceRecords';
@@ -243,6 +245,7 @@ export class VehicleService {
       this.maintenanceRecords.update(records => [...records, newRecord]);
       this.saveMaintenanceRecordsToLocalStorage();
     }
+    await this.completeLinkedTasks(newRecord.vehicleId, newRecord.type);
     // A service visit is also an odometer reading; the history estimate then needs no extra entry.
     if (newRecord.mileage > 0) {
       await this.addOdometerReading(newRecord.vehicleId, newRecord.mileage, newRecord.date);
@@ -251,6 +254,18 @@ export class VehicleService {
         await this.writeVehicle(vehicle.id, { currentMileage: newRecord.mileage });
       }
     }
+  }
+
+  /** The open calendar tasks the nightly job made for this item, so the page can show it's already on the list. */
+  openTasksFor(vehicleId: string, type: ServiceType) {
+    return this.calendarEvents.events().filter(e =>
+      e.vehicleTask && e.vehicleId === vehicleId && e.serviceType === type && !Object.keys(e.completions ?? {}).length);
+  }
+
+  /** Logging a service ticks off its task straight away, rather than leaving that to the next morning's job. */
+  private async completeLinkedTasks(vehicleId: string, type: ServiceType): Promise<void> {
+    await Promise.all(this.openTasksFor(vehicleId, type)
+      .map(task => this.calendarEvents.completeOccurrence(task.id, task.start.date!)));
   }
 
   /**

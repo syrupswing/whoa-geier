@@ -21,9 +21,8 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { VehicleService, Vehicle, MaintenanceRecord } from '../../services/vehicle.service';
-import { BacklogService } from '../../services/backlog.service';
 import {
-  SERVICE_CATALOG, ServiceInterval, ServiceStatus, ServiceType, defaultSchedule, describeStatus, nextRegistrationExpiry, suggestedTaskTitle
+  SERVICE_CATALOG, ServiceInterval, ServiceStatus, ServiceType, defaultSchedule, describeStatus, nextRegistrationExpiry
 } from '../../services/vehicle-maintenance';
 
 /** Services you can log; registration is renewed with its own "Mark renewed" action instead. */
@@ -64,7 +63,6 @@ export class VehiclesComponent {
   @ViewChild('vehicleDialog') private vehicleDialog?: TemplateRef<unknown>;
   @ViewChild('maintenanceDialog') private maintenanceDialog?: TemplateRef<unknown>;
 
-  private backlog = inject(BacklogService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
   @ViewChild('odometerDialog') private odometerDialog?: TemplateRef<unknown>;
@@ -413,17 +411,9 @@ export class VehiclesComponent {
 
   // --- Attention rows and cards -------------------------------------------------------------
 
+  /** Whether the nightly job has already put this item on the task list (and it isn't done yet). */
   hasOpenTask(vehicle: Vehicle, status: ServiceStatus): boolean {
-    const title = suggestedTaskTitle(vehicle.name, status.type);
-    return this.backlog.open().some(i => i.title === title);
-  }
-
-  async addTask(vehicle: Vehicle, status: ServiceStatus): Promise<void> {
-    if (this.hasOpenTask(vehicle, status)) return;
-    await this.backlog.addItem({
-      title: suggestedTaskTitle(vehicle.name, status.type),
-      notes: describeStatus(status)
-    });
+    return this.vehicleService.openTasksFor(vehicle.id, status.type).length > 0;
   }
 
   statusLabel(s: ServiceStatus): string {

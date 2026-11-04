@@ -27,8 +27,7 @@
         <div class="attention-actions">
           <button mat-stroked-button *ngIf="item.status.type !== 'registration'" (click)="openAddMaintenance(item.vehicle.id, item.status.type)">Log it</button>
           <button mat-stroked-button *ngIf="item.status.type === 'registration'" (click)="openRenewRegistration(item.vehicle)">Mark renewed</button>
-          <button mat-button *ngIf="!hasOpenTask(item.vehicle, item.status)" (click)="addTask(item.vehicle, item.status)">Add task</button>
-          <span class="task-added" *ngIf="hasOpenTask(item.vehicle, item.status)"><mat-icon>task_alt</mat-icon>Task added</span>
+          <span class="task-added" *ngIf="hasOpenTask(item.vehicle, item.status)"><mat-icon>task_alt</mat-icon>On your tasks</span>
         </div>
       </div>
     </mat-card-content>

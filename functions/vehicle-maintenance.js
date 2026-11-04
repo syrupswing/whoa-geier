@@ -205,6 +205,11 @@ function vehicleSnapshot(vehicle, records, readings, now) {
   return { estimate, statuses };
 }
 
+/** Identifies one service cycle of an item: logging the service (or renewing) changes it, which resets alerts and tasks. */
+function cycleKeyFor(status) {
+  return status.type === 'registration' ? status.dueDate.toISOString() : status.lastDate.toISOString();
+}
+
 /**
  * Decides which due items to alert about. `state` maps "vehicleId:type" to what was last alerted
  * ({ cycleKey, level, alertedAt }). An item alerts when it first turns due-soon/overdue in a
@@ -219,7 +224,7 @@ function planVehicleAlerts({ vehicles, records, readings, state, now }) {
 
     for (const s of statuses) {
       if (s.status !== 'soon' && s.status !== 'overdue') continue;
-      const cycleKey = s.type === 'registration' ? s.dueDate.toISOString() : s.lastDate.toISOString();
+      const cycleKey = cycleKeyFor(s);
       const stateId = `${vehicle.id}:${s.type}`;
       const prev = state[stateId];
       const due = !prev
@@ -237,8 +242,7 @@ function planVehicleAlerts({ vehicles, records, readings, state, now }) {
         vehicleName: vehicle.name,
         serviceType: s.type,
         title: `${label} · ${vehicle.name}`,
-        body: describeStatus(s),
-        suggestedTask: { title: suggestedTaskTitle(vehicle.name, s.type), notes: describeStatus(s) }
+        body: describeStatus(s)
       });
     }
 
@@ -271,6 +275,60 @@ function planVehicleAlerts({ vehicles, records, readings, state, now }) {
   return planned.sort((a, b) => rank[a.level] - rank[b.level]);
 }
 
+/** The calendar task for one item's service cycle gets this id, so planning it twice can't make two. */
+function vehicleTaskId(vehicleId, type, cycleKey) {
+  return `vehicleTask_${vehicleId}_${type}_${cycleKey.slice(0, 10)}`;
+}
+
+/**
+ * The tasks that should exist: one per item that is due soon or overdue, for its current service cycle.
+ * Each carries the date it's due (the task's hard deadline); `status` says whether it is already overdue.
+ */
+function planVehicleTasks({ vehicles, records, readings, now }) {
+  const planned = [];
+  for (const vehicle of vehicles) {
+    const { statuses } = vehicleSnapshot(vehicle, records, readings, now);
+    for (const s of statuses) {
+      if (s.status !== 'soon' && s.status !== 'overdue') continue;
+      const cycleKey = cycleKeyFor(s);
+      planned.push({
+        id: vehicleTaskId(vehicle.id, s.type, cycleKey),
+        vehicleId: vehicle.id,
+        vehicleName: vehicle.name,
+        serviceType: s.type,
+        cycleKey,
+        title: suggestedTaskTitle(vehicle.name, s.type),
+        notes: describeStatus(s),
+        dueDate: s.effectiveDueDate ?? now,
+        status: s.status
+      });
+    }
+  }
+  return planned;
+}
+
+/**
+ * What to do with the open linked tasks already in the calendar. `openTasks` are { id, vehicleId, serviceType,
+ * cycleKey }. A task is finished (`complete`) once its item is no longer due in that cycle, because the service
+ * was logged, the renewal marked, or the schedule changed; it is removed (`remove`) if its vehicle is gone.
+ */
+function planVehicleTaskClosures({ vehicles, records, readings, openTasks, now }) {
+  const dueNow = new Map();
+  const known = new Set(vehicles.map(v => v.id));
+  for (const vehicle of vehicles) {
+    for (const s of vehicleSnapshot(vehicle, records, readings, now).statuses) {
+      if (s.status === 'soon' || s.status === 'overdue') dueNow.set(`${vehicle.id}:${s.type}`, cycleKeyFor(s));
+    }
+  }
+  const complete = [];
+  const remove = [];
+  for (const t of openTasks) {
+    if (!known.has(t.vehicleId)) remove.push(t.id);
+    else if (dueNow.get(`${t.vehicleId}:${t.serviceType}`) !== t.cycleKey) complete.push(t.id);
+  }
+  return { complete, remove };
+}
+
 /** Plain-language status lines for the chat assistant: odometer plus whatever is due or coming due. */
 function summarizeVehiclesForChat({ vehicles, records, readings, now }) {
   return vehicles.map(vehicle => {
@@ -298,5 +356,6 @@ function summarizePush(planned) {
 
 module.exports = {
   defaultSchedule, drivingRate, estimateOdometer, computeServiceStatus, computeRegistrationStatus,
-  describeStatus, suggestedTaskTitle, planVehicleAlerts, summarizePush, summarizeVehiclesForChat
+  describeStatus, suggestedTaskTitle, planVehicleAlerts, planVehicleTasks, planVehicleTaskClosures, vehicleTaskId,
+  summarizePush, summarizeVehiclesForChat
 };

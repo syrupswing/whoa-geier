@@ -56,12 +56,11 @@ const plan = (over = {}) => vm.planVehicleAlerts({
   state: {}, now: NOW, ...over
 });
 
-test('planVehicleAlerts: a due item alerts once, with a suggested task', () => {
+test('planVehicleAlerts: a due item alerts once', () => {
   const first = plan();
   assert.equal(first.length, 1);
   assert.equal(first[0].title, 'Oil change · Subaru');
   assert.equal(first[0].level, 'overdue');
-  assert.equal(first[0].suggestedTask.title, 'Oil change – Subaru');
 
   const state = { [first[0].stateId]: { cycleKey: first[0].cycleKey, level: 'overdue', alertedAt: NOW.toISOString() } };
   assert.equal(plan({ state }).length, 0);
@@ -84,7 +83,6 @@ test('planVehicleAlerts: registration and quiet vehicles', () => {
   const expiring = plan({ vehicles: [{ ...vehicle, registrationExpiry: '2026-11-05T00:00:00.000Z' }], records: [] });
   assert.equal(expiring.length, 1);
   assert.equal(expiring[0].title, 'Registration · Subaru');
-  assert.equal(expiring[0].suggestedTask.title, 'Renew registration – Subaru');
   assert.equal(plan({ records: [] }).length, 0); // nothing logged, nothing tracked
 });
 
@@ -170,4 +168,69 @@ test('estimate never undershoots a mileage typed onto the vehicle before reading
   }, NOW);
   assert.equal(est.miles, 40000);
   assert.equal(est.isEstimated, false);
+});
+
+// --- Linked tasks ------------------------------------------------------------------------------
+
+const taskInputs = (over = {}) => ({
+  vehicles: [vehicle],
+  records: [{ id: 'r1', vehicleId: 'v1', type: 'oil_change', date: '2026-04-01T12:00:00.000Z', mileage: 38000 }],
+  readings: [{ id: 'o0', vehicleId: 'v1', date: '2026-10-10T12:00:00.000Z', miles: 40000 }],
+  now: NOW, ...over
+});
+
+test('planVehicleTasks: one task per due item, with a stable id, the due date and the status', () => {
+  const [t, ...rest] = vm.planVehicleTasks(taskInputs());
+  assert.equal(rest.length, 0);
+  assert.equal(t.title, 'Oil change – Subaru');
+  assert.equal(t.serviceType, 'oil_change');
+  assert.equal(t.status, 'overdue');
+  assert.equal(t.id, vm.vehicleTaskId('v1', 'oil_change', t.cycleKey));
+  assert.match(t.id, /^vehicleTask_v1_oil_change_2026-04-01$/);
+  assert.ok(t.dueDate instanceof Date);
+  // Planning again gives the same id, so creating it twice can't make two tasks.
+  assert.equal(vm.planVehicleTasks(taskInputs())[0].id, t.id);
+});
+
+test('planVehicleTasks: nothing for items that are fine or untracked, registration included when due', () => {
+  assert.deepEqual(vm.planVehicleTasks(taskInputs({ records: [] })), []);
+  const reg = vm.planVehicleTasks(taskInputs({ records: [], vehicles: [{ ...vehicle, registrationExpiry: '2026-11-05T00:00:00.000Z' }] }));
+  assert.equal(reg.length, 1);
+  assert.equal(reg[0].title, 'Renew registration – Subaru');
+  assert.equal(reg[0].status, 'soon');
+  assert.equal(reg[0].dueDate.toISOString(), '2026-11-05T00:00:00.000Z');
+});
+
+test('planVehicleTasks: logging the service starts a new cycle with a different task id', () => {
+  const before = vm.planVehicleTasks(taskInputs())[0];
+  // Logged today, but the car is still due soon by date: a new cycle, so a new id.
+  const logged = vm.planVehicleTasks(taskInputs({
+    records: [{ id: 'r2', vehicleId: 'v1', type: 'oil_change', date: '2026-10-18T12:00:00.000Z', mileage: 39800, nextDueDate: '2026-11-01T12:00:00.000Z' }]
+  }));
+  assert.equal(logged.length, 1);
+  assert.notEqual(logged[0].id, before.id);
+});
+
+test('planVehicleTaskClosures: a task stays while its item is still due in the same cycle', () => {
+  const [t] = vm.planVehicleTasks(taskInputs());
+  const openTasks = [{ id: t.id, vehicleId: 'v1', serviceType: 'oil_change', cycleKey: t.cycleKey }];
+  assert.deepEqual(vm.planVehicleTaskClosures({ ...taskInputs(), openTasks }), { complete: [], remove: [] });
+});
+
+test('planVehicleTaskClosures: logging the service completes the task', () => {
+  const [t] = vm.planVehicleTasks(taskInputs());
+  const openTasks = [{ id: t.id, vehicleId: 'v1', serviceType: 'oil_change', cycleKey: t.cycleKey }];
+  const logged = taskInputs({
+    records: [{ id: 'r2', vehicleId: 'v1', type: 'oil_change', date: '2026-10-18T12:00:00.000Z', mileage: 40000 }]
+  });
+  assert.deepEqual(vm.planVehicleTaskClosures({ ...logged, openTasks }), { complete: [t.id], remove: [] });
+});
+
+test('planVehicleTaskClosures: renewing registration completes its task; a deleted vehicle removes its tasks', () => {
+  const expiring = { ...vehicle, registrationExpiry: '2026-11-05T00:00:00.000Z' };
+  const [t] = vm.planVehicleTasks(taskInputs({ records: [], vehicles: [expiring] }));
+  const openTasks = [{ id: t.id, vehicleId: 'v1', serviceType: 'registration', cycleKey: t.cycleKey }];
+  const renewed = { ...taskInputs({ records: [] }), vehicles: [{ ...vehicle, registrationExpiry: '2027-11-05T00:00:00.000Z' }] };
+  assert.deepEqual(vm.planVehicleTaskClosures({ ...renewed, openTasks }), { complete: [t.id], remove: [] });
+  assert.deepEqual(vm.planVehicleTaskClosures({ ...taskInputs({ records: [] }), vehicles: [], openTasks }), { complete: [], remove: [t.id] });
 });

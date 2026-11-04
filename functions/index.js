@@ -10,6 +10,7 @@ const net = require('net');
 const vehicleMaintenance = require('./vehicle-maintenance');
 const chatContext = require('./chat-context');
 const lunchMenuParser = require('./lunch-menu');
+const vehicleTasks = require('./vehicle-tasks');
 
 admin.initializeApp();
 
@@ -2230,8 +2231,8 @@ exports.runSmartAlertsNow = onCall(
 
 /**
  * Finds vehicle services (and registrations) that have newly come due, writes one in-app
- * notification per item — each carrying a suggested task the banner can add on confirmation —
- * and sends a single push summarising them to every device. What was already alerted is kept in
+ * notification per item and sends a single push summarising them to every device, and keeps a
+ * calendar task for each due item (see vehicle-tasks.js). What was already alerted is kept in
  * vehicleAlertState (Admin SDK only), so an ongoing issue isn't re-announced every morning.
  */
 async function evaluateVehicleMaintenanceAlerts(db, now = new Date()) {
@@ -2244,13 +2245,19 @@ async function evaluateVehicleMaintenanceAlerts(db, now = new Date()) {
   const state = {};
   stateSnap.docs.forEach(d => { state[d.data().stateId] = d.data(); });
 
-  const planned = vehicleMaintenance.planVehicleAlerts({
-    vehicles: vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-    records: recordsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-    readings: readingsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
-    state,
-    now
-  });
+  const vehicles = vehiclesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const records = recordsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+  const readings = readingsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+
+  // Tasks first and in their own guard, so a problem there can't stop the alerts going out.
+  try {
+    const tasks = await vehicleTasks.syncVehicleTasks(db, { vehicles, records, readings, now, toDateStr });
+    console.log(`vehicleMaintenanceAlerts: tasks ${tasks.created} created, ${tasks.completed} completed, ${tasks.removed} removed.`);
+  } catch (err) {
+    console.error('vehicleMaintenanceAlerts task sync error:', err);
+  }
+
+  const planned = vehicleMaintenance.planVehicleAlerts({ vehicles, records, readings, state, now });
   if (!planned.length) return { alerted: 0 };
 
   const today = toDateStr(now);
@@ -2264,7 +2271,6 @@ async function evaluateVehicleMaintenanceAlerts(db, now = new Date()) {
       body: p.body,
       itemId: p.vehicleId,
       itemKind: 'vehicle',
-      ...(p.suggestedTask ? { suggestedTask: p.suggestedTask } : {}),
       ...(p.action ? { action: p.action } : {}),
       date: today,
       targetUid: 'family',
