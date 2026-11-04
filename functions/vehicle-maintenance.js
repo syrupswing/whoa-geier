@@ -134,13 +134,14 @@ function computeServiceStatus(interval, records, estimate, now) {
   };
 }
 
-function computeRegistrationStatus(registrationExpiry, now) {
+function computeRegistrationStatus(registrationExpiry, now, records = []) {
   if (!registrationExpiry) return null;
   const due = new Date(registrationExpiry);
   const daysRemaining = Math.ceil((due - now) / DAY_MS);
+  const last = records.filter(r => r.type === 'registration').sort((a, b) => b.date - a.date)[0] ?? null;
   return {
     type: 'registration', interval: null,
-    lastDate: null, lastMiles: null,
+    lastDate: last?.date ?? null, lastMiles: null,
     dueDate: due, dueMiles: null, effectiveDueDate: due,
     daysRemaining, milesRemaining: null,
     status: daysRemaining < 0 ? 'overdue' : daysRemaining <= SOON_DAYS ? 'soon' : 'ok'
@@ -199,7 +200,7 @@ function vehicleSnapshot(vehicle, records, readings, now) {
 
   const statuses = (vehicle.schedule || defaultSchedule(vehicle.type))
     .map(i => computeServiceStatus(i, vehicleRecords, estimate, now));
-  const registration = computeRegistrationStatus(vehicle.registrationExpiry, now);
+  const registration = computeRegistrationStatus(vehicle.registrationExpiry, now, vehicleRecords);
   if (registration) statuses.push(registration);
   return { estimate, statuses };
 }

@@ -23,10 +23,10 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { VehicleService, Vehicle, MaintenanceRecord } from '../../services/vehicle.service';
 import { BacklogService } from '../../services/backlog.service';
 import {
-  SERVICE_CATALOG, ServiceInterval, ServiceStatus, ServiceType, defaultSchedule, describeStatus, suggestedTaskTitle
+  SERVICE_CATALOG, ServiceInterval, ServiceStatus, ServiceType, defaultSchedule, describeStatus, nextRegistrationExpiry, suggestedTaskTitle
 } from '../../services/vehicle-maintenance';
 
-/** Services you can log; registration lives on the vehicle's expiry date instead. */
+/** Services you can log; registration is renewed with its own "Mark renewed" action instead. */
 const LOGGABLE_TYPES = (Object.keys(SERVICE_CATALOG) as ServiceType[]).filter(t => t !== 'registration');
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
@@ -69,11 +69,13 @@ export class VehiclesComponent {
   private router = inject(Router);
   @ViewChild('odometerDialog') private odometerDialog?: TemplateRef<unknown>;
   @ViewChild('scheduleDialog') private scheduleDialog?: TemplateRef<unknown>;
+  @ViewChild('renewalDialog') private renewalDialog?: TemplateRef<unknown>;
 
   showAddVehicle = signal(false);
   showAddMaintenance = signal(false);
   showOdometer = signal(false);
   showSchedule = signal(false);
+  showRenewal = signal(false);
   editingVehicleId = signal<string | null>(null);
 
   readonly loggableTypes = LOGGABLE_TYPES;
@@ -100,6 +102,10 @@ export class VehiclesComponent {
   // Odometer dialog
   odometerVehicleId = '';
   odometerMiles: number | null = null;
+
+  // Registration renewal dialog
+  renewalVehicleId = '';
+  renewalForm = { date: new Date(), newExpiry: null as Date | null, cost: null as number | null };
 
   // Schedule dialog
   scheduleVehicleId = '';
@@ -167,6 +173,7 @@ export class VehiclesComponent {
       }
     });
     this.openFormInDialog(this.showSchedule, () => this.scheduleDialog, () => this.showSchedule.set(false));
+    this.openFormInDialog(this.showRenewal, () => this.renewalDialog, () => this.showRenewal.set(false));
   }
 
   /** Shows a form template in a modal dialog while its flag is on; dismissing the dialog (Esc, backdrop) turns the flag off. */
@@ -229,6 +236,28 @@ export class VehiclesComponent {
     if (vehicle) {
       this.maintenanceForm.mileage = this.vehicleService.getOdometerEstimate(vehicle).miles;
     }
+  }
+
+  /** Opens the renewal form with the expiry a year on from the current one, which only needs correcting if the term differs. */
+  openRenewRegistration(vehicle: Vehicle): void {
+    this.renewalVehicleId = vehicle.id;
+    this.renewalForm = { date: new Date(), newExpiry: nextRegistrationExpiry(vehicle.registrationExpiry), cost: null };
+    this.showRenewal.set(true);
+  }
+
+  renewalVehicleName(): string {
+    return this.vehicleService.getVehicleById(this.renewalVehicleId)?.name ?? '';
+  }
+
+  saveRenewal(): void {
+    const form = this.renewalForm;
+    if (!this.renewalVehicleId || !form.date || !form.newExpiry) return;
+    void this.vehicleService.renewRegistration(this.renewalVehicleId, {
+      date: form.date,
+      newExpiry: form.newExpiry,
+      cost: form.cost || undefined
+    });
+    this.showRenewal.set(false);
   }
 
   openOdometer(vehicleId?: string): void {

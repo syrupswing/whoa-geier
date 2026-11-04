@@ -1,6 +1,6 @@
 import {
   computeRegistrationStatus, computeServiceStatus, defaultSchedule, describeStatus, drivingRate, estimateOdometer,
-  StatusRecord, suggestedTaskTitle
+  nextRegistrationExpiry, StatusRecord, suggestedTaskTitle
 } from './vehicle-maintenance';
 
 const d = (iso: string) => new Date(iso + 'T12:00:00');
@@ -111,6 +111,32 @@ describe('registration status', () => {
     expect(computeRegistrationStatus(d('2026-10-01'), NOW)!.status).toBe('overdue');
     expect(computeRegistrationStatus(d('2026-11-05'), NOW)!.status).toBe('soon');
     expect(computeRegistrationStatus(d('2027-03-01'), NOW)!.status).toBe('ok');
+  });
+  it('reports the most recent renewal and ignores other services', () => {
+    const records: StatusRecord[] = [
+      { type: 'registration', date: d('2025-10-01'), mileage: 0 },
+      { type: 'registration', date: d('2026-10-19'), mileage: 0 },
+      { type: 'oil_change', date: d('2026-10-30'), mileage: 41000 }
+    ];
+    expect(computeRegistrationStatus(d('2027-11-05'), NOW, records)!.lastDate).toEqual(d('2026-10-19'));
+    expect(computeRegistrationStatus(d('2027-11-05'), NOW)!.lastDate).toBeNull();
+  });
+});
+
+describe('next registration expiry', () => {
+  const ymd = (x: Date) => `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  it('is a year on from an upcoming expiry, even when renewed early', () => {
+    expect(ymd(nextRegistrationExpiry(d('2026-12-31'), NOW))).toBe('2027-12-31');
+  });
+  it('runs from today when the registration already lapsed', () => {
+    expect(ymd(nextRegistrationExpiry(d('2026-03-31'), NOW))).toBe('2027-10-19');
+  });
+  it('runs from today when there was no expiry', () => {
+    expect(ymd(nextRegistrationExpiry(undefined, NOW))).toBe('2027-10-19');
+  });
+  it('keeps Feb 29 and month-ends in their month', () => {
+    expect(ymd(nextRegistrationExpiry(d('2028-02-29'), d('2028-01-10')))).toBe('2029-02-28');
+    expect(ymd(nextRegistrationExpiry(d('2026-10-31'), NOW))).toBe('2027-10-31');
   });
 });
 

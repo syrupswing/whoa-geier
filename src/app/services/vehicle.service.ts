@@ -253,6 +253,23 @@ export class VehicleService {
     }
   }
 
+  /**
+   * Marks a registration renewed: logs it in the vehicle's history and moves the vehicle's expiry to the new
+   * date, which is what the status, alerts and chat all read, so the item stops being due straight away.
+   */
+  async renewRegistration(vehicleId: string, renewal: { date: Date; newExpiry: Date; cost?: number }): Promise<void> {
+    await this.addMaintenanceRecord({
+      vehicleId,
+      type: 'registration',
+      date: renewal.date,
+      mileage: 0,
+      description: `Renewed through ${renewal.newExpiry.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`,
+      cost: renewal.cost,
+      nextDueDate: renewal.newExpiry
+    });
+    await this.updateVehicle(vehicleId, { registrationExpiry: renewal.newExpiry });
+  }
+
   async updateMaintenanceRecord(id: string, updates: Partial<MaintenanceRecord>): Promise<void> {
     if (this.firestoreService.isInitialized()) {
       await this.firestoreService.updateDocument(
@@ -328,7 +345,7 @@ export class VehicleService {
     const estimate = this.getOdometerEstimate(vehicle, now);
     const records = this.maintenanceRecords().filter(r => r.vehicleId === vehicle.id);
     const statuses = this.getScheduleForVehicle(vehicle).map(i => computeServiceStatus(i, records, estimate, now));
-    const registration = computeRegistrationStatus(vehicle.registrationExpiry, now);
+    const registration = computeRegistrationStatus(vehicle.registrationExpiry, now, records);
     if (registration) statuses.push(registration);
     return statuses.sort(compareStatuses);
   }

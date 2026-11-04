@@ -26,7 +26,7 @@
         </div>
         <div class="attention-actions">
           <button mat-stroked-button *ngIf="item.status.type !== 'registration'" (click)="openAddMaintenance(item.vehicle.id, item.status.type)">Log it</button>
-          <button mat-stroked-button *ngIf="item.status.type === 'registration'" (click)="openEditVehicle(item.vehicle)">Renew</button>
+          <button mat-stroked-button *ngIf="item.status.type === 'registration'" (click)="openRenewRegistration(item.vehicle)">Mark renewed</button>
           <button mat-button *ngIf="!hasOpenTask(item.vehicle, item.status)" (click)="addTask(item.vehicle, item.status)">Add task</button>
           <span class="task-added" *ngIf="hasOpenTask(item.vehicle, item.status)"><mat-icon>task_alt</mat-icon>Task added</span>
         </div>
@@ -156,6 +156,38 @@
     </mat-dialog-actions>
   </ng-template>
 
+  <ng-template #renewalDialog>
+    <h2 mat-dialog-title>Mark registration renewed{{ renewalVehicleName() ? ' · ' + renewalVehicleName() : '' }}</h2>
+    <mat-dialog-content class="form-dialog">
+      <div class="form-grid">
+        <mat-form-field appearance="outline">
+          <mat-label>Renewed on</mat-label>
+          <input matInput [matDatepicker]="renewedOnPicker" [(ngModel)]="renewalForm.date">
+          <mat-datepicker-toggle matIconSuffix [for]="renewedOnPicker"></mat-datepicker-toggle>
+          <mat-datepicker #renewedOnPicker></mat-datepicker>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>New expiry</mat-label>
+          <input matInput [matDatepicker]="newExpiryPicker" [(ngModel)]="renewalForm.newExpiry">
+          <mat-datepicker-toggle matIconSuffix [for]="newExpiryPicker"></mat-datepicker-toggle>
+          <mat-datepicker #newExpiryPicker></mat-datepicker>
+          <mat-hint>A year on from the old expiry; change it if the term differs</mat-hint>
+        </mat-form-field>
+
+        <mat-form-field appearance="outline">
+          <mat-label>Cost</mat-label>
+          <input matInput type="number" [(ngModel)]="renewalForm.cost" placeholder="Optional">
+          <span matTextPrefix>$&nbsp;</span>
+        </mat-form-field>
+      </div>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button (click)="showRenewal.set(false)">Cancel</button>
+      <button mat-raised-button color="primary" [disabled]="!renewalForm.date || !renewalForm.newExpiry" (click)="saveRenewal()">Mark renewed</button>
+    </mat-dialog-actions>
+  </ng-template>
+
   <ng-template #odometerDialog>
     <h2 mat-dialog-title>Update odometer</h2>
     <mat-dialog-content class="form-dialog">
@@ -269,12 +301,15 @@
               <div>{{ catalog[s.type].label }}</div>
               <div class="schedule-sub">
                 <span *ngIf="s.interval">Every {{ s.interval.everyMiles ? (s.interval.everyMiles.toLocaleString() + ' mi') : '' }}{{ s.interval.everyMiles && s.interval.everyMonths ? ' / ' : '' }}{{ s.interval.everyMonths ? (s.interval.everyMonths + ' mo') : '' }}</span>
-                <span *ngIf="s.lastDate"> · last {{ s.lastDate | date:'MMM d, y' }}</span>
+                <span *ngIf="s.lastDate"><ng-container *ngIf="s.interval"> · </ng-container>{{ s.type === 'registration' ? 'renewed' : 'last' }} {{ s.lastDate | date:'MMM d, y' }}</span>
               </div>
             </div>
             <span class="schedule-status">{{ statusLabel(s) }}</span>
             <button mat-icon-button *ngIf="s.type !== 'registration'" (click)="openAddMaintenance(view.vehicle.id, s.type)" matTooltip="Log it">
               <mat-icon>add_circle_outline</mat-icon>
+            </button>
+            <button mat-icon-button *ngIf="s.type === 'registration'" (click)="openRenewRegistration(view.vehicle)" matTooltip="Mark renewed">
+              <mat-icon>autorenew</mat-icon>
             </button>
           </div>
 
@@ -284,7 +319,7 @@
               <mat-icon matListItemIcon>{{ getMaintenanceIcon(record.type) }}</mat-icon>
               <div matListItemTitle>{{ getMaintenanceLabel(record.type) }}</div>
               <div matListItemLine>
-                {{ record.date | date:'shortDate' }} • {{ record.mileage.toLocaleString() }} miles
+                {{ record.date | date:'shortDate' }}<span *ngIf="record.mileage > 0"> • {{ record.mileage.toLocaleString() }} miles</span>
                 <span *ngIf="record.cost"> • ${{ record.cost }}</span>
                 <span *ngIf="record.location"> • {{ record.location }}</span>
               </div>

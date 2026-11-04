@@ -88,6 +88,32 @@ test('planVehicleAlerts: registration and quiet vehicles', () => {
   assert.equal(plan({ records: [] }).length, 0); // nothing logged, nothing tracked
 });
 
+test('registration: renewing rolls the expiry forward, which clears the alert and starts a new cycle', () => {
+  const renewal = { id: 'r1', vehicleId: 'v1', type: 'registration', date: '2026-10-19T12:00:00.000Z', mileage: 0, nextDueDate: '2027-11-05T00:00:00.000Z' };
+  const before = plan({ vehicles: [{ ...vehicle, registrationExpiry: '2026-11-05T00:00:00.000Z' }], records: [] });
+  assert.equal(before.length, 1);
+  // The renewal moved the vehicle's expiry a year out, so it is no longer due soon.
+  assert.equal(plan({ vehicles: [{ ...vehicle, registrationExpiry: '2027-11-05T00:00:00.000Z' }], records: [renewal], state: {} }).length, 0);
+  // And the next time it comes due, the old cycle's alert state doesn't suppress it.
+  const later = plan({
+    vehicles: [{ ...vehicle, registrationExpiry: '2027-11-05T00:00:00.000Z' }], records: [renewal],
+    state: { [before[0].stateId]: { cycleKey: before[0].cycleKey, level: 'soon', alertedAt: NOW.toISOString() } },
+    now: d('2027-10-20')
+  }).filter(p => p.serviceType === 'registration');
+  assert.equal(later.length, 1);
+});
+
+test('registration status reports when it was last renewed', () => {
+  const s = vm.computeRegistrationStatus(d('2027-11-05'), NOW, [
+    { type: 'registration', date: d('2025-10-01'), mileage: 0 },
+    { type: 'registration', date: d('2026-10-19'), mileage: 0 },
+    { type: 'oil_change', date: d('2026-10-30'), mileage: 41000 }
+  ]);
+  assert.equal(s.lastDate.getTime(), d('2026-10-19').getTime());
+  assert.equal(s.status, 'ok');
+  assert.equal(vm.computeRegistrationStatus(d('2027-11-05'), NOW).lastDate, null);
+});
+
 test('summarizePush caps at three lines', () => {
   const items = ['a', 'b', 'c', 'd', 'e'].map(n => ({ title: n, body: 'Due soon' }));
   const out = vm.summarizePush(items);

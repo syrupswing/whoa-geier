@@ -220,18 +220,39 @@ export function computeServiceStatus(
   };
 }
 
-/** Registration is date-only and lives on the vehicle, not in its service schedule. */
-export function computeRegistrationStatus(registrationExpiry: Date | undefined, now: Date = new Date()): ServiceStatus | null {
+/**
+ * Registration is date-only: the vehicle's expiry date is the one source of truth for when it's due. Renewing
+ * logs a 'registration' record (for history, and so "last renewed" can be shown) and rolls that date forward.
+ */
+export function computeRegistrationStatus(
+  registrationExpiry: Date | undefined,
+  now: Date = new Date(),
+  records: StatusRecord[] = []
+): ServiceStatus | null {
   if (!registrationExpiry) return null;
   const due = new Date(registrationExpiry);
   const daysRemaining = Math.ceil((due.getTime() - now.getTime()) / DAY_MS);
+  const last = records
+    .filter(r => r.type === 'registration')
+    .sort((a, b) => b.date.getTime() - a.date.getTime())[0] ?? null;
   return {
     type: 'registration', interval: null,
-    lastDate: null, lastMiles: null,
+    lastDate: last?.date ?? null, lastMiles: null,
     dueDate: due, dueMiles: null, effectiveDueDate: due,
     daysRemaining, milesRemaining: null,
     status: daysRemaining < 0 ? 'overdue' : daysRemaining <= SOON_DAYS ? 'soon' : 'ok'
   };
+}
+
+/**
+ * The expiry to suggest after a renewal: a year on from the current one (a renewal term runs from the old
+ * expiry, even when renewed early), or from today when it already lapsed. A Feb 29 or month-end date
+ * stays in its month rather than spilling into the next.
+ */
+export function nextRegistrationExpiry(current: Date | undefined, now: Date = new Date()): Date {
+  const base = current && new Date(current) >= now ? new Date(current) : new Date(now);
+  const lastDayOfMonth = new Date(base.getFullYear() + 1, base.getMonth() + 1, 0).getDate();
+  return new Date(base.getFullYear() + 1, base.getMonth(), Math.min(base.getDate(), lastDayOfMonth), 12);
 }
 
 const STATUS_ORDER: Record<ServiceStatusLevel, number> = { overdue: 0, soon: 1, ok: 2, untracked: 3 };
