@@ -9,6 +9,7 @@ const dns = require('dns').promises;
 const net = require('net');
 const vehicleMaintenance = require('./vehicle-maintenance');
 const chatContext = require('./chat-context');
+const lunchMenuParser = require('./lunch-menu');
 
 admin.initializeApp();
 
@@ -977,17 +978,44 @@ async function findOnSiteLunchPdfUrl() {
 }
 
 /**
- * Fetches and text-extracts the current On-Site lunch PDF, caching the raw
- * result per month. NOTE: this does NOT attempt to auto-assign items to
- * specific dates — the PDF's internal text order does not reliably match
- * its visual calendar order (verified against a real sample: the day-number
- * headers and the meal-item blocks are two independently-ordered text
- * streams with no generalizable positional relationship). Auto-assigning
- * per day would risk confidently showing the WRONG day's lunch, which is
- * worse than showing nothing, so the extracted text is surfaced in the
- * Remi schedule settings UI for a 10-second manual copy into a specific day
- * instead of being guessed automatically.
+ * Fetches and text-extracts the current On-Site lunch PDF, caching the raw result per month, then fills each
+ * day's lunch into /remi-lunch-menu from it (see lunch-menu.js). A day someone entered by hand is never
+ * overwritten, and a PDF that doesn't parse as the expected calendar fills nothing: showing no lunch beats
+ * showing the wrong day's.
  */
+/** Only a day with no entry, or one this same sync filled in before, may be written; a typed entry always wins. */
+function lunchEntryIsWritable(existing) {
+  return !existing || existing.source === 'auto-pdf';
+}
+
+/** Parses the cached PDF text into per-day lunches and saves the ones that may be written. */
+async function fillLunchMenuFromSource(db, pdfUrl, text) {
+  const when = lunchMenuParser.menuMonthFromSource(pdfUrl, text);
+  if (!when) {
+    console.warn(`fillLunchMenuFromSource: could not tell which month ${pdfUrl} covers.`);
+    return;
+  }
+  const { entries, skipped, warnings } = lunchMenuParser.parseLunchMenuText(text, when);
+  if (warnings.length) console.warn('fillLunchMenuFromSource:', warnings.join('; '));
+  if (!entries.length) {
+    console.warn('fillLunchMenuFromSource: nothing parsed, leaving the menu as it is.');
+    return;
+  }
+
+  const refs = entries.map(e => db.collection('remi-lunch-menu').doc(e.date));
+  const existing = await db.getAll(...refs);
+  const batch = db.batch();
+  let written = 0;
+  entries.forEach((e, i) => {
+    const current = existing[i].exists ? existing[i].data() : null;
+    if (!lunchEntryIsWritable(current) || current?.lunch === e.lunch) return;
+    batch.set(refs[i], { lunch: e.lunch, source: 'auto-pdf' });
+    written++;
+  });
+  if (written) await batch.commit();
+  console.log(`fillLunchMenuFromSource: ${written} of ${entries.length} day(s) written for ${when.year}-${when.month} (${skipped.length} skipped)`);
+}
+
 exports.syncLunchMenuSource = onSchedule(
   { schedule: '0 9 * * *', timeZone: 'America/Chicago' },
   async () => {
@@ -1019,6 +1047,8 @@ exports.syncLunchMenuSource = onSchedule(
       });
 
       console.log(`syncLunchMenuSource: cached ${monthKey} menu source from ${pdfUrl}`);
+
+      await fillLunchMenuFromSource(db, pdfUrl, text);
     } catch (err) {
       console.error('syncLunchMenuSource error:', err);
     }

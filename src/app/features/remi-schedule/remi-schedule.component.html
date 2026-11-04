@@ -189,8 +189,9 @@
     </mat-card-header>
     <mat-card-content>
       <p class="hint-text">
-        The current month's on-site lunch PDF is auto-fetched daily, but MPS's PDF layout can't be reliably
-        auto-mapped to specific days, so enter each day's item manually below (see the auto-fetched text further down for reference).
+        The on-site lunch PDF is fetched every morning and each day's lunch is filled in below from it. A day that
+        doesn't read cleanly is left blank. Edit any day to correct it; a day you edit is never overwritten
+        (the auto-fetched text further down is there for reference).
       </p>
 
       <div class="upcoming-day" *ngFor="let day of upcomingDays()">
