@@ -334,8 +334,12 @@
     </mat-card>
   </div>
 
+  <div *ngIf="vehicleService.isLoading()" class="loading-state">
+    <app-loading-animation [size]="40"></app-loading-animation>
+  </div>
+
   <!-- Empty State -->
-  <mat-card *ngIf="vehicleService.vehicles().length === 0 && !showAddVehicle()" class="empty-state">
+  <mat-card *ngIf="!vehicleService.isLoading() && vehicleService.vehicles().length === 0 && !showAddVehicle()" class="empty-state">
     <mat-icon>directions_car</mat-icon>
     <h2>No Vehicles Yet</h2>
     <p>Tap + above to add your first vehicle and start tracking maintenance</p>

@@ -30,11 +30,13 @@ const LOGGABLE_TYPES = (Object.keys(SERVICE_CATALOG) as ServiceType[]).filter(t 
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
+import { LoadingAnimationComponent } from '../../components/loading-animation/loading-animation.component';
 @Component({
   selector: 'app-vehicles',
   standalone: true,
   imports: [
     CommonModule,
+    LoadingAnimationComponent,
     FormsModule,
     MatCardModule,
     MatIconModule,

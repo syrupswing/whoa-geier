@@ -56,6 +56,15 @@ export class VehicleService {
   vehicles = signal<Vehicle[]>([]);
   maintenanceRecords = signal<MaintenanceRecord[]>([]);
   odometerReadings = signal<OdometerReading[]>([]);
+  /** True until the first snapshot of vehicles, records and readings has arrived, so pages don't show a false empty state. */
+  isLoading = signal(true);
+  private pendingFirstLoads = 3;
+
+  private markLoaded(): void {
+    if (this.pendingFirstLoads > 0 && --this.pendingFirstLoads === 0) {
+      this.isLoading.set(false);
+    }
+  }
 
   constructor() {
     this.load();
@@ -66,20 +75,21 @@ export class VehicleService {
       await this.migrateFromLocalStorageIfEmpty();
       this.firestoreService.subscribeToCollection<any>(
         this.VEHICLES_COLLECTION,
-        (items) => this.vehicles.set(items.map(v => this.deserializeVehicle(v)))
+        (items) => { this.vehicles.set(items.map(v => this.deserializeVehicle(v))); this.markLoaded(); }
       );
       this.firestoreService.subscribeToCollection<any>(
         this.MAINTENANCE_COLLECTION,
-        (items) => this.maintenanceRecords.set(items.map(r => this.deserializeMaintenanceRecord(r)))
+        (items) => { this.maintenanceRecords.set(items.map(r => this.deserializeMaintenanceRecord(r))); this.markLoaded(); }
       );
       this.firestoreService.subscribeToCollection<any>(
         this.ODOMETER_COLLECTION,
-        (items) => this.odometerReadings.set(items.map(r => this.deserializeOdometerReading(r)))
+        (items) => { this.odometerReadings.set(items.map(r => this.deserializeOdometerReading(r))); this.markLoaded(); }
       );
     } else {
       this.loadVehicles();
       this.loadMaintenanceRecords();
       this.loadOdometerReadings();
+      this.isLoading.set(false);
     }
   }
 
