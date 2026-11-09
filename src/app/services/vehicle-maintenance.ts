@@ -119,7 +119,7 @@ export function estimateOdometer(input: OdometerInputs, now: Date = new Date()):
 
   if (!last) {
     const fallbackRate = input.milesPerYear ? input.milesPerYear / 365 : null;
-    return { miles: input.currentMileage, lastReading: null, milesPerDay: fallbackRate, isEstimated: false };
+    return { miles: input.currentMileage ?? 0, lastReading: null, milesPerDay: fallbackRate, isEstimated: false };
   }
 
   const rate = drivingRate(sorted, now) ?? (input.milesPerYear ? input.milesPerYear / 365 : null);

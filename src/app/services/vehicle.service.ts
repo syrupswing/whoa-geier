@@ -195,7 +195,7 @@ export class VehicleService {
   }
 
   async addVehicle(vehicle: Omit<Vehicle, 'id'>): Promise<void> {
-    const newVehicle: Vehicle = { ...vehicle, id: crypto.randomUUID() };
+    const newVehicle: Vehicle = { ...vehicle, currentMileage: vehicle.currentMileage ?? 0, id: crypto.randomUUID() };
     if (this.firestoreService.isInitialized()) {
       await this.firestoreService.setDocument(
         this.VEHICLES_COLLECTION, newVehicle.id, this.serializeVehicle(newVehicle)
