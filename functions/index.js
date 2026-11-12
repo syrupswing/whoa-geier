@@ -474,7 +474,10 @@ const ORCHESTRATOR_TEMPLATES = {
           `dinner out, suggest from this list (and only this list): match the way of eating they ask for ` +
           `(dine in, delivery or takeout), and when you suggest delivery or takeout name the best way to order and ` +
           `why. Weigh the weather, the time, who's free on the calendar and any notes saved for the restaurant ` +
-          `(allergies, favorite dishes). Offer one to three picks with a short reason each, not the whole list. If ` +
+          `(allergies, favorite dishes). Offer one to three picks with a short reason each, not the whole list. A ` +
+          `food or cuisine they name (sushi, pizza, tacos, salad) is a strict filter: judge each restaurant by its ` +
+          `cuisine and notes, suggest only those that serve it, and don't mention the others at all, not even to ` +
+          `rule them out or as "other saved options". If only one fits, suggest only that one. If ` +
           `nothing saved fits, say so rather than inventing a restaurant, and offer to save one. A restaurant that ` +
           `can be ordered from starts with a marker like [Order 3]. Whenever you suggest one of those for ` +
           `delivery or takeout, end its line with that exact marker so the person gets a one-tap order button ` +
