@@ -133,9 +133,10 @@ export class CalendarComponent implements OnInit, OnDestroy {
       const failed = this.calendarConnectionFailed();
       const googleError = this.calendarService.error();
       const outlookError = this.outlookService.error();
-      const connect = () => this.signIn();
-      if (googleError) this.localAlerts.show({ id: 'google-calendar', icon: 'error', text: googleError, actionLabel: 'Connect', action: connect });
-      else if (failed) this.localAlerts.show({ id: 'google-calendar', icon: 'sync_problem', text: 'Unable to connect to Google Calendar.', actionLabel: 'Connect', action: connect });
+      const label = this.calendarService.needsConnect() ? 'Connect' : 'Retry';
+      const retry = () => this.calendarService.retryOrConnect();
+      if (googleError) this.localAlerts.show({ id: 'google-calendar', icon: 'error', text: googleError, actionLabel: label, action: retry });
+      else if (failed) this.localAlerts.show({ id: 'google-calendar', icon: 'sync_problem', text: 'Google Calendar isn\'t connected yet.', actionLabel: label, action: retry });
       else this.localAlerts.clear('google-calendar');
       if (outlookError) this.localAlerts.show({ id: 'outlook-calendar', icon: 'error', text: outlookError });
       else this.localAlerts.clear('outlook-calendar');
@@ -192,6 +193,7 @@ export class CalendarComponent implements OnInit, OnDestroy {
   /** Past the timeout with no Google connection and nothing cached from it. */
   calendarConnectionFailed = computed(() =>
     this.calendarLoadTimedOut() &&
+    !this.calendarService.isRecovering() &&
     !this.calendarService.isSignedIn() &&
     this.calendarService.events().length === 0
   );

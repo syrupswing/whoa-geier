@@ -127,6 +127,19 @@ export class GoogleCalendarService {
   /** Cached events are showing but haven't been confirmed against Google yet (or the last load failed). */
   isStale = computed(() => this.events().length > 0 && !this.hasLiveSync());
 
+  /** True while the service is still quietly retrying a failed connection, so the UI can hold off on alarming the person. */
+  isRecovering = signal<boolean>(false);
+  /** The server has no Google grant for this account (never connected, or revoked): only a Connect click can fix it. */
+  needsConnect = signal<boolean>(false);
+
+  /** Waits before each automatic retry of a transient failure (cold function, flaky network, slow script). */
+  private static readonly RETRY_DELAYS_MS = [1500, 4000, 10000];
+  private initAttempts = 0;
+  private tokenAttempts = 0;
+  private eventsAttempts = 0;
+  private retryTimers = new Set<number>();
+  private resumeListenersAdded = false;
+
   private gapiInited = false;
   private codeClient: any;
   private tokenRefreshTimer?: number;
@@ -139,6 +152,7 @@ export class GoogleCalendarService {
     private authService: AuthService
   ) {
     this.loadVisibleCalendarPreferences();
+    this.addResumeListeners();
     this.startInit();
 
     // The cache is per account (it holds that person's private calendars), so it can only be
@@ -228,18 +242,71 @@ export class GoogleCalendarService {
       });
 
       this.isInitialized.set(true);
-
-      // Mobile browsers suspend the app long enough for the 1-hour token to lapse.
-      document.addEventListener('visibilitychange', () => {
-        if (document.visibilityState === 'visible') {
-          this.refreshTokenIfStale();
-        }
-      });
-
+      this.initAttempts = 0;
+      // Clear a leftover init error from an earlier failed attempt.
+      this.error.set(null);
     } catch (err: any) {
-      this.error.set(`Initialization error: ${err.message}`);
       console.error('Error initializing Google Calendar API:', err);
+      // Usually a script that loaded slowly or a blip in the network — try again quietly before bothering anyone.
+      if (this.initAttempts < GoogleCalendarService.RETRY_DELAYS_MS.length) {
+        this.isRecovering.set(true);
+        this.scheduleRetry(GoogleCalendarService.RETRY_DELAYS_MS[this.initAttempts++], () => void this.startInit());
+      } else {
+        this.isRecovering.set(false);
+        this.error.set(`Couldn't reach Google (${err.message}). Check your connection and tap Retry.`);
+      }
     }
+  }
+
+  private scheduleRetry(delayMs: number, fn: () => void): void {
+    const id = window.setTimeout(() => {
+      this.retryTimers.delete(id);
+      fn();
+    }, delayMs);
+    this.retryTimers.add(id);
+  }
+
+  private cancelRetries(): void {
+    this.retryTimers.forEach(id => clearTimeout(id));
+    this.retryTimers.clear();
+  }
+
+  /** Mobile browsers suspend the app long enough for the token to lapse or a connection to drop; pick back up on return. */
+  private addResumeListeners(): void {
+    if (this.resumeListenersAdded) return;
+    this.resumeListenersAdded = true;
+    const resume = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (this.isSignedIn()) this.refreshTokenIfStale();
+      else if (!this.needsConnect()) this.reconnect();
+    };
+    document.addEventListener('visibilitychange', resume);
+    window.addEventListener('online', resume);
+  }
+
+  /**
+   * Quietly retries a failed connection from scratch (what closing and reopening the app used to do).
+   * Safe to call any time; does nothing if a Connect click is the only thing that can help.
+   */
+  reconnect(): void {
+    if (this.refreshInFlight) return;
+    this.cancelRetries();
+    this.initAttempts = 0;
+    this.tokenAttempts = 0;
+    this.eventsAttempts = 0;
+    this.error.set(null);
+    this.isRecovering.set(true);
+    void this.startInit().then(() => {
+      const uid = this.authService.currentUser()?.uid;
+      if (this.isInitialized() && uid) this.checkSavedToken(uid);
+      else if (!this.initPromise) this.isRecovering.set(this.retryTimers.size > 0);
+    });
+  }
+
+  /** What the alert's button does: reconnect silently when that can work, open Google's window only when it has to. */
+  retryOrConnect(): void {
+    if (this.needsConnect()) this.signIn();
+    else this.reconnect();
   }
 
   /**
@@ -305,14 +372,19 @@ export class GoogleCalendarService {
       try {
         const getToken = httpsCallable<void, TokenResult>(getFunctions(), 'googleCalendarToken');
         const result = await getToken();
+        this.tokenAttempts = 0;
+        this.needsConnect.set(false);
         this.applyToken(result.data);
         return true;
       } catch (err: any) {
         if (err?.message === 'not-connected') {
           // No grant on the server (never connected, or revoked) — a Connect click is needed.
+          this.needsConnect.set(true);
+          this.isRecovering.set(false);
           this.clearLocalSession();
         } else {
           console.error('Google Calendar token refresh failed:', err);
+          this.retryTokenRefresh();
         }
         return false;
       } finally {
@@ -322,11 +394,23 @@ export class GoogleCalendarService {
     return this.refreshInFlight;
   }
 
+  /** A failed refresh that isn't "not connected" is almost always transient (cold server function, dropped network). */
+  private retryTokenRefresh(): void {
+    if (this.tokenAttempts < GoogleCalendarService.RETRY_DELAYS_MS.length) {
+      this.isRecovering.set(true);
+      this.scheduleRetry(GoogleCalendarService.RETRY_DELAYS_MS[this.tokenAttempts++], () => void this.refreshAccessToken());
+    } else {
+      this.isRecovering.set(false);
+      this.error.set('Couldn\'t reach Google Calendar. Tap Retry to try again.');
+    }
+  }
+
   private applyToken(token: TokenResult): void {
     const expiresIn = Number(token.expiresIn) || 3600;
     gapi.client.setToken({ access_token: token.accessToken, token_type: 'Bearer', scope: token.scope });
     this.saveToken(token.accessToken, expiresIn, token.scope);
     this.error.set(null);
+    this.isRecovering.set(false);
     this.isSignedIn.set(true);
     this.scheduleTokenRefresh(expiresIn);
     this.loadCalendarEvents();
@@ -464,6 +548,8 @@ export class GoogleCalendarService {
    * Disconnect from Google: the server revokes the grant and forgets the refresh token
    */
   async signOut(): Promise<void> {
+    this.cancelRetries();
+    this.isRecovering.set(false);
     this.clearLocalSession();
     this.events.set([]);
     try {
@@ -564,6 +650,12 @@ export class GoogleCalendarService {
         )
       );
 
+      // If every calendar failed, that's a failed load — not an empty calendar to cache over good data.
+      if (results.length > 0 && results.every(r => r.status === 'rejected')) {
+        const first = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+        throw first?.reason ?? new Error('All calendars failed to load');
+      }
+
       const allEvents: CalendarEvent[] = [];
       const seenIds = new Set<string>();
       for (let i = 0; i < results.length; i++) {
@@ -582,16 +674,24 @@ export class GoogleCalendarService {
 
       this.events.set(allEvents);
       this.hasLiveSync.set(true);
+      this.eventsAttempts = 0;
       this.error.set(null);
+      this.isRecovering.set(false);
       this.cacheEventsToFirestore(allEvents);
     } catch (err: any) {
-      if (err?.status === 401) {
+      if (err?.status === 401 || err?.result?.error?.code === 401) {
         this.refreshAccessToken();
         return;
       }
-      this.hasLiveSync.set(false);
-      this.error.set(`Error loading events: ${err.message}`);
       console.error('Error loading calendar events:', err);
+      this.hasLiveSync.set(false);
+      if (this.eventsAttempts < GoogleCalendarService.RETRY_DELAYS_MS.length) {
+        this.isRecovering.set(true);
+        this.scheduleRetry(GoogleCalendarService.RETRY_DELAYS_MS[this.eventsAttempts++], () => void this.loadCalendarEvents(daysAhead, daysBehind));
+      } else {
+        this.isRecovering.set(false);
+        this.error.set('Couldn\'t load your Google Calendar events. Tap Retry to try again.');
+      }
     }
   }
 

@@ -346,7 +346,11 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     // A lost calendar connection shows in the app's floating alert banner, with Connect on it.
     effect(() => {
       const failed = this.calendarConnectionFailed();
-      if (failed) this.localAlerts.show({ id: 'google-calendar', icon: 'sync_problem', text: 'Unable to connect to Google Calendar.', actionLabel: 'Connect', action: () => this.signInToCalendar() });
+      const googleError = this.calendarService.error();
+      const label = this.calendarService.needsConnect() ? 'Connect' : 'Retry';
+      const retry = () => this.calendarService.retryOrConnect();
+      if (googleError) this.localAlerts.show({ id: 'google-calendar', icon: 'error', text: googleError, actionLabel: label, action: retry });
+      else if (failed) this.localAlerts.show({ id: 'google-calendar', icon: 'sync_problem', text: 'Google Calendar isn\'t connected yet.', actionLabel: label, action: retry });
       else this.localAlerts.clear('google-calendar');
     });
     // Clothing recommendation is now opt-in via button click to avoid auto-loading errors
@@ -392,6 +396,7 @@ export class DashboardComponent implements OnInit, AfterViewInit {
   /** Past the timeout with no Google connection and nothing cached from it. */
   calendarConnectionFailed = computed(() =>
     this.calendarLoadTimedOut() &&
+    !this.calendarService.isRecovering() &&
     !this.calendarService.isSignedIn() &&
     this.calendarService.events().length === 0
   );
