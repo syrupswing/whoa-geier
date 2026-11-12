@@ -131,4 +131,97 @@ function summarizeLunchMenuForChat(entries) {
     .map(e => `${weekdayShort(e.date)} ${e.date}: ${e.lunch}`);
 }
 
-module.exports = { upcomingDateStrs, upcomingDatesLine, summarizeLunchMenuForChat, linkDocCitations, tomorrowStartPhrase, isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };
+// Mirrors the Food page (src/app/services/restaurant.service.ts), so the chat and the page agree.
+const DIRECT_ORDER = 'Restaurant website';
+const PHONE_ORDER = 'Call in';
+const APP_SEARCH = {
+  'DoorDash': q => `https://www.doordash.com/search/store/${encodeURIComponent(q)}/`,
+  'Uber Eats': q => `https://www.ubereats.com/search?q=${encodeURIComponent(q)}`,
+  'Grubhub': q => `https://www.grubhub.com/search?queryText=${encodeURIComponent(q)}`
+};
+const SAFE_LINK = /^(https?:|tel:)/i;
+
+const offersDelivery = r => r.delivery ?? ((r.deliveryApps || []).length > 0 || (r.orderLinks || []).length > 0);
+const offersTakeout = r => r.takeout ?? false;
+
+/** The restaurants the chat is told about: named ones, A to Z, capped. Both the prompt lines and the order links index into this. */
+function restaurantsForChat(restaurants, limit = 80) {
+  return (restaurants || [])
+    .filter(r => r && String(r.name || '').trim())
+    .sort((a, b) => String(a.name).localeCompare(String(b.name)))
+    .slice(0, limit);
+}
+
+/**
+ * The one-click way to order from a restaurant, as { label, url }, or null when it isn't one to order from
+ * (dine-in only) or has no usable way: a saved link for its best app, else that app's search page, else its
+ * website or phone when that is the best way. Only http(s) and tel: links are ever produced.
+ */
+function restaurantOrderLink(r) {
+  const app = String(r?.bestApp || '').trim();
+  if (!app || !(offersDelivery(r) || offersTakeout(r))) return null;
+  const site = String(r.website || '').trim();
+  const siteUrl = site ? (/^https?:\/\//i.test(site) ? site : `https://${site}`) : null;
+  const phone = String(r.phone || '').trim();
+  let label, url;
+  if (app === PHONE_ORDER) {
+    label = 'Call to order'; url = phone ? `tel:${phone.replace(/[^\d+]/g, '')}` : null;
+  } else if (app === DIRECT_ORDER) {
+    label = 'Order on their website'; url = siteUrl;
+  } else {
+    label = `Order on ${app}`;
+    const lower = app.toLowerCase();
+    const saved = (r.orderLinks || []).find(l => l && l.url && SAFE_LINK.test(String(l.url).trim()) &&
+      (String(l.text || '').toLowerCase().includes(lower) || String(l.url).toLowerCase().includes(lower.replace(/\s+/g, ''))));
+    url = saved ? String(saved.url).trim() : (APP_SEARCH[app] ? APP_SEARCH[app](String(r.name).trim()) : null);
+  }
+  return url && SAFE_LINK.test(url) ? { label, url } : null;
+}
+
+/**
+ * One compact line per saved restaurant for the chat prompt: the ways the family eats from it (dine in, delivery,
+ * takeout), the best way to order and why, other apps it's on, a phone number, and the notes they wrote down.
+ * A restaurant with a one-click order link starts with its marker, like "[Order 3]", which the model repeats after
+ * suggesting it and linkOrderCitations turns into the link. Dine in unless switched off, delivery when marked or
+ * when it has apps or order links, takeout only when marked.
+ */
+function summarizeRestaurantsForChat(restaurants, { limit = 80, notesMax = 200 } = {}) {
+  return restaurantsForChat(restaurants, limit).map((r, i) => {
+    const ways = [];
+    if (r.dineOut ?? true) ways.push('dine in');
+    if (offersDelivery(r)) ways.push('delivery');
+    if (offersTakeout(r)) ways.push('takeout');
+    const parts = [String(r.name).trim() + (r.cuisine ? ` (${String(r.cuisine).trim()})` : '')];
+    parts.push(ways.length ? `good for ${ways.join(', ')}` : 'no way of eating marked');
+    if (r.bestApp && (ways.includes('delivery') || ways.includes('takeout'))) {
+      parts.push(`best way to order: ${r.bestApp}${r.bestAppNote ? ` (${String(r.bestAppNote).trim()})` : ''}`);
+    }
+    const others = (r.deliveryApps || []).filter(a => a !== r.bestApp);
+    if (others.length) parts.push(`also on ${others.join(', ')}`);
+    if (r.phone) parts.push(`phone ${r.phone}`);
+    if (r.notes) {
+      const notes = String(r.notes).replace(/\s+/g, ' ').trim();
+      if (notes) parts.push(`notes: ${notes.length > notesMax ? notes.slice(0, notesMax) + '…' : notes}`);
+    }
+    return `${restaurantOrderLink(r) ? `[Order ${i + 1}] ` : ''}${parts.join(', ')}`;
+  });
+}
+
+/** Order links lined up with summarizeRestaurantsForChat's lines: entry i is for "[Order i+1]" (null when it has none). */
+function restaurantOrderLinks(restaurants, { limit = 80 } = {}) {
+  return restaurantsForChat(restaurants, limit).map(restaurantOrderLink);
+}
+
+/**
+ * Turns the "[Order 2]" markers the model puts after a suggested restaurant into markdown links to order from it.
+ * `links` is restaurantOrderLinks' list. A marker for a number that has no link (invented, or dine-in only) is dropped.
+ */
+function linkOrderCitations(text, links) {
+  return String(text || '')
+    .replace(/[ \t]*\[\s*order\s*(\d+)\s*\]/gi, (_, n) => {
+      const link = (links || [])[Number(n) - 1];
+      return link ? ` [${link.label}](${link.url})` : '';
+    });
+}
+
+module.exports = { summarizeRestaurantsForChat, restaurantOrderLinks, restaurantOrderLink, linkOrderCitations, upcomingDateStrs, upcomingDatesLine, summarizeLunchMenuForChat, linkDocCitations, tomorrowStartPhrase, isGenericBusy, cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat };

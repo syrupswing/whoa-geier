@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat, tomorrowStartPhrase, linkDocCitations, upcomingDatesLine, summarizeLunchMenuForChat } = require('./chat-context');
+const { cleanGoogleEvents, alertExpiresOn, alertIsCurrent, summarizeNotebookForChat, tomorrowStartPhrase, linkDocCitations, upcomingDatesLine, summarizeLunchMenuForChat, summarizeRestaurantsForChat, restaurantOrderLinks, linkOrderCitations } = require('./chat-context');
 
 const g = (summary, dateTime) => ({ summary, start: { dateTime }, end: { dateTime } });
 
@@ -90,4 +90,63 @@ test('lunch menu entries are sorted, labeled with the weekday, and blanks droppe
     { date: '2026-11-04', lunch: 'Tacos' },
     { date: '2026-11-05', lunch: '' }
   ]), ['Wed 2026-11-04: Tacos', 'Fri 2026-11-06: Pizza']);
+});
+
+test('restaurants are summarized with their ways of eating, best app and notes', () => {
+  const lines = summarizeRestaurantsForChat([
+    { name: 'Zed Thai', cuisine: 'Thai', dineOut: false, delivery: true, takeout: true, bestApp: 'DoorDash', bestAppNote: 'no fee with DashPass',
+      deliveryApps: ['DoorDash', 'Uber Eats'], phone: '555-0100', notes: 'Peanut-free\n  kitchen on request' },
+    { name: 'Alpha Pizza', cuisine: '', orderLinks: [{ text: 'Menu', url: 'x' }] }
+  ]);
+  assert.deepEqual(lines, [
+    'Alpha Pizza, good for dine in, delivery',
+    '[Order 2] Zed Thai (Thai), good for delivery, takeout, best way to order: DoorDash (no fee with DashPass), also on Uber Eats, phone 555-0100, notes: Peanut-free kitchen on request'
+  ]);
+});
+
+test('restaurants: the best app is left out when it is dine-in only, blank names are skipped, and long notes are cut', () => {
+  const lines = summarizeRestaurantsForChat([
+    { name: 'Diner', bestApp: 'Grubhub' },
+    { name: '  ' },
+    { name: 'Long', notes: 'x'.repeat(300) }
+  ], { notesMax: 10 });
+  assert.equal(lines[0], 'Diner, good for dine in');
+  assert.equal(lines[1], 'Long, good for dine in, notes: xxxxxxxxxx…');
+  assert.equal(lines.length, 2);
+});
+
+test('order links: a saved link wins, then the app search page, then website or phone; dine-in only has none', () => {
+  const links = restaurantOrderLinks([
+    { name: 'A Saved', bestApp: 'DoorDash', delivery: true, orderLinks: [{ text: 'DoorDash menu', url: 'https://doordash.com/store/a-1' }] },
+    { name: 'B Search', bestApp: 'Uber Eats', delivery: true },
+    { name: 'C Site', bestApp: 'Restaurant website', takeout: true, website: 'c.example.com' },
+    { name: 'D Phone', bestApp: 'Call in', takeout: true, phone: '(555) 010-0100' },
+    { name: 'E Dine', bestApp: 'Grubhub' },
+    { name: 'F Custom', bestApp: 'Slice', delivery: true },
+    { name: 'G Unsafe', bestApp: 'Slice', delivery: true, orderLinks: [{ text: 'Slice', url: 'javascript:alert(1)' }] }
+  ]);
+  assert.deepEqual(links[0], { label: 'Order on DoorDash', url: 'https://doordash.com/store/a-1' });
+  assert.deepEqual(links[1], { label: 'Order on Uber Eats', url: 'https://www.ubereats.com/search?q=B%20Search' });
+  assert.deepEqual(links[2], { label: 'Order on their website', url: 'https://c.example.com' });
+  assert.deepEqual(links[3], { label: 'Call to order', url: 'tel:5550100100' });
+  assert.equal(links[4], null);
+  assert.equal(links[5], null);
+  assert.equal(links[6], null);
+});
+
+test('order markers become links; unknown or link-less markers are dropped', () => {
+  const links = [{ label: 'Order on DoorDash', url: 'https://x.test/a' }, null];
+  assert.equal(
+    linkOrderCitations('Try **Zed Thai** [Order 1]. Or Diner [Order 2] or Ghost [order 9].', links),
+    'Try **Zed Thai** [Order on DoorDash](https://x.test/a). Or Diner or Ghost.'
+  );
+});
+
+test('the order marker is only on lines that have a link, numbered by position', () => {
+  const lines = summarizeRestaurantsForChat([
+    { name: 'Beta', bestApp: 'DoorDash', delivery: true },
+    { name: 'Alpha' }
+  ]);
+  assert.match(lines[0], /^Alpha, good for dine in$/);
+  assert.match(lines[1], /^\[Order 2\] Beta,/);
 });

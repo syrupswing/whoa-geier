@@ -5,6 +5,14 @@ import { marked } from 'marked';
 /** US-style phone numbers: 555-123-4567, (555) 123-4567, 555.123.4567, +1 555 123 4567. Not part of a longer digit run or date. */
 const PHONE_PATTERN = /(?<![\d-])(?:\+?1[\s.-]?)?(?:\(\d{3}\)\s?|\d{3}[\s.-])\d{3}[\s.-]\d{4}(?![\d-])/g;
 
+/** Links to other sites (an order page, say) open in a new tab, so following one doesn't take the person out of the app. */
+function openExternalLinksInNewTab(root: HTMLElement): void {
+  root.querySelectorAll<HTMLAnchorElement>('a[href^="http"]').forEach(a => {
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer';
+  });
+}
+
 /** Wraps phone numbers in tel: links so a tap on a phone offers to call; text already inside a link is left alone. */
 function linkifyPhoneNumbers(root: HTMLElement): void {
   const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
@@ -194,6 +202,7 @@ export class TypewriterDirective implements OnChanges, OnDestroy {
     const html = marked.parse(text, { breaks: true, async: false }) as string;
     node.innerHTML = this.sanitizer.sanitize(SecurityContext.HTML, html) ?? '';
     linkifyPhoneNumbers(node);
+    openExternalLinksInNewTab(node);
   }
 
   /**

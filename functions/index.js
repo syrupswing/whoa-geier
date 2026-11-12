@@ -469,6 +469,19 @@ const ORCHESTRATOR_TEMPLATES = {
           `(phone, address) in full. If nothing in it matches, say it isn't saved rather than guessing, and offer to ` +
           `save it once they have the details. Entries:\n- ${context.notebook.join('\n- ')}`
         : '';
+      const restaurantsClause = (context.restaurants || []).length
+        ? `\nRestaurants the family saved on the Food page. When asked where to eat, what to order in, or for a ` +
+          `dinner out, suggest from this list (and only this list): match the way of eating they ask for ` +
+          `(dine in, delivery or takeout), and when you suggest delivery or takeout name the best way to order and ` +
+          `why. Weigh the weather, the time, who's free on the calendar and any notes saved for the restaurant ` +
+          `(allergies, favorite dishes). Offer one to three picks with a short reason each, not the whole list. If ` +
+          `nothing saved fits, say so rather than inventing a restaurant, and offer to save one. A restaurant that ` +
+          `can be ordered from starts with a marker like [Order 3]. Whenever you suggest one of those for ` +
+          `delivery or takeout, end its line with that exact marker so the person gets a one-tap order button ` +
+          `(never write a link or app name for it yourself, and never write a marker for anything else). ` +
+          `Restaurants:\n- ` +
+          `${context.restaurants.join('\n- ')}`
+        : '';
       const referenceClause = (context.referenceDocs || []).length
         ? `\n\nReference documents the family saved (flyers, guides, notes). For questions they cover, answer ` +
           `from them and don't invent details they don't contain. Right after a fact taken from a document, cite ` +
@@ -499,7 +512,7 @@ const ORCHESTRATOR_TEMPLATES = {
         `a short markdown bullet list with the time or name in bold first, one line per item, instead of a ` +
         `paragraph. Use a short bold label rather than a heading to separate parts. Use the household information below when it's relevant to the question — don't recite ` +
         `all of it unless asked.${factsClause}${recentClause}${scheduleClause}${lunchMenuClause}${peopleNowClause}${specialFactsClause}${weatherClause}${calendarClause}` +
-        `${todosClause}${hardDeadlinesClause}${groceryClause}${alertsClause}${vehiclesClause}${notebookClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
+        `${todosClause}${hardDeadlinesClause}${groceryClause}${alertsClause}${vehiclesClause}${notebookClause}${restaurantsClause}${peopleClause}${referenceClause}\n\nThe user said: ${payload.message}\n\n` +
         `In addition to replying, decide whether the user is asking you to create or save something. Most ` +
         `messages are just questions or conversation and should yield no items — only propose items when ` +
         `the user is clearly asking you to add/save/remember/schedule something (e.g. "remind me to...", ` +
@@ -586,7 +599,7 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   const today = toDateStr(now);
   const horizon = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000);
 
-  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap, vehiclesSnap, vehicleRecordsSnap, odometerSnap, notesSnap] = await Promise.all([
+  const [calendarCacheDoc, briefingDoc, todosSnap, grocerySnap, alertsSnap, householdDoc, appEventsSnap, vehiclesSnap, vehicleRecordsSnap, odometerSnap, notesSnap, restaurantsSnap] = await Promise.all([
     // Only the asker's own Google events: the cache is per account, so private calendars never reach someone else's chat.
     caller.uid ? db.collection('googleCalendarCache').doc(caller.uid).get() : Promise.resolve(null),
     db.collection('remi-daily-briefing').doc(today).get(),
@@ -598,7 +611,8 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
     db.collection('vehicles').get(),
     db.collection('maintenanceRecords').get(),
     db.collection('odometerReadings').get(),
-    db.collection('notes').get()
+    db.collection('notes').get(),
+    db.collection('restaurants').get()
   ]);
   const members = (householdDoc.exists && householdDoc.data().members) || [];
   const memberNames = new Map(members.map(m => [m.id, m.name]));
@@ -864,6 +878,9 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   });
 
   const notebook = chatContext.summarizeNotebookForChat(notesSnap.docs.map(d => d.data()), { memberNames });
+  const restaurantDocs = restaurantsSnap.docs.map(d => d.data());
+  const restaurants = chatContext.summarizeRestaurantsForChat(restaurantDocs);
+  const restaurantOrders = chatContext.restaurantOrderLinks(restaurantDocs);
 
   const todayWeekday = now.toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
 
@@ -877,7 +894,7 @@ async function buildFamilyChatContext(db, payload, caller = {}) {
   );
   const upcomingDatesLine = chatContext.upcomingDatesLine(today, 14);
 
-  return { today, todayWeekday, nowLabel, upcomingDatesLine, lunchMenu, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, hardDeadlines, groceryItems, pantryItems, alerts, vehicles, notebook, referenceDocs };
+  return { today, todayWeekday, nowLabel, upcomingDatesLine, lunchMenu, peopleNextUp, specialFacts, weatherSummary, calendarEvents, scheduleSummary, todos, hardDeadlines, groceryItems, pantryItems, alerts, vehicles, notebook, restaurants, restaurantOrders, referenceDocs };
 }
 
 exports.orchestratedGenerate = onCall(
@@ -917,6 +934,11 @@ exports.orchestratedGenerate = onCall(
       // Chat answers cite saved documents as "[Doc N]"; make each one a link to that document.
       if (context.referenceDocs?.length && typeof result?.text === 'string') {
         result.text = chatContext.linkDocCitations(result.text, context.referenceDocs);
+      }
+
+      // Suggested restaurants carry "[Order N]" markers; make each one a one-tap link to order the best way.
+      if (context.restaurantOrders?.length && typeof result?.text === 'string') {
+        result.text = chatContext.linkOrderCitations(result.text, context.restaurantOrders);
       }
 
       let suggestionId = null;
