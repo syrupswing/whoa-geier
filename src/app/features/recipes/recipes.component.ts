@@ -103,18 +103,8 @@ export class RecipesComponent {
     });
   }
 
-  getFavoriteRecipes(): Recipe[] {
-    return this.recipeService.getFavorites();
-  }
-
   getAllTags(): string[] {
     return this.recipeService.getAllTags();
-  }
-
-  async toggleFavorite(recipeId: string): Promise<void> {
-    const recipe = this.recipeService.recipes().find(r => r.id === recipeId);
-    if (!recipe) return;
-    await this.recipeService.updateRecipe(recipeId, { favorite: !recipe.favorite });
   }
 
   getTotalTime(recipe: Recipe): number {
@@ -145,7 +135,6 @@ export class RecipesComponent {
       ingredients: this.newRecipe.ingredients.split('\n').filter(i => i.trim()),
       instructions: this.newRecipe.instructions.split('\n').filter(i => i.trim()),
       tags: this.newRecipe.tags.split(',').map(t => t.trim()).filter(t => t),
-      favorite: false
     });
 
     this.showAddForm = false;
@@ -265,7 +254,6 @@ export class RecipesComponent {
       ingredients: suggestion.ingredients,
       instructions: suggestion.instructions,
       tags: suggestion.tags,
-      favorite: false
     });
 
     this.snackBar.open(`Added "${suggestion.name}" to your recipes!`, 'Close', { duration: 3000 });

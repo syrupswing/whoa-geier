@@ -13,7 +13,6 @@ export interface Recipe {
   instructions: string[];
   tags: string[];
   imageUrl?: string;
-  favorite: boolean;
 }
 
 export interface RecipeSuggestion {
@@ -52,7 +51,6 @@ const SAMPLE_RECIPES: Recipe[] = [
       'Season with pepper and serve'
     ],
     tags: ['Italian', 'Pasta', 'Quick'],
-    favorite: true
   },
   {
     id: '2',
@@ -78,7 +76,6 @@ const SAMPLE_RECIPES: Recipe[] = [
       'Serve over rice'
     ],
     tags: ['Asian', 'Healthy', 'Quick'],
-    favorite: false
   }
 ];
 
@@ -135,10 +132,6 @@ export class RecipeService {
 
   private saveToLocalStorage(recipes: Recipe[]): void {
     this.localStorageService.setItem(this.LOCAL_STORAGE_KEY, recipes);
-  }
-
-  getFavorites(): Recipe[] {
-    return this.recipes().filter(r => r.favorite);
   }
 
   getAllTags(): string[] {

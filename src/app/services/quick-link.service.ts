@@ -52,7 +52,7 @@ export class QuickLinkService {
     {
       id: 'food',
       title: 'Food',
-      subtitle: 'Recipes, delivery & going out',
+      subtitle: 'Recipes, dine in, delivery & takeout',
       icon: 'local_dining',
       url: '/food',
       isExternal: false,

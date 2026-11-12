@@ -7,11 +7,11 @@ import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatMenuModule } from '@angular/material/menu';
 import { RecipesComponent } from '../recipes/recipes.component';
-import { RestaurantsComponent } from '../restaurants/restaurants.component';
+import { RestaurantsComponent, RestaurantMode } from '../restaurants/restaurants.component';
 import { AddButtonComponent } from '../../shared/add-button/add-button.component';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
-type FoodView = 'all' | 'recipes' | 'delivery' | 'dineOut';
+type FoodView = 'all' | 'recipes' | 'dineOut' | 'delivery' | 'takeout';
 
 @Component({
   selector: 'app-food',
@@ -36,8 +36,9 @@ export class FoodComponent {
   readonly views: { value: FoodView; label: string; icon: string }[] = [
     { value: 'all', label: 'All', icon: 'restaurant_menu' },
     { value: 'recipes', label: 'Cook at home', icon: 'menu_book' },
+    { value: 'dineOut', label: 'Dine in', icon: 'storefront' },
     { value: 'delivery', label: 'Delivery', icon: 'delivery_dining' },
-    { value: 'dineOut', label: 'Going out', icon: 'storefront' }
+    { value: 'takeout', label: 'Takeout', icon: 'takeout_dining' }
   ];
 
   @ViewChild(RecipesComponent) private recipes?: RecipesComponent;
@@ -55,9 +56,9 @@ export class FoodComponent {
   }
 
   /** Which restaurants to list: all of them on the All view, otherwise just those for that way of eating. */
-  restaurantMode(): 'all' | 'delivery' | 'dineOut' {
+  restaurantMode(): RestaurantMode {
     const view = this.view();
-    return view === 'delivery' || view === 'dineOut' ? view : 'all';
+    return view === 'recipes' ? 'all' : view;
   }
 
   /** The add button only needs a choice on All; the other views know what's being added. */

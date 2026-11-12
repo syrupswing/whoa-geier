@@ -3,283 +3,186 @@
     <h1>Restaurants</h1>
     <app-global-nav-menu></app-global-nav-menu>
   </div>
-  <div class="search-section">
-    <mat-form-field appearance="outline" class="search-field" *ngIf="!embedded">
-      <mat-label>Search restaurants</mat-label>
-      <input matInput [(ngModel)]="searchTerm" placeholder="Search by name...">
-      <mat-icon matPrefix>search</mat-icon>
-    </mat-form-field>
 
-    <div class="cuisine-filters">
-      <button 
-        mat-stroked-button 
-        [color]="filterCuisine === '' ? 'primary' : undefined"
-        (click)="filterCuisine = ''">
-        All Cuisines
-      </button>
-      <button 
-        *ngFor="let cuisine of getAllCuisines()"
-        mat-stroked-button 
-        [color]="filterCuisine === cuisine ? 'primary' : undefined"
-        (click)="filterCuisine = cuisine">
-        {{ cuisine }}
+  <!-- Narrowing the list by cuisine -->
+  <div class="toolbar" *ngIf="cuisines().length > 1">
+    <div class="chip-row" role="group" aria-label="Filter by cuisine">
+      <button type="button" class="chip" [class.active]="cuisineFilter() === ''" (click)="cuisineFilter.set('')">Any cuisine</button>
+      <button type="button" class="chip" *ngFor="let c of cuisines()"
+        [class.active]="cuisineFilter() === c" (click)="cuisineFilter.set(cuisineFilter() === c ? '' : c)">
+        {{ c }}
       </button>
     </div>
   </div>
 
-  <!-- Favorites Section -->
-  <div class="favorites-section" *ngIf="getFavoriteRestaurants().length > 0">
-    <h2>
-      <mat-icon>favorite</mat-icon>
-      Favorite Restaurants
-    </h2>
-    <div class="restaurant-grid">
-      <mat-card *ngFor="let restaurant of getFavoriteRestaurants()" class="restaurant-card favorite">
-        <mat-card-header>
-          <mat-card-title>
-            <div class="title-row">
-              <span>{{ restaurant.name }}</span>
-              <button mat-icon-button (click)="toggleFavorite(restaurant.id)" class="favorite-btn active">
-                <mat-icon>favorite</mat-icon>
-              </button>
-            </div>
-          </mat-card-title>
-          <mat-card-subtitle>{{ restaurant.cuisine }}</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="rating" *ngIf="restaurant.rating">
-            <mat-icon *ngFor="let filled of getStarArray(restaurant.rating)" [class.filled]="filled">
-              {{ filled ? 'star_rate' : 'star_border' }}
-            </mat-icon>
+  <div class="loading" *ngIf="isLoading() && hasNone()">Loading restaurants…</div>
+
+  <div class="restaurant-grid" *ngIf="visible().length > 0; else empty">
+    <article class="restaurant-card" *ngFor="let r of visible(); trackBy: trackById">
+      <header class="card-head">
+        <div class="titles">
+          <h3>{{ r.name }}</h3>
+          <div class="sub">
+            <span *ngIf="r.cuisine">{{ r.cuisine }}</span>
           </div>
+        </div>
+      </header>
 
-          <div class="contact-info">
-            <div class="info-item" *ngIf="restaurant.phone">
-              <mat-icon>phone</mat-icon>
-              <a href="tel:{{ restaurant.phone }}">{{ restaurant.phone }}</a>
-            </div>
-            <div class="info-item" *ngIf="restaurant.website">
-              <mat-icon>language</mat-icon>
-              <a [href]="'https://' + restaurant.website" target="_blank">{{ restaurant.website }}</a>
-            </div>
-          </div>
-
-          <div class="delivery-apps" *ngIf="restaurant.deliveryApps.length > 0">
-            <strong>Available on:</strong>
-            <mat-chip-set>
-              <mat-chip *ngFor="let app of restaurant.deliveryApps">
-                <mat-icon>delivery_dining</mat-icon>
-                {{ app }}
-              </mat-chip>
-            </mat-chip-set>
-          </div>
-
-          <div class="order-links" *ngIf="restaurant.orderLinks && restaurant.orderLinks.length > 0">
-            <strong>Order from:</strong>
-            <mat-chip-set>
-              <mat-chip *ngFor="let link of restaurant.orderLinks" class="clickable-chip">
-                <a [href]="link.url" target="_blank" rel="noopener noreferrer">
-                  <mat-icon>link</mat-icon>
-                  {{ link.text }}
-                </a>
-              </mat-chip>
-            </mat-chip-set>
-          </div>
-
-          <div class="notes" *ngIf="restaurant.notes">
-            <mat-icon>note</mat-icon>
-            <p>{{ restaurant.notes }}</p>
-          </div>
-        </mat-card-content>
-        <mat-card-actions>
-          <button mat-button color="primary" (click)="editRestaurant(restaurant)">
-            <mat-icon>edit</mat-icon>
-            Edit
-          </button>
-          <button mat-button color="warn" (click)="deleteRestaurant(restaurant.id)">
-            <mat-icon>delete</mat-icon>
-            Delete
-          </button>
-        </mat-card-actions>
-      </mat-card>
-    </div>
-  </div>
-
-  <!-- All Restaurants Section -->
-  <div class="all-restaurants-section">
-    <h2>
-      <mat-icon>restaurant</mat-icon>
-      All Restaurants
-      <span class="count">({{ getFilteredRestaurants().length }})</span>
-    </h2>
-
-    <div class="restaurant-grid" *ngIf="getFilteredRestaurants().length > 0; else noRestaurants">
-      <mat-card *ngFor="let restaurant of getFilteredRestaurants()" class="restaurant-card">
-        <mat-card-header>
-          <mat-card-title>
-            <div class="title-row">
-              <span>{{ restaurant.name }}</span>
-              <button 
-                mat-icon-button 
-                (click)="toggleFavorite(restaurant.id)" 
-                class="favorite-btn"
-                [class.active]="restaurant.favorite">
-                <mat-icon>{{ restaurant.favorite ? 'favorite' : 'favorite_border' }}</mat-icon>
-              </button>
-            </div>
-          </mat-card-title>
-          <mat-card-subtitle>{{ restaurant.cuisine }}</mat-card-subtitle>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="rating" *ngIf="restaurant.rating">
-            <mat-icon *ngFor="let filled of getStarArray(restaurant.rating)" [class.filled]="filled">
-              {{ filled ? 'star_rate' : 'star_border' }}
-            </mat-icon>
-          </div>
-
-          <div class="contact-info">
-            <div class="info-item" *ngIf="restaurant.phone">
-              <mat-icon>phone</mat-icon>
-              <a href="tel:{{ restaurant.phone }}">{{ restaurant.phone }}</a>
-            </div>
-            <div class="info-item" *ngIf="restaurant.website">
-              <mat-icon>language</mat-icon>
-              <a [href]="'https://' + restaurant.website" target="_blank">{{ restaurant.website }}</a>
-            </div>
-          </div>
-
-          <div class="delivery-apps" *ngIf="restaurant.deliveryApps.length > 0">
-            <strong>Available on:</strong>
-            <mat-chip-set>
-              <mat-chip *ngFor="let app of restaurant.deliveryApps">
-                <mat-icon>delivery_dining</mat-icon>
-                {{ app }}
-              </mat-chip>
-            </mat-chip-set>
-          </div>
-
-          <div class="order-links" *ngIf="restaurant.orderLinks && restaurant.orderLinks.length > 0">
-            <strong>Order from:</strong>
-            <mat-chip-set>
-              <mat-chip *ngFor="let link of restaurant.orderLinks" class="clickable-chip">
-                <a [href]="link.url" target="_blank" rel="noopener noreferrer">
-                  <mat-icon>link</mat-icon>
-                  {{ link.text }}
-                </a>
-              </mat-chip>
-            </mat-chip-set>
-          </div>
-
-          <div class="notes" *ngIf="restaurant.notes">
-            <mat-icon>note</mat-icon>
-            <p>{{ restaurant.notes }}</p>
-          </div>
-        </mat-card-content>
-        <mat-card-actions>
-          <button mat-button color="primary" (click)="editRestaurant(restaurant)">
-            <mat-icon>edit</mat-icon>
-          </button>
-          <button mat-button color="warn" (click)="deleteRestaurant(restaurant.id)">
-            <mat-icon>delete</mat-icon>
-          </button>
-        </mat-card-actions>
-      </mat-card>
-    </div>
-
-    <ng-template #noRestaurants>
-      <div class="no-restaurants">
-        <mat-icon>restaurant</mat-icon>
-        <p>No restaurants found</p>
-        <p class="subtitle">Try adjusting your filters or adding new favorites</p>
+      <!-- Which ways of eating it's good for -->
+      <div class="modes">
+        <span class="mode" *ngIf="offersDineOut(r)"><mat-icon>storefront</mat-icon>Dine in</span>
+        <span class="mode" *ngIf="offersDelivery(r)"><mat-icon>delivery_dining</mat-icon>Delivery</span>
+        <span class="mode" *ngIf="offersTakeout(r)"><mat-icon>takeout_dining</mat-icon>Takeout</span>
       </div>
-    </ng-template>
+
+      <!-- The ideal way to order -->
+      <div class="best-order" *ngIf="canOrder(r)">
+        <div class="best-text">
+          <span class="label">Best way to order</span>
+          <strong>{{ r.bestApp }}</strong>
+          <span class="why" *ngIf="r.bestAppNote">{{ r.bestAppNote }}</span>
+        </div>
+        <a *ngIf="bestOrderUrl(r) as url" mat-flat-button color="primary" [href]="url" target="_blank" rel="noopener noreferrer">
+          <mat-icon>{{ orderIcon(r) }}</mat-icon>
+          Order
+        </a>
+      </div>
+
+      <div class="apps" *ngIf="otherApps(r).length > 0">
+        <span class="label">Also on</span>
+        <span class="app-tag" *ngFor="let app of otherApps(r)">{{ app }}</span>
+      </div>
+
+      <div class="contact" *ngIf="r.phone || websiteUrl(r)">
+        <a *ngIf="r.phone" [href]="'tel:' + r.phone"><mat-icon>phone</mat-icon>{{ r.phone }}</a>
+        <a *ngIf="websiteUrl(r) as site" [href]="site" target="_blank" rel="noopener noreferrer"><mat-icon>language</mat-icon>Website</a>
+        <a *ngFor="let link of r.orderLinks" [href]="link.url" target="_blank" rel="noopener noreferrer"><mat-icon>link</mat-icon>{{ link.text }}</a>
+      </div>
+
+      <p class="notes" *ngIf="r.notes"><mat-icon>sticky_note_2</mat-icon><span>{{ r.notes }}</span></p>
+
+      <footer class="card-actions">
+        <button mat-button (click)="editRestaurant(r)"><mat-icon>edit</mat-icon>Edit</button>
+        <button mat-button color="warn" (click)="deleteRestaurant(r)"><mat-icon>delete</mat-icon>Delete</button>
+      </footer>
+    </article>
   </div>
+
+  <ng-template #empty>
+    <div class="empty" *ngIf="!(isLoading() && hasNone())">
+      <mat-icon>restaurant</mat-icon>
+      <ng-container *ngIf="hasNone(); else filtered">
+        <p>No restaurants yet</p>
+        <p class="hint">Add the places your family eats or orders from.</p>
+        <button mat-flat-button color="primary" (click)="openAddForm()"><mat-icon>add</mat-icon>Add a restaurant</button>
+      </ng-container>
+      <ng-template #filtered>
+        <p>Nothing matches</p>
+        <p class="hint">Try a different way of eating, cuisine or search.</p>
+      </ng-template>
+    </div>
+  </ng-template>
 
   <!-- Add/edit restaurant form, shown in a modal dialog so it holds the user's focus -->
   <ng-template #formDialog>
-    <h2 mat-dialog-title>{{ editingRestaurantId ? 'Edit Restaurant' : 'Add New Restaurant' }}</h2>
+    <h2 mat-dialog-title>{{ editingRestaurantId ? 'Edit restaurant' : 'Add restaurant' }}</h2>
     <mat-dialog-content class="add-form-dialog">
       <div class="form-grid">
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Restaurant Name</mat-label>
-            <input matInput [(ngModel)]="newRestaurant.name" required>
-          </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Name</mat-label>
+          <input matInput [(ngModel)]="form.name" required>
+        </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Cuisine Type</mat-label>
-            <input matInput [(ngModel)]="newRestaurant.cuisine">
-          </mat-form-field>
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Cuisine</mat-label>
+          <input matInput [(ngModel)]="form.cuisine" placeholder="Thai, pizza, burgers…">
+        </mat-form-field>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Phone Number</mat-label>
-            <input matInput [(ngModel)]="newRestaurant.phone" type="tel">
-          </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Phone</mat-label>
+          <input matInput [(ngModel)]="form.phone" type="tel">
+        </mat-form-field>
 
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Website</mat-label>
-            <input matInput [(ngModel)]="newRestaurant.website" placeholder="example.com">
-          </mat-form-field>
+        <mat-form-field appearance="outline">
+          <mat-label>Website</mat-label>
+          <input matInput [(ngModel)]="form.website" placeholder="example.com">
+        </mat-form-field>
 
-          <div class="full-width">
-            <mat-checkbox [(ngModel)]="newRestaurant.dineOut">Going out</mat-checkbox>
-            <mat-checkbox [(ngModel)]="newRestaurant.delivery">Delivery</mat-checkbox>
+        <fieldset class="full-width">
+          <legend>How we eat from here</legend>
+          <mat-checkbox [(ngModel)]="form.dineOut">Dine in</mat-checkbox>
+          <mat-checkbox [(ngModel)]="form.delivery">Delivery</mat-checkbox>
+          <mat-checkbox [(ngModel)]="form.takeout">Takeout</mat-checkbox>
+        </fieldset>
+
+        <fieldset class="full-width" *ngIf="form.delivery || form.takeout">
+          <legend>Apps it's on</legend>
+          <div class="chip-row">
+            <button type="button" class="chip" *ngFor="let app of appChoices"
+              [class.active]="form.deliveryApps.includes(app)" [attr.aria-pressed]="form.deliveryApps.includes(app)"
+              (click)="toggleApp(app)">{{ app }}</button>
           </div>
-
-          <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Delivery Apps (comma separated)</mat-label>
-            <input matInput [(ngModel)]="newRestaurant.deliveryApps" placeholder="DoorDash, Uber Eats, Grubhub">
-          </mat-form-field>
-
-          <!-- Order Links Section -->
-          <div class="order-links-section full-width">
-            <h3>Order From Links</h3>
-            <div class="order-link-form">
-              <mat-form-field appearance="outline">
-                <mat-label>Link Text</mat-label>
-                <input matInput [(ngModel)]="newOrderLink.text" placeholder="Order on DoorDash">
-              </mat-form-field>
-              <mat-form-field appearance="outline">
-                <mat-label>Link URL</mat-label>
-                <input matInput [(ngModel)]="newOrderLink.url" placeholder="https://doordash.com/...">
-              </mat-form-field>
-              <button mat-raised-button (click)="addOrderLink()" [disabled]="!newOrderLink.text.trim() || !newOrderLink.url.trim()">
-                <mat-icon>add</mat-icon>
-                Add Link
-              </button>
-            </div>
-
-            <div class="order-links-list" *ngIf="orderLinks.length > 0">
-              <mat-chip-set>
-                <mat-chip *ngFor="let link of orderLinks; let i = index" [removable]="true" (removed)="removeOrderLink(i)">
-                  {{ link.text }}
-                  <mat-icon matChipRemove>cancel</mat-icon>
-                </mat-chip>
-              </mat-chip-set>
-            </div>
+          <div class="inline-add">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Another app</mat-label>
+              <input matInput [(ngModel)]="customApp" (keydown.enter)="addCustomApp(); $event.preventDefault()">
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="addCustomApp()" [disabled]="!customApp.trim()">Add</button>
           </div>
+        </fieldset>
 
-          <mat-form-field appearance="outline">
-            <mat-label>Rating (1-5)</mat-label>
-            <input matInput type="number" [(ngModel)]="newRestaurant.rating" min="0" max="5">
-          </mat-form-field>
-
+        <ng-container *ngIf="form.delivery || form.takeout">
           <mat-form-field appearance="outline" class="full-width">
-            <mat-label>Notes</mat-label>
-            <textarea matInput [(ngModel)]="newRestaurant.notes" rows="3"></textarea>
+            <mat-label>Best way to order</mat-label>
+            <mat-select [(ngModel)]="form.bestApp">
+              <mat-option value="">No preference</mat-option>
+              <mat-option *ngFor="let app of bestAppChoices" [value]="app">{{ app }}</mat-option>
+            </mat-select>
+            <mat-hint>Pick the apps it's on above to choose among them.</mat-hint>
           </mat-form-field>
-        </div>
+
+          <mat-form-field appearance="outline" class="full-width" *ngIf="form.bestApp">
+            <mat-label>Why is that the best?</mat-label>
+            <input matInput [(ngModel)]="form.bestAppNote" placeholder="No delivery fee with DashPass, cheaper direct…">
+          </mat-form-field>
+        </ng-container>
+
+        <fieldset class="full-width">
+          <legend>Order links (optional)</legend>
+          <div class="inline-add links">
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Label</mat-label>
+              <input matInput [(ngModel)]="newOrderLink.text" placeholder="DoorDash menu">
+            </mat-form-field>
+            <mat-form-field appearance="outline" subscriptSizing="dynamic">
+              <mat-label>Link</mat-label>
+              <input matInput [(ngModel)]="newOrderLink.url" placeholder="doordash.com/store/…">
+            </mat-form-field>
+            <button mat-stroked-button type="button" (click)="addOrderLink()" [disabled]="!newOrderLink.text.trim() || !newOrderLink.url.trim()">Add</button>
+          </div>
+          <div class="chip-row" *ngIf="orderLinks.length > 0">
+            <span class="chip removable" *ngFor="let link of orderLinks; let i = index">
+              {{ link.text }}
+              <button type="button" (click)="removeOrderLink(i)" [attr.aria-label]="'Remove ' + link.text"><mat-icon>close</mat-icon></button>
+            </span>
+          </div>
+        </fieldset>
+
+        <mat-form-field appearance="outline" class="full-width">
+          <mat-label>Notes to remember</mat-label>
+          <textarea matInput [(ngModel)]="form.notes" rows="3" placeholder="Favorite dishes, allergy info, the wait, parking…"></textarea>
+        </mat-form-field>
+      </div>
     </mat-dialog-content>
     <mat-dialog-actions align="end">
-      <button mat-button (click)="toggleAddForm()">Cancel</button>
-      <button mat-raised-button color="primary" (click)="saveRestaurant()" [disabled]="!newRestaurant.name.trim()">
-          <mat-icon>save</mat-icon>
-          {{ editingRestaurantId ? 'Update Restaurant' : 'Save Restaurant' }}
-        </button>
+      <button mat-button (click)="closeForm()">Cancel</button>
+      <button mat-flat-button color="primary" (click)="saveRestaurant()" [disabled]="!form.name.trim()">
+        {{ editingRestaurantId ? 'Save changes' : 'Add restaurant' }}
+      </button>
     </mat-dialog-actions>
   </ng-template>
 
-  <!-- Add Restaurant FAB -->
-  <button *ngIf="!embedded" mat-fab color="primary" class="add-restaurant-fab" (click)="toggleAddForm()">
-    <mat-icon>{{ showAddForm ? 'close' : 'add' }}</mat-icon>
+  <button *ngIf="!embedded" mat-fab color="primary" class="add-restaurant-fab" aria-label="Add restaurant" (click)="openAddForm()">
+    <mat-icon>add</mat-icon>
   </button>
 </div>

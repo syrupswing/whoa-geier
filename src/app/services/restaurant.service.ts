@@ -19,10 +19,29 @@ export interface Restaurant {
   delivery?: boolean;
   /** Whether it's somewhere to go out to; unset means yes. */
   dineOut?: boolean;
-  favorite: boolean;
+  /** Whether the family picks food up from it; unset means no (this was added after the others, so older entries aren't assumed). */
+  takeout?: boolean;
+  /** The ideal way to order from it: an app name from KNOWN_ORDER_APPS (or one typed in), or DIRECT_ORDER / PHONE_ORDER. */
+  bestApp?: string;
+  /** Why that one is best, e.g. "no delivery fee with DashPass" or "cheaper ordering direct". */
+  bestAppNote?: string;
+  /** Anything worth remembering about it: favorite dishes, allergies, the wait, parking. */
   notes?: string;
-  rating?: number;
 }
+
+/** Ordering ways that aren't a third-party app. */
+export const DIRECT_ORDER = 'Restaurant website';
+export const PHONE_ORDER = 'Call in';
+
+/** Apps offered as one-tap choices; `search` builds a link to look the restaurant up when no order link is saved. */
+export const KNOWN_ORDER_APPS: { name: string; search?: (restaurant: string) => string }[] = [
+  { name: 'DoorDash', search: q => `https://www.doordash.com/search/store/${encodeURIComponent(q)}/` },
+  { name: 'Uber Eats', search: q => `https://www.ubereats.com/search?q=${encodeURIComponent(q)}` },
+  { name: 'Grubhub', search: q => `https://www.grubhub.com/search?queryText=${encodeURIComponent(q)}` },
+  { name: 'Slice' },
+  { name: 'ChowNow' },
+  { name: 'Toast' }
+];
 
 // Restaurants shared by the whole family in Firestore, so every device sees the same list.
 @Injectable({
@@ -76,6 +95,29 @@ export class RestaurantService {
 
   offersDineOut(r: Restaurant): boolean {
     return r.dineOut ?? true;
+  }
+
+  offersTakeout(r: Restaurant): boolean {
+    return r.takeout ?? false;
+  }
+
+  /** A website as typed ("example.com" or a full address) as a usable link. */
+  websiteUrl(r: Restaurant): string | null {
+    const site = r.website?.trim();
+    if (!site) return null;
+    return /^https?:\/\//i.test(site) ? site : `https://${site}`;
+  }
+
+  /** Where the "order" button for the ideal app goes: a saved link for that app, else the app's search page, the website, or the phone. */
+  bestOrderUrl(r: Restaurant): string | null {
+    const app = r.bestApp?.trim();
+    if (!app) return null;
+    if (app === PHONE_ORDER) return r.phone ? `tel:${r.phone}` : null;
+    if (app === DIRECT_ORDER) return this.websiteUrl(r);
+    const lower = app.toLowerCase();
+    const saved = r.orderLinks?.find(l => l.text.toLowerCase().includes(lower) || l.url.toLowerCase().includes(lower.replace(/\s+/g, '')));
+    if (saved) return saved.url;
+    return KNOWN_ORDER_APPS.find(a => a.name === app)?.search?.(r.name) ?? null;
   }
 
   async addRestaurant(restaurant: Omit<Restaurant, 'id'>): Promise<void> {
