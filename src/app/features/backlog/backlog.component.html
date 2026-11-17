@@ -4,25 +4,13 @@
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
-  <app-add-button label="Add task with details" (pressed)="openAdd()"></app-add-button>
-
-  <p class="intro">Your tasks in three groups: ones that need doing sometime with no day yet, ones already on the calendar, and ones that are done. Schedule an unscheduled task to move it onto the calendar.</p>
+  <app-add-button label="Add task" (pressed)="openAdd()"></app-add-button>
 
   <div *ngIf="backlog.isLoading()" class="loading-state">
     <app-loading-animation [size]="40"></app-loading-animation>
   </div>
 
   <ng-container *ngIf="!backlog.isLoading()">
-    <div class="quick-add">
-      <mat-form-field appearance="outline" subscriptSizing="dynamic" class="quick-add-field">
-        <mat-label>Add a task</mat-label>
-        <input matInput [(ngModel)]="newTitle" (keyup.enter)="quickAdd()" placeholder="What needs doing?" autocomplete="off">
-      </mat-form-field>
-      <button mat-icon-button color="primary" type="button" (click)="quickAdd()" [disabled]="!newTitle.trim()" aria-label="Add task">
-        <mat-icon>add_circle</mat-icon>
-      </button>
-    </div>
-
     <section class="group">
       <div class="group-header">
         <button mat-button type="button" (click)="showUnscheduled.set(!showUnscheduled())" [attr.aria-expanded]="showUnscheduled()">
@@ -31,7 +19,7 @@
         </button>
       </div>
       <ng-container *ngIf="showUnscheduled()">
-      <p class="empty" *ngIf="backlog.open().length === 0">Nothing in the task backlog. Add a task above.</p>
+      <p class="empty" *ngIf="backlog.open().length === 0">Nothing unscheduled. Tap + to add a task.</p>
 
       <ul class="task-list" *ngIf="backlog.open().length">
         <li *ngFor="let item of backlog.open()" class="task" [attr.data-highlight-id]="item.id">

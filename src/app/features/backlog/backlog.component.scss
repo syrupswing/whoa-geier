@@ -4,27 +4,10 @@
   padding-bottom: 80px;
 }
 
-.intro {
-  margin: 0 0 16px;
-  color: var(--color-text-secondary);
-}
-
 .loading-state {
   display: flex;
   justify-content: center;
   padding: 32px 0;
-}
-
-.quick-add {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 16px;
-
-  .quick-add-field {
-    flex: 1;
-    min-width: 0;
-  }
 }
 
 .empty {

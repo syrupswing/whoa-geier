@@ -1,12 +1,9 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatCheckboxModule } from '@angular/material/checkbox';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -29,8 +26,8 @@ import { buildScheduledTasks, hardDeadlineStatus, occurrenceKey, ScheduledTaskRo
   selector: 'app-backlog',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatButtonModule, MatIconModule, MatCheckboxModule, MatFormFieldModule,
-    MatInputModule, MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, LoadingAnimationComponent, AddButtonComponent
+    CommonModule, MatButtonModule, MatIconModule, MatCheckboxModule,
+    MatMenuModule, MatSnackBarModule, GlobalNavMenuComponent, LoadingAnimationComponent, AddButtonComponent
   ],
   templateUrl: './backlog.component.html',
   styleUrls: ['./backlog.component.scss']
@@ -42,7 +39,6 @@ export class BacklogComponent {
   private snackBar = inject(MatSnackBar);
   private confirmService = inject(ConfirmService);
 
-  newTitle = '';
   showUnscheduled = signal(true);
   showScheduled = signal(true);
   showDone = signal(false);
@@ -56,22 +52,13 @@ export class BacklogComponent {
     if (highlight) highlightWhenPresent(highlight);
   }
 
-  /** Quick add: a title and Enter, for the family; details can be added by editing. */
-  async quickAdd(): Promise<void> {
-    const title = this.newTitle.trim();
-    if (!title) return;
-    this.newTitle = '';
-    await this.backlog.addItem({ title, scope: 'family' });
-  }
-
-  /** The full add form (notes, privacy); the field below it stays for one-line quick adds. */
+  /** The add form: title, notes and who can see it. */
   openAdd(): void {
     const ref = this.dialog.open<BacklogItemDialogComponent, BacklogItemDialogData, BacklogItemDialogResult>(
-      BacklogItemDialogComponent, { width: '500px', maxWidth: '95vw', data: { title: this.newTitle.trim() } }
+      BacklogItemDialogComponent, { width: '500px', maxWidth: '95vw', data: {} }
     );
     ref.afterClosed().subscribe(async result => {
       if (!result) return;
-      this.newTitle = '';
       await this.backlog.addItem(result);
     });
   }
