@@ -4,6 +4,10 @@
     <app-global-nav-menu></app-global-nav-menu>
   </div>
 
+  <div class="nearby-row">
+    <button mat-stroked-button type="button" (click)="openNearby()"><mat-icon>near_me</mat-icon>Find nearby</button>
+  </div>
+
   <!-- Narrowing the list by cuisine -->
   <div class="toolbar" *ngIf="cuisines().length > 1">
     <div class="chip-row" role="group" aria-label="Filter by cuisine">
@@ -24,6 +28,12 @@
           <h3>{{ r.name }}</h3>
           <div class="sub">
             <span *ngIf="r.cuisine">{{ r.cuisine }}</span>
+          </div>
+          <div class="status" *ngIf="status(r) as st">
+            <span class="open-badge" *ngIf="st.business === 'CLOSED_PERMANENTLY'">Permanently closed</span>
+            <span class="open-badge" *ngIf="st.business !== 'CLOSED_PERMANENTLY' && st.openNow !== null"
+              [class.open]="st.openNow">{{ st.openNow ? 'Open now' : 'Closed now' }}</span>
+            <span class="hours" *ngIf="st.hoursToday">{{ st.hoursToday }}</span>
           </div>
         </div>
       </header>
@@ -81,6 +91,41 @@
         <p class="hint">Try a different way of eating, cuisine or search.</p>
       </ng-template>
     </div>
+  </ng-template>
+
+  <!-- Nearby search: find a chain or cuisine close to home -->
+  <ng-template #nearbyDialog>
+    <h2 mat-dialog-title>Find nearby</h2>
+    <mat-dialog-content class="add-form-dialog">
+      <div class="inline-add">
+        <mat-form-field appearance="outline" subscriptSizing="dynamic">
+          <mat-label>Restaurant or food</mat-label>
+          <input matInput [(ngModel)]="nearbyQuery" placeholder="Pizza Hut, sushi, tacos…"
+            (keydown.enter)="searchNearby(); $event.preventDefault()">
+        </mat-form-field>
+        <button mat-flat-button color="primary" type="button" (click)="searchNearby()"
+          [disabled]="!nearbyQuery.trim() || nearbySearching()">{{ nearbySearching() ? 'Searching…' : 'Search' }}</button>
+      </div>
+      <p class="nearby-error" *ngIf="nearbyError() as err">{{ err }}</p>
+      <p class="hint" *ngIf="nearbySearched() && !nearbyError() && nearbyResults().length === 0">Nothing found near home.</p>
+      <ul class="nearby-list">
+        <li *ngFor="let n of nearbyResults()">
+          <div class="nearby-info">
+            <strong>{{ n.name }}</strong>
+            <span class="addr">{{ n.address }}</span>
+            <span class="meta">
+              <span class="open-badge" *ngIf="n.openNow !== null" [class.open]="n.openNow">{{ n.openNow ? 'Open now' : 'Closed now' }}</span>
+              <span *ngIf="n.hoursToday">{{ n.hoursToday }}</span>
+              <span *ngIf="driveLabel(n)"><mat-icon>directions_car</mat-icon>{{ driveLabel(n) }}</span>
+            </span>
+          </div>
+          <button mat-stroked-button type="button" [disabled]="isSaved(n)" (click)="useNearby(n)">{{ isSaved(n) ? 'Saved' : 'Add' }}</button>
+        </li>
+      </ul>
+    </mat-dialog-content>
+    <mat-dialog-actions align="end">
+      <button mat-button mat-dialog-close>Close</button>
+    </mat-dialog-actions>
   </ng-template>
 
   <!-- Add/edit restaurant form, shown in a modal dialog so it holds the user's focus -->

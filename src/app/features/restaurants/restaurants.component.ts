@@ -1,4 +1,4 @@
-import { Component, Input, TemplateRef, ViewChild, computed, inject, signal } from '@angular/core';
+import { Component, Input, TemplateRef, ViewChild, computed, effect, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -12,6 +12,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   RestaurantService, Restaurant, OrderLink, KNOWN_ORDER_APPS, DIRECT_ORDER, PHONE_ORDER
 } from '../../services/restaurant.service';
+import { NearbyRestaurantService, NearbyRestaurant } from '../../services/nearby-restaurant.service';
 import { GlobalNavMenuComponent } from '../../shared/global-nav-menu/global-nav-menu.component';
 
 export type { Restaurant, OrderLink };
@@ -63,9 +64,19 @@ export class RestaurantsComponent {
   private dialogRef: MatDialogRef<unknown> | null = null;
   @ViewChild('formDialog') private formDialog?: TemplateRef<unknown>;
   private restaurantService = inject(RestaurantService);
+  private nearbyService = inject(NearbyRestaurantService);
+  @ViewChild('nearbyDialog') private nearbyDialog?: TemplateRef<unknown>;
 
   restaurants = this.restaurantService.restaurants;
   isLoading = this.restaurantService.isLoading;
+
+  constructor() {
+    // Saved restaurants that came from a nearby search get a fresh open-now badge.
+    effect(() => {
+      const ids = this.restaurants().map(r => r.placeId).filter((id): id is string => !!id);
+      void this.nearbyService.refresh(ids);
+    });
+  }
 
   readonly knownApps = KNOWN_ORDER_APPS.map(a => a.name);
   readonly directOrder = DIRECT_ORDER;
@@ -148,6 +159,65 @@ export class RestaurantsComponent {
     return [...this.knownApps, ...extra];
   }
 
+  // ----- Find nearby -----
+  nearbyQuery = '';
+  nearbyResults = signal<NearbyRestaurant[]>([]);
+  nearbySearching = signal(false);
+  nearbyError = signal<string | null>(null);
+  nearbySearched = signal(false);
+  /** Set while the form is filled from a nearby result, and kept on edits of that restaurant. */
+  private pendingPlace: { placeId: string; address: string } | null = null;
+  private nearbyRef: MatDialogRef<unknown> | null = null;
+
+  openNearby(): void {
+    if (!this.nearbyDialog) return;
+    this.nearbyRef = this.dialog.open(this.nearbyDialog, { width: '640px', maxWidth: '95vw' });
+    this.nearbyRef.afterClosed().subscribe(() => (this.nearbyRef = null));
+  }
+
+  async searchNearby(): Promise<void> {
+    const query = this.nearbyQuery.trim();
+    if (!query || this.nearbySearching()) return;
+    this.nearbySearching.set(true);
+    this.nearbyError.set(null);
+    const { results, error } = await this.nearbyService.search(query);
+    this.nearbyResults.set(results);
+    this.nearbyError.set(error);
+    this.nearbySearched.set(true);
+    this.nearbySearching.set(false);
+  }
+
+  /** Whether a result is already saved, matched by place id. */
+  isSaved(n: NearbyRestaurant): boolean {
+    return this.restaurants().some(r => r.placeId === n.placeId);
+  }
+
+  driveLabel(n: NearbyRestaurant): string {
+    if (n.driveMinutes == null) return '';
+    const miles = n.distanceMeters != null ? ` · ${(n.distanceMeters / 1609.34).toFixed(1)} mi` : '';
+    return `${n.driveMinutes} min${miles}`;
+  }
+
+  /** Opens the add form already filled in from a nearby result, ready to confirm. */
+  useNearby(n: NearbyRestaurant): void {
+    this.nearbyRef?.close();
+    this.resetForm();
+    this.form.name = n.name;
+    this.form.cuisine = n.cuisineLabel.replace(/ restaurant$/i, '');
+    this.form.phone = n.phone;
+    this.form.website = n.website;
+    this.form.dineOut = n.dineIn ?? true;
+    this.form.takeout = n.takeout ?? false;
+    this.form.delivery = n.delivery ?? false;
+    this.pendingPlace = { placeId: n.placeId, address: n.address };
+    this.showAddForm = true;
+  }
+
+  /** Open-now status for a saved restaurant, once looked up. */
+  status(r: Restaurant) {
+    return r.placeId ? this.nearbyService.statuses()[r.placeId] : undefined;
+  }
+
   openAddForm(): void {
     this.resetForm();
     // Starting from the way of eating being viewed saves a tap.
@@ -192,6 +262,7 @@ export class RestaurantsComponent {
     this.newOrderLink = { text: '', url: '' };
     this.customApp = '';
     this.editingRestaurantId = null;
+    this.pendingPlace = null;
   }
 
   closeForm(): void {
@@ -236,7 +307,8 @@ export class RestaurantsComponent {
       delivery: f.delivery,
       takeout: f.takeout,
       bestApp: f.bestApp,
-      bestAppNote: f.bestAppNote.trim()
+      bestAppNote: f.bestAppNote.trim(),
+      ...(this.pendingPlace ?? {})
     };
 
     const editing = this.editingRestaurantId;

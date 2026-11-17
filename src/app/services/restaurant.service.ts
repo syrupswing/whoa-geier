@@ -25,6 +25,9 @@ export interface Restaurant {
   bestApp?: string;
   /** Why that one is best, e.g. "no delivery fee with DashPass" or "cheaper ordering direct". */
   bestAppNote?: string;
+  /** Google place id, when added from a nearby search; used to look up open-now. */
+  placeId?: string;
+  address?: string;
   /** Anything worth remembering about it: favorite dishes, allergies, the wait, parking. */
   notes?: string;
 }

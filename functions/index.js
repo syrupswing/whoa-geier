@@ -2472,8 +2472,8 @@ async function routesDriveSeconds(origin, destination, departAt) {
       'X-Goog-FieldMask': 'routes.duration,routes.distanceMeters'
     },
     body: JSON.stringify({
-      origin: { address: origin },
-      destination: { address: destination },
+      origin: typeof origin === 'string' ? { address: origin } : origin,
+      destination: typeof destination === 'string' ? { address: destination } : destination,
       travelMode: 'DRIVE',
       routingPreference: 'TRAFFIC_AWARE',
       departureTime: depart.toISOString()
@@ -2569,6 +2569,132 @@ exports.placeSuggestions = onCall(
       }))
       .filter(s => s.text);
     return { suggestions };
+  }
+);
+
+// ---------------------------------------------------------------------------
+// Nearby restaurants: find a chain or cuisine near home, with hours and drive time
+//
+// Uses Places API (New) Text Search with the home address as plain text ("Pizza Hut near <address>"),
+// so no geocoding is needed. Results carry the place_id, which is the only Places value meant to be
+// stored long term; hours and open-now are looked up again through placeStatus when wanted.
+// ---------------------------------------------------------------------------
+
+/** Today's hours line from a Places opening-hours object, in the place's own local time. */
+function todaysHours(hours) {
+  const lines = hours?.weekdayDescriptions;
+  if (!Array.isArray(lines) || lines.length !== 7) return '';
+  // Matched by weekday name, in the family's time zone (the places searched are near home).
+  const weekday = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: TIME_ZONE });
+  const line = lines.find(l => l.startsWith(weekday)) || '';
+  return line.replace(/^[A-Za-z]+:\s*/, '');
+}
+
+function summarizePlace(p) {
+  const hours = p.currentOpeningHours || p.regularOpeningHours;
+  return {
+    placeId: p.id,
+    name: p.displayName?.text || '',
+    address: p.formattedAddress || '',
+    cuisineLabel: p.primaryTypeDisplayName?.text || '',
+    phone: p.nationalPhoneNumber || '',
+    website: p.websiteUri || '',
+    mapsUrl: p.googleMapsUri || '',
+    openNow: typeof p.currentOpeningHours?.openNow === 'boolean' ? p.currentOpeningHours.openNow : null,
+    hoursToday: todaysHours(hours),
+    dineIn: typeof p.dineIn === 'boolean' ? p.dineIn : null,
+    takeout: typeof p.takeout === 'boolean' ? p.takeout : null,
+    delivery: typeof p.delivery === 'boolean' ? p.delivery : null,
+    business: p.businessStatus || ''
+  };
+}
+
+const PLACE_FIELDS = [
+  'id', 'displayName', 'formattedAddress', 'location', 'primaryTypeDisplayName', 'nationalPhoneNumber',
+  'websiteUri', 'googleMapsUri', 'currentOpeningHours', 'regularOpeningHours', 'dineIn', 'takeout',
+  'delivery', 'businessStatus'
+];
+
+exports.nearbyRestaurants = onCall(
+  { secrets: ['GOOGLE_MAPS_API_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const { query, origin } = request.data || {};
+    if (typeof query !== 'string' || !query.trim() || query.length > 100 ||
+        typeof origin !== 'string' || !origin.trim() || origin.length > 300) {
+      throw new HttpsError('invalid-argument', 'A restaurant or food type and a home address are required');
+    }
+
+    const response = await fetch('https://places.googleapis.com/v1/places:searchText', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Goog-Api-Key': googleMapsApiKey.value(),
+        'X-Goog-FieldMask': PLACE_FIELDS.map(f => `places.${f}`).join(',')
+      },
+      body: JSON.stringify({
+        textQuery: `${query.trim()} near ${origin.trim()}`,
+        includedType: 'restaurant',
+        strictTypeFiltering: false,
+        pageSize: 5,
+        rankPreference: 'RELEVANCE'
+      })
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      console.error('nearbyRestaurants request failed:', response.status, JSON.stringify(body));
+      throw new HttpsError('internal', 'Restaurant search is unavailable right now');
+    }
+
+    const places = (body.places || []).filter(p => p.id && p.businessStatus !== 'CLOSED_PERMANENTLY').slice(0, 5);
+    const results = await Promise.all(places.map(async (p) => {
+      const summary = summarizePlace(p);
+      const latLng = p.location ? { latitude: p.location.latitude, longitude: p.location.longitude } : null;
+      try {
+        const drive = await routesDriveSeconds(origin.trim(), latLng ? { location: { latLng } } : p.formattedAddress, new Date());
+        return { ...summary, driveMinutes: Math.ceil(drive.seconds / 60), distanceMeters: drive.meters };
+      } catch (err) {
+        // A missing drive time shouldn't hide the restaurant.
+        return { ...summary, driveMinutes: null, distanceMeters: null };
+      }
+    }));
+    results.sort((a, b) => (a.driveMinutes ?? Infinity) - (b.driveMinutes ?? Infinity));
+    return { results };
+  }
+);
+
+/** Fresh open-now and today's hours for saved restaurants, by place_id (at most 20 per call). */
+exports.placeStatus = onCall(
+  { secrets: ['GOOGLE_MAPS_API_KEY'] },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'Sign-in required');
+    }
+    const ids = request.data?.placeIds;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > 20 ||
+        !ids.every(id => typeof id === 'string' && /^[\w-]{1,200}$/.test(id))) {
+      throw new HttpsError('invalid-argument', 'Between 1 and 20 place ids are required');
+    }
+
+    const statuses = await Promise.all(ids.map(async (id) => {
+      const response = await fetch(`https://places.googleapis.com/v1/places/${encodeURIComponent(id)}`, {
+        headers: {
+          'X-Goog-Api-Key': googleMapsApiKey.value(),
+          'X-Goog-FieldMask': 'id,currentOpeningHours,regularOpeningHours,businessStatus'
+        }
+      });
+      if (!response.ok) {
+        console.warn('placeStatus lookup failed:', id, response.status);
+        return null;
+      }
+      const p = await response.json().catch(() => null);
+      if (!p) return null;
+      const s = summarizePlace(p);
+      return { placeId: id, openNow: s.openNow, hoursToday: s.hoursToday, business: s.business };
+    }));
+    return { statuses: statuses.filter(Boolean) };
   }
 );
 
