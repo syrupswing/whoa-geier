@@ -230,11 +230,12 @@ export function computeRegistrationStatus(
   records: StatusRecord[] = []
 ): ServiceStatus | null {
   if (!registrationExpiry) return null;
-  const due = new Date(registrationExpiry);
-  const daysRemaining = Math.ceil((due.getTime() - now.getTime()) / DAY_MS);
   const last = records
     .filter(r => r.type === 'registration')
     .sort((a, b) => b.date.getTime() - a.date.getTime())[0] ?? null;
+  // A renewal that was logged but didn't move the vehicle's expiry still counts: the later date wins.
+  const due = new Date(Math.max(new Date(registrationExpiry).getTime(), last?.nextDueDate ? new Date(last.nextDueDate).getTime() : 0));
+  const daysRemaining = Math.ceil((due.getTime() - now.getTime()) / DAY_MS);
   return {
     type: 'registration', interval: null,
     lastDate: last?.date ?? null, lastMiles: null,

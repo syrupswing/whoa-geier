@@ -48,7 +48,7 @@ const tasks = db => [...db.coll('calendarEvents')].map(([id, v]) => ({ id, ...v 
 
 test('a due item gets one calendar task, due on its due date, shared with the family', async () => {
   const db = fakeDb();
-  assert.deepEqual(await run(db), { created: 1, completed: 0, removed: 0 });
+  assert.deepEqual(await run(db), { created: 1, updated: 0, completed: 0, removed: 0 });
   const [t] = tasks(db);
   assert.equal(t.summary, 'Oil change – Subaru');
   assert.equal(t.kind, 'task');
@@ -67,7 +67,7 @@ test('a due item gets one calendar task, due on its due date, shared with the fa
 test('running again the next morning does not make a second task', async () => {
   const db = fakeDb();
   await run(db);
-  assert.deepEqual(await run(db, { now: d('2026-10-20') }), { created: 0, completed: 0, removed: 0 });
+  assert.deepEqual(await run(db, { now: d('2026-10-20') }), { created: 0, updated: 0, completed: 0, removed: 0 });
   assert.equal(tasks(db).length, 1);
 });
 
@@ -75,7 +75,7 @@ test('a task someone deletes on purpose is not brought back', async () => {
   const db = fakeDb();
   await run(db);
   db.coll('calendarEvents').clear();
-  assert.deepEqual(await run(db, { now: d('2026-10-20') }), { created: 0, completed: 0, removed: 0 });
+  assert.deepEqual(await run(db, { now: d('2026-10-20') }), { created: 0, updated: 0, completed: 0, removed: 0 });
   assert.equal(tasks(db).length, 0);
 });
 
@@ -83,7 +83,7 @@ test('logging the service completes the task, credited to Vehicle maintenance', 
   const db = fakeDb();
   await run(db);
   const logged = { id: 'r2', vehicleId: 'v1', type: 'oil_change', date: '2026-10-19T12:00:00.000Z', mileage: 40100 };
-  assert.deepEqual(await run(db, { records: [oilRecord, logged] }), { created: 0, completed: 1, removed: 0 });
+  assert.deepEqual(await run(db, { records: [oilRecord, logged] }), { created: 1, updated: 0, completed: 1, removed: 0 });
   const [t] = tasks(db);
   assert.equal(t.completions['2026-10-19'].byName, 'Vehicle maintenance');
   assert.equal(t.completions['2026-10-19'].byUid, 'system');
@@ -94,7 +94,7 @@ test('a task already ticked off by a person is left alone and not recreated', as
   await run(db);
   const [t] = tasks(db);
   db.coll('calendarEvents').get(t.id).completions = { '2026-10-19': { byUid: 'u1', byName: 'Nathan', at: NOW.toISOString() } };
-  assert.deepEqual(await run(db, { now: d('2026-10-20') }), { created: 0, completed: 0, removed: 0 });
+  assert.deepEqual(await run(db, { now: d('2026-10-20') }), { created: 0, updated: 0, completed: 0, removed: 0 });
   assert.equal(tasks(db)[0].completions['2026-10-19'].byName, 'Nathan');
 });
 
@@ -110,7 +110,7 @@ test('an edited title does not break the link, so the task still closes', async 
 test('deleting a vehicle removes its open tasks', async () => {
   const db = fakeDb();
   await run(db);
-  assert.deepEqual(await run(db, { vehicles: [], records: [], readings: [] }), { created: 0, completed: 0, removed: 1 });
+  assert.deepEqual(await run(db, { vehicles: [], records: [], readings: [] }), { created: 0, updated: 0, completed: 0, removed: 1 });
   assert.equal(tasks(db).length, 0);
 });
 
@@ -129,5 +129,61 @@ test('registration: a due renewal makes a task, marking it renewed closes it', a
   assert.equal(tasks(db)[0].summary, 'Renew registration – Subaru');
   assert.equal(tasks(db)[0].hardDeadline, '2026-11-05');
   const renewed = { ...base, vehicles: [{ ...vehicle, registrationExpiry: '2027-11-05T00:00:00.000Z' }] };
-  assert.deepEqual(await run(db, renewed), { created: 0, completed: 1, removed: 0 });
+  assert.deepEqual(await run(db, renewed), { created: 1, updated: 0, completed: 1, removed: 0 });
+});
+
+test('an item that is not due yet still has a standing task, shown on the calendar only 60 days before it is due', async () => {
+  const db = fakeDb();
+  // Registration due 2027-03-01: 133 days out, so the task waits until 60 days before (2026-12-31).
+  const far = { ...vehicle, registrationExpiry: '2027-03-01T00:00:00.000Z' };
+  await run(db, { vehicles: [far], records: [], readings });
+  const [t] = tasks(db);
+  assert.equal(t.summary, 'Renew registration – Subaru');
+  assert.equal(t.hardDeadline, '2027-03-01');
+  assert.deepEqual(t.start, { date: '2026-12-31' });
+  assert.deepEqual(t.end, { date: '2027-01-01' });
+});
+
+test('a task due within 60 days starts today', async () => {
+  const db = fakeDb();
+  await run(db, { vehicles: [{ ...vehicle, registrationExpiry: '2026-12-15T00:00:00.000Z' }], records: [], readings });
+  assert.deepEqual(tasks(db)[0].start, { date: '2026-10-19' });
+});
+
+test('editing an item\'s due date starts a new cycle: the old task closes and a new one is made', async () => {
+  const db = fakeDb();
+  await run(db, { vehicles: [{ ...vehicle, registrationExpiry: '2027-03-01T00:00:00.000Z' }], records: [], readings });
+  const result = await run(db, { vehicles: [{ ...vehicle, registrationExpiry: '2027-03-31T00:00:00.000Z' }], records: [], readings, now: d('2026-10-20') });
+  assert.equal(result.completed, 1);
+  assert.equal(result.created, 1);
+});
+
+test('an open task whose due date moves within its cycle is refreshed', async () => {
+  const db = fakeDb();
+  await run(db);
+  const [t] = tasks(db);
+  db.coll('calendarEvents').get(t.id).hardDeadline = '2020-01-01';
+  assert.equal((await run(db, { now: d('2026-10-20') })).updated, 1);
+  assert.match(tasks(db)[0].hardDeadline, /^2\d{3}-/);
+  assert.notEqual(tasks(db)[0].hardDeadline, '2020-01-01');
+});
+
+test('a task already showing keeps its start day when the due date moves', async () => {
+  const db = fakeDb();
+  await run(db);
+  const [t] = tasks(db);
+  const before = t.start.date;
+  db.coll('calendarEvents').get(t.id).hardDeadline = '2020-01-01';
+  await run(db, { now: d('2026-10-20') });
+  assert.equal(tasks(db)[0].start.date, before);
+});
+
+test('a logged renewal whose expiry was not moved still closes the old task and starts the next', async () => {
+  const db = fakeDb();
+  const expired = { ...vehicle, registrationExpiry: '2026-11-01T00:00:00.000Z' };
+  await run(db, { vehicles: [expired], records: [], readings });
+  const renewal = { id: 'r9', vehicleId: 'v1', type: 'registration', date: '2026-11-05T12:00:00.000Z', mileage: 0, nextDueDate: '2027-11-01T00:00:00.000Z' };
+  const result = await run(db, { vehicles: [expired], records: [renewal], readings });
+  assert.equal(result.completed, 1);
+  assert.equal(tasks(db).find(t => !t.completions).hardDeadline, '2027-11-01');
 });

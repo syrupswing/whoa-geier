@@ -6,7 +6,7 @@
 
   <app-add-button label="Add task with details" (pressed)="openAdd()"></app-add-button>
 
-  <p class="intro">Tasks that need doing sometime, with no day or time yet. Schedule one to move it onto the calendar.</p>
+  <p class="intro">Your tasks in three groups: ones that need doing sometime with no day yet, ones already on the calendar, and ones that are done. Schedule an unscheduled task to move it onto the calendar.</p>
 
   <div *ngIf="backlog.isLoading()" class="loading-state">
     <app-loading-animation [size]="40"></app-loading-animation>
@@ -23,35 +23,73 @@
       </button>
     </div>
 
-    <p class="empty" *ngIf="backlog.open().length === 0">Nothing in the task backlog. Add a task above.</p>
+    <section class="group">
+      <div class="group-header">
+        <button mat-button type="button" (click)="showUnscheduled.set(!showUnscheduled())" [attr.aria-expanded]="showUnscheduled()">
+          <mat-icon>{{ showUnscheduled() ? 'expand_less' : 'expand_more' }}</mat-icon>
+          Unscheduled ({{ backlog.open().length }})
+        </button>
+      </div>
+      <ng-container *ngIf="showUnscheduled()">
+      <p class="empty" *ngIf="backlog.open().length === 0">Nothing in the task backlog. Add a task above.</p>
 
-    <ul class="task-list" *ngIf="backlog.open().length">
-      <li *ngFor="let item of backlog.open()" class="task" [attr.data-highlight-id]="item.id">
-        <mat-checkbox [checked]="false" (change)="toggle(item)" [attr.aria-label]="'Complete ' + item.title"></mat-checkbox>
-        <button type="button" class="task-body" (click)="edit(item)">
-          <span class="task-title">{{ item.title }}</span>
-          <span class="task-meta" *ngIf="item.notes || item.scope === 'private'">
-            <mat-icon *ngIf="item.scope === 'private'" class="meta-icon" aria-label="Private">lock_person</mat-icon>
-            <span *ngIf="item.notes" class="notes">{{ item.notes }}</span>
-          </span>
-        </button>
-        <button mat-button type="button" class="schedule-btn" (click)="schedule(item)">
-          <mat-icon>event</mat-icon>
-          Schedule
-        </button>
-        <button mat-icon-button type="button" [matMenuTriggerFor]="menu" aria-label="More">
-          <mat-icon>more_vert</mat-icon>
-        </button>
-        <mat-menu #menu="matMenu">
-          <button mat-menu-item type="button" (click)="edit(item)"><mat-icon>edit</mat-icon>Edit</button>
-          <button mat-menu-item type="button" (click)="schedule(item)"><mat-icon>event</mat-icon>Schedule</button>
-          <button mat-menu-item type="button" (click)="remove(item)"><mat-icon>delete</mat-icon>Delete</button>
-        </mat-menu>
-      </li>
-    </ul>
+      <ul class="task-list" *ngIf="backlog.open().length">
+        <li *ngFor="let item of backlog.open()" class="task" [attr.data-highlight-id]="item.id">
+          <mat-checkbox [checked]="false" (change)="toggle(item)" [attr.aria-label]="'Complete ' + item.title"></mat-checkbox>
+          <button type="button" class="task-body" (click)="edit(item)">
+            <span class="task-title">{{ item.title }}</span>
+            <span class="task-meta" *ngIf="item.notes || item.scope === 'private'">
+              <mat-icon *ngIf="item.scope === 'private'" class="meta-icon" aria-label="Private">lock_person</mat-icon>
+              <span *ngIf="item.notes" class="notes">{{ item.notes }}</span>
+            </span>
+          </button>
+          <button mat-button type="button" class="schedule-btn" (click)="schedule(item)">
+            <mat-icon>event</mat-icon>
+            Schedule
+          </button>
+          <button mat-icon-button type="button" [matMenuTriggerFor]="menu" aria-label="More">
+            <mat-icon>more_vert</mat-icon>
+          </button>
+          <mat-menu #menu="matMenu">
+            <button mat-menu-item type="button" (click)="edit(item)"><mat-icon>edit</mat-icon>Edit</button>
+            <button mat-menu-item type="button" (click)="schedule(item)"><mat-icon>event</mat-icon>Schedule</button>
+            <button mat-menu-item type="button" (click)="remove(item)"><mat-icon>delete</mat-icon>Delete</button>
+          </mat-menu>
+        </li>
+      </ul>
 
-    <section class="done-section" *ngIf="backlog.done().length">
-      <div class="done-header">
+      </ng-container>
+    </section>
+
+    <section class="group">
+      <div class="group-header">
+        <button mat-button type="button" (click)="showScheduled.set(!showScheduled())" [attr.aria-expanded]="showScheduled()">
+          <mat-icon>{{ showScheduled() ? 'expand_less' : 'expand_more' }}</mat-icon>
+          Scheduled ({{ scheduled().length }})
+        </button>
+      </div>
+      <ng-container *ngIf="showScheduled()">
+        <p class="empty" *ngIf="scheduled().length === 0">Nothing scheduled. Tasks you put on the calendar are listed here by date.</p>
+        <ul class="task-list" *ngIf="scheduled().length">
+          <li *ngFor="let row of scheduled(); trackBy: trackScheduled" class="task" [attr.data-highlight-id]="row.event.id">
+            <mat-checkbox [checked]="false" (change)="completeScheduled(row)" [attr.aria-label]="'Complete ' + row.event.summary"></mat-checkbox>
+            <button type="button" class="task-body" (click)="editScheduled(row)">
+              <span class="task-title">{{ row.event.summary }}</span>
+              <span class="task-meta">
+                <span class="when" [class.overdue]="row.overdue">{{ row.overdue ? 'Overdue · ' : '' }}{{ row.event.vehicleTask ? 'Due ' : '' }}{{ dateLabel(row) }}</span>
+                <span class="notes" *ngIf="deadlineLabel(row) as deadline">{{ deadline }}</span>
+                <mat-icon *ngIf="row.event.repeat" class="meta-icon" [attr.aria-label]="repeatText(row)" [title]="repeatText(row)">repeat</mat-icon>
+                <mat-icon *ngIf="row.event.vehicleTask" class="meta-icon" aria-label="Vehicle maintenance" title="Vehicle maintenance">directions_car</mat-icon>
+                <mat-icon *ngIf="row.event.isPrivate" class="meta-icon" aria-label="Private">lock_person</mat-icon>
+              </span>
+            </button>
+          </li>
+        </ul>
+      </ng-container>
+    </section>
+
+    <section class="group" *ngIf="backlog.done().length">
+      <div class="group-header">
         <button mat-button type="button" (click)="showDone.set(!showDone())">
           <mat-icon>{{ showDone() ? 'expand_less' : 'expand_more' }}</mat-icon>
           Completed ({{ backlog.done().length }})

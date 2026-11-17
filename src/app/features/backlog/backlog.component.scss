@@ -103,10 +103,10 @@
   }
 }
 
-.done-section {
+.group {
   margin-top: 24px;
 
-  .done-header {
+  .group-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -118,4 +118,9 @@
   .schedule-btn {
     display: none;
   }
+}
+
+.when {
+  font-size: 0.8125rem;
+  &.overdue { color: #c62828; font-weight: 500; }
 }

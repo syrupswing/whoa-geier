@@ -413,9 +413,11 @@ export class VehiclesComponent {
 
   // --- Attention rows and cards -------------------------------------------------------------
 
-  /** Whether the nightly job has already put this item on the task list (and it isn't done yet). */
+  /** Whether this item's task is already showing on the calendar's task list (it starts 60 days before it's due) and isn't done yet. */
   hasOpenTask(vehicle: Vehicle, status: ServiceStatus): boolean {
-    return this.vehicleService.openTasksFor(vehicle.id, status.type).length > 0;
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+    return this.vehicleService.openTasksFor(vehicle.id, status.type).some(t => (t.start.date ?? '') <= today);
   }
 
   statusLabel(s: ServiceStatus): string {

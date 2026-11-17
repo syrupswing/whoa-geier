@@ -121,6 +121,12 @@ describe('registration status', () => {
     expect(computeRegistrationStatus(d('2027-11-05'), NOW, records)!.lastDate).toEqual(d('2026-10-19'));
     expect(computeRegistrationStatus(d('2027-11-05'), NOW)!.lastDate).toBeNull();
   });
+  it('trusts a logged renewal whose next due date is later than the vehicle expiry', () => {
+    const records: StatusRecord[] = [{ type: 'registration', date: d('2026-10-19'), mileage: 0, nextDueDate: d('2027-11-01') }];
+    const status = computeRegistrationStatus(d('2026-11-01'), NOW, records)!;
+    expect(status.status).toBe('ok');
+    expect(status.dueDate).toEqual(d('2027-11-01'));
+  });
 });
 
 describe('next registration expiry', () => {

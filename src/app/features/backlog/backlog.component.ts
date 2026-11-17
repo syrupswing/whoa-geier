@@ -1,4 +1,4 @@
-import { Component, inject, signal } from '@angular/core';
+import { Component, computed, inject, signal } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute } from '@angular/router';
@@ -23,6 +23,7 @@ import {
   CalendarEventDialogComponent, CalendarEventDialogData, CalendarEventDialogResult
 } from '../../components/calendar-event-dialog/calendar-event-dialog.component';
 import { highlightWhenPresent } from '../../utils/highlight';
+import { buildScheduledTasks, hardDeadlineStatus, occurrenceKey, ScheduledTaskRow } from '../../utils/recurrence';
 
 @Component({
   selector: 'app-backlog',
@@ -42,7 +43,12 @@ export class BacklogComponent {
   private confirmService = inject(ConfirmService);
 
   newTitle = '';
+  showUnscheduled = signal(true);
+  showScheduled = signal(true);
   showDone = signal(false);
+
+  /** Every task already on the calendar's schedule that isn't done, in the order it falls due. */
+  scheduled = computed(() => buildScheduledTasks(this.calendarEvents.events(), new Date()));
 
   constructor() {
     // A link such as /backlog?highlight=<id> (from a chat confirmation) flashes that task.
@@ -111,6 +117,58 @@ export class BacklogComponent {
       }
       await this.backlog.deleteItem(item.id);
       this.snackBar.open('Moved to the calendar', 'Close', { duration: 3000 });
+    });
+  }
+
+  // ----- Scheduled tasks -----
+
+  trackScheduled = (_: number, row: ScheduledTaskRow) => row.event.id + occurrenceKey(row.event);
+
+  /** "Fri, Oct 30", with the year once it's not this one. */
+  dateLabel(row: ScheduledTaskRow): string {
+    const sameYear = row.date.getFullYear() === new Date().getFullYear();
+    return row.date.toLocaleDateString('en-US', {
+      weekday: 'short', month: 'short', day: 'numeric', ...(sameYear ? {} : { year: 'numeric' })
+    });
+  }
+
+  repeatText(row: ScheduledTaskRow): string {
+    const repeat = row.event.repeat;
+    if (!repeat) return '';
+    return repeat.interval === 1 ? `Every ${repeat.unit}` : `Every ${repeat.interval} ${repeat.unit}s`;
+  }
+
+  /** The hard-deadline wording ("Due Mar 1") for a task that has one and isn't already listed on that day. */
+  deadlineLabel(row: ScheduledTaskRow): string {
+    if (row.event.vehicleTask) return '';
+    return hardDeadlineStatus(row.event, false)?.label ?? '';
+  }
+
+  async completeScheduled(row: ScheduledTaskRow): Promise<void> {
+    const { id } = row.event;
+    const key = occurrenceKey(row.event);
+    const ok = await this.calendarEvents.completeOccurrence(id, key);
+    if (!ok) {
+      this.snackBar.open('Couldn\'t complete that task', 'Close', { duration: 3000 });
+      return;
+    }
+    this.snackBar.open(`Done: ${row.event.summary}`, 'Undo', { duration: 5000 })
+      .onAction().subscribe(() => void this.calendarEvents.clearCompletion(id, key));
+  }
+
+  editScheduled(row: ScheduledTaskRow): void {
+    const event = row.event;
+    const ref = this.dialog.open<CalendarEventDialogComponent, CalendarEventDialogData, CalendarEventDialogResult>(
+      CalendarEventDialogComponent, { width: '500px', maxWidth: '95vw', data: { mode: 'edit', event } }
+    );
+    ref.afterClosed().subscribe(async result => {
+      if (!result) return;
+      try {
+        if (result.action === 'delete') await this.calendarEvents.deleteEvent(event.id);
+        else await this.calendarEvents.updateEvent(event.id, result.event);
+      } catch {
+        this.snackBar.open('Couldn\'t save that task', 'Close', { duration: 3000 });
+      }
     });
   }
 

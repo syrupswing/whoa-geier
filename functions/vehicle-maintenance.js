@@ -8,6 +8,8 @@ const RATE_WINDOW_DAYS = 365;
 const MIN_RATE_SPAN_DAYS = 30;
 const SOON_DAYS = 30;
 const SOON_MILES = 500;
+/** A vehicle task shows on the calendar from this many days before it's due; before that it only lists on the backlog page. */
+const TASK_LEAD_DAYS = 60;
 /** An overdue item that's still overdue gets re-pushed this often, so it isn't forgotten. */
 const OVERDUE_REMINDER_DAYS = 14;
 /** An odometer reading older than this prompts a "please update" nudge, which repeats this often. */
@@ -136,9 +138,10 @@ function computeServiceStatus(interval, records, estimate, now) {
 
 function computeRegistrationStatus(registrationExpiry, now, records = []) {
   if (!registrationExpiry) return null;
-  const due = new Date(registrationExpiry);
-  const daysRemaining = Math.ceil((due - now) / DAY_MS);
   const last = records.filter(r => r.type === 'registration').sort((a, b) => b.date - a.date)[0] ?? null;
+  // A renewal that was logged but didn't move the vehicle's expiry still counts: the later date wins.
+  const due = new Date(Math.max(new Date(registrationExpiry).getTime(), last?.nextDueDate ? last.nextDueDate.getTime() : 0));
+  const daysRemaining = Math.ceil((due - now) / DAY_MS);
   return {
     type: 'registration', interval: null,
     lastDate: last?.date ?? null, lastMiles: null,
@@ -281,15 +284,21 @@ function vehicleTaskId(vehicleId, type, cycleKey) {
 }
 
 /**
- * The tasks that should exist: one per item that is due soon or overdue, for its current service cycle.
- * Each carries the date it's due (the task's hard deadline); `status` says whether it is already overdue.
+ * The tasks that should exist: one standing task per tracked item for its current service cycle, whether or not it's due
+ * yet. `dueDate` is the item's effective due date (the task's hard deadline), a projection from driving for mileage items.
+ * `showFrom` is the day it starts appearing on the calendar: TASK_LEAD_DAYS ahead of the due date, or today if closer.
+ * `dateKnown` is false for a mileage item that's due but has no driving rate to turn miles into a date, which is
+ * only planned once it's due soon and is dated today.
  */
 function planVehicleTasks({ vehicles, records, readings, now }) {
   const planned = [];
   for (const vehicle of vehicles) {
     const { statuses } = vehicleSnapshot(vehicle, records, readings, now);
     for (const s of statuses) {
-      if (s.status !== 'soon' && s.status !== 'overdue') continue;
+      if (s.status === 'untracked') continue;
+      const dateKnown = !!s.effectiveDueDate;
+      if (!dateKnown && s.status !== 'soon' && s.status !== 'overdue') continue;
+      const dueDate = s.effectiveDueDate ?? now;
       const cycleKey = cycleKeyFor(s);
       planned.push({
         id: vehicleTaskId(vehicle.id, s.type, cycleKey),
@@ -299,7 +308,9 @@ function planVehicleTasks({ vehicles, records, readings, now }) {
         cycleKey,
         title: suggestedTaskTitle(vehicle.name, s.type),
         notes: describeStatus(s),
-        dueDate: s.effectiveDueDate ?? now,
+        dueDate,
+        dateKnown,
+        showFrom: new Date(Math.max(now.getTime(), dueDate.getTime() - TASK_LEAD_DAYS * DAY_MS)),
         status: s.status
       });
     }
@@ -309,22 +320,22 @@ function planVehicleTasks({ vehicles, records, readings, now }) {
 
 /**
  * What to do with the open linked tasks already in the calendar. `openTasks` are { id, vehicleId, serviceType,
- * cycleKey }. A task is finished (`complete`) once its item is no longer due in that cycle, because the service
- * was logged, the renewal marked, or the schedule changed; it is removed (`remove`) if its vehicle is gone.
+ * cycleKey }. A task is finished (`complete`) once its item is in a different service cycle, because the service
+ * was logged, the renewal marked, or the item left the schedule; it is removed (`remove`) if its vehicle is gone.
  */
 function planVehicleTaskClosures({ vehicles, records, readings, openTasks, now }) {
-  const dueNow = new Map();
+  const current = new Map();
   const known = new Set(vehicles.map(v => v.id));
   for (const vehicle of vehicles) {
     for (const s of vehicleSnapshot(vehicle, records, readings, now).statuses) {
-      if (s.status === 'soon' || s.status === 'overdue') dueNow.set(`${vehicle.id}:${s.type}`, cycleKeyFor(s));
+      if (s.status !== 'untracked') current.set(`${vehicle.id}:${s.type}`, cycleKeyFor(s));
     }
   }
   const complete = [];
   const remove = [];
   for (const t of openTasks) {
     if (!known.has(t.vehicleId)) remove.push(t.id);
-    else if (dueNow.get(`${t.vehicleId}:${t.serviceType}`) !== t.cycleKey) complete.push(t.id);
+    else if (current.get(`${t.vehicleId}:${t.serviceType}`) !== t.cycleKey) complete.push(t.id);
   }
   return { complete, remove };
 }

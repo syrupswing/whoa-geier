@@ -357,3 +357,39 @@ export function buildSnoozedTasks(events: CalendarEvent[], now: Date = new Date(
   }
   return rows.sort((a, b) => a.until.getTime() - b.until.getTime());
 }
+
+export interface ScheduledTaskRow {
+  /** The task occurrence the row stands for (dated to its own day, so completing or editing targets the right one). */
+  event: CalendarEvent;
+  /** The day the row is listed under: a vehicle task's due date, otherwise the day it is planned for. */
+  date: Date;
+  /** Whether that day is already past. */
+  overdue: boolean;
+}
+
+/**
+ * Every task that's on the schedule and not done, one row per task, in date order: a one-off task is listed on its
+ * day, a repeating one on its next open occurrence. A vehicle task is listed on its due date, not on the earlier day it
+ * starts showing on the calendar, so the list reads in the order things actually fall due. Overdue ones come first.
+ */
+export function buildScheduledTasks(events: CalendarEvent[], now: Date = new Date()): ScheduledTaskRow[] {
+  const today = startOfDay(now);
+  const rows: ScheduledTaskRow[] = [];
+  for (const task of events) {
+    if (task.kind !== 'task') continue;
+    let event: CalendarEvent;
+    let date: Date;
+    if (task.repeat) {
+      const key = nextOpenKey(task, now);
+      if (!key) continue;
+      date = parseIso(key);
+      event = occurrenceOn(task, date);
+    } else {
+      if (completionFor(task)) continue;
+      event = task;
+      date = task.vehicleTask && task.hardDeadline ? parseIso(task.hardDeadline) : firstDay(task);
+    }
+    rows.push({ event, date, overdue: date < today });
+  }
+  return rows.sort((a, b) => a.date.getTime() - b.date.getTime() || a.event.summary.localeCompare(b.event.summary));
+}
