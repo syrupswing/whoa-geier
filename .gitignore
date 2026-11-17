@@ -30,6 +30,7 @@ functions/test-push.js
 .vscode/*
 !.vscode/settings.json
 settings.json
+!.claude/settings.json
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
