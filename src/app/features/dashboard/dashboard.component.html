@@ -519,11 +519,17 @@
     <!-- Loading: a placeholder day of events until a connection or the first events arrive (10s at most) -->
     <app-calendar-skeleton *ngIf="calendarWaiting()" [columns]="1" [height]="TOTAL_TIMELINE_HEIGHT"></app-calendar-skeleton>
 
-    <!-- Connection lapsed but we still have cached events — keep showing them instead of walling off the timeline -->
-    <div class="cal-reconnect-banner" *ngIf="!calendarService.isSignedIn() && calendarService.events().length > 0">
-      <mat-icon>sync_problem</mat-icon>
-      <span>Showing your last-synced events.</span>
-      <button type="button" (click)="signInToCalendar()">Reconnect</button>
+    <!-- Connection lapsed but we still have cached events — keep showing them instead of walling off the timeline.
+         It reconnects by itself (quick retries, then slower ones in the background); the button just retries now. -->
+    <div class="cal-reconnect-banner" *ngIf="!calendarService.isSignedIn() && calendarService.events().length > 0" role="status">
+      <app-loading-animation *ngIf="calendarReconnecting()" [size]="18"></app-loading-animation>
+      <mat-icon *ngIf="!calendarReconnecting()">sync_problem</mat-icon>
+      <span *ngIf="calendarService.needsConnect()">Google Calendar needs to be connected. Showing your last-synced events.</span>
+      <span *ngIf="!calendarService.needsConnect() && calendarReconnecting()">Reconnecting to Google Calendar…</span>
+      <span *ngIf="!calendarService.needsConnect() && !calendarReconnecting()">Showing your last-synced events. Trying again shortly.</span>
+      <button type="button" *ngIf="!calendarReconnecting()" (click)="calendarService.retryOrConnect()">
+        {{ calendarService.needsConnect() ? 'Connect' : 'Retry now' }}
+      </button>
     </div>
 
     <!-- Timeline: shown once loading is over, whatever the connection state (app and Outlook events need no Google connection) -->

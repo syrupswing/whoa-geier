@@ -129,6 +129,8 @@ export class GoogleCalendarService {
 
   /** True while the service is still quietly retrying a failed connection, so the UI can hold off on alarming the person. */
   isRecovering = signal<boolean>(false);
+  /** A token request to the server is in flight right now. */
+  isRefreshing = signal<boolean>(false);
   /** The server has no Google grant for this account (never connected, or revoked): only a Connect click can fix it. */
   needsConnect = signal<boolean>(false);
 
@@ -138,6 +140,9 @@ export class GoogleCalendarService {
   private tokenAttempts = 0;
   private eventsAttempts = 0;
   private retryTimers = new Set<number>();
+  /** Waits between the slower background reconnects that follow once the quick retries above have all failed. */
+  private static readonly BACKGROUND_RETRY_DELAYS_MS = [30_000, 60_000, 120_000];
+  private backgroundAttempts = 0;
   private resumeListenersAdded = false;
 
   private gapiInited = false;
@@ -254,6 +259,7 @@ export class GoogleCalendarService {
       } else {
         this.isRecovering.set(false);
         this.error.set(`Couldn't reach Google (${err.message}). Check your connection and tap Retry.`);
+        this.scheduleBackgroundReconnect();
       }
     }
   }
@@ -264,6 +270,20 @@ export class GoogleCalendarService {
       fn();
     }, delayMs);
     this.retryTimers.add(id);
+  }
+
+  /**
+   * After the quick retries all fail, keep trying in the background at a slower pace (30s, 1 min, then every 2 min)
+   * for as long as the app is open and a Connect click isn't the only thing that can help, so a dropped connection
+   * heals itself without a page refresh. A hidden tab waits: coming back to it reconnects straight away.
+   */
+  private scheduleBackgroundReconnect(): void {
+    if (this.needsConnect()) return;
+    const delays = GoogleCalendarService.BACKGROUND_RETRY_DELAYS_MS;
+    const delay = delays[Math.min(this.backgroundAttempts++, delays.length - 1)];
+    this.scheduleRetry(delay, () => {
+      if (document.visibilityState === 'visible') this.reconnect(true);
+    });
   }
 
   private cancelRetries(): void {
@@ -288,8 +308,9 @@ export class GoogleCalendarService {
    * Quietly retries a failed connection from scratch (what closing and reopening the app used to do).
    * Safe to call any time; does nothing if a Connect click is the only thing that can help.
    */
-  reconnect(): void {
+  reconnect(automatic = false): void {
     if (this.refreshInFlight) return;
+    if (!automatic) this.backgroundAttempts = 0;
     this.cancelRetries();
     this.initAttempts = 0;
     this.tokenAttempts = 0;
@@ -368,6 +389,7 @@ export class GoogleCalendarService {
   /** Fetches a fresh access token from the server-held refresh token. No Google window is involved. */
   private refreshAccessToken(): Promise<boolean> {
     if (this.refreshInFlight) return this.refreshInFlight;
+    this.isRefreshing.set(true);
     this.refreshInFlight = (async () => {
       try {
         const getToken = httpsCallable<void, TokenResult>(getFunctions(), 'googleCalendarToken');
@@ -389,6 +411,7 @@ export class GoogleCalendarService {
         return false;
       } finally {
         this.refreshInFlight = undefined;
+        this.isRefreshing.set(false);
       }
     })();
     return this.refreshInFlight;
@@ -402,6 +425,7 @@ export class GoogleCalendarService {
     } else {
       this.isRecovering.set(false);
       this.error.set('Couldn\'t reach Google Calendar. Tap Retry to try again.');
+      this.scheduleBackgroundReconnect();
     }
   }
 
@@ -411,6 +435,7 @@ export class GoogleCalendarService {
     this.saveToken(token.accessToken, expiresIn, token.scope);
     this.error.set(null);
     this.isRecovering.set(false);
+    this.backgroundAttempts = 0;
     this.isSignedIn.set(true);
     this.scheduleTokenRefresh(expiresIn);
     this.loadCalendarEvents();
@@ -691,6 +716,7 @@ export class GoogleCalendarService {
       } else {
         this.isRecovering.set(false);
         this.error.set('Couldn\'t load your Google Calendar events. Tap Retry to try again.');
+        this.scheduleBackgroundReconnect();
       }
     }
   }

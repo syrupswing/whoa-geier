@@ -393,6 +393,16 @@ export class DashboardComponent implements OnInit, AfterViewInit {
     ))
   );
 
+  /** Google's connection is being (re)established right now, so the stale-events banner shows progress instead of a button. */
+  calendarReconnecting = computed(() =>
+    !this.calendarService.needsConnect() && (
+      this.calendarService.isRecovering() ||
+      this.calendarService.isRefreshing() ||
+      // Still within the startup grace period, before the first connection has had its chance.
+      !this.calendarLoadTimedOut()
+    )
+  );
+
   /** Past the timeout with no Google connection and nothing cached from it. */
   calendarConnectionFailed = computed(() =>
     this.calendarLoadTimedOut() &&
